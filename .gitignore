@@ -40,6 +40,8 @@ build/
 # ---- Node / frontend ----
 node_modules/
 frontend/dist/
+# Built SPA (make build), served by FastAPI
+/backend/climblog/static/
 .vite/
 *.tsbuildinfo
 playwright-report/
