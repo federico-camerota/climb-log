@@ -1,0 +1,215 @@
+# DRAFT module definition: Climbing Journal
+# Mirrors Climbing_Journal.xlsx (see design/00-current-state.md §1).
+# Validates the vocabulary in design/03-module-framework.md; will move to /modules at M1.
+
+module: journal
+name: Climbing journal
+version: 1
+kind: journal
+description: Pre/post session state, session feel, reflections and rest days.
+
+status_levels: [GOOD, WATCH, LOW]          # best → worst
+reflect_levels: [GOOD, WORTH NOTING, NEEDS ATTENTION]
+
+settings:
+  low_max:     {type: number, default: 4,   label: LOW when lowest score ≤}
+  watch_max:   {type: number, default: 6,   label: WATCH when lowest score ≤}
+  attn_min:    {type: number, default: 8,   label: Reflect NEEDS ATTENTION when ≥}
+  note_min:    {type: number, default: 6,   label: Reflect WORTH NOTING when ≥}
+  trend_delta: {type: number, default: 0.5, label: Trend arrow threshold}
+
+scales:
+  s10:      {min: 1, max: 10, direction: higher_better}
+  s10_down: {min: 1, max: 10, direction: lower_better}
+  effort:   {min: 1, max: 10, direction: neutral}
+
+templates:                                # reusable field groups (expanded at load)
+  # Body parts: to track a new one, add ONE line here. It then appears in pre/post
+  # Physical and in Rest Days, in forms, sheet columns, dropdowns, readiness/status formulas
+  # (they use fields(tag=soreness)) and the body heatmap. Old rows stay blank for it.
+  soreness:
+    fingers:    {type: scale, scale: s10_down, tags: [soreness]}
+    forearms:   {type: scale, scale: s10_down, tags: [soreness]}
+    elbows:     {type: scale, scale: s10_down, tags: [soreness], since: 2026-10-20}   # new (Q9)
+    shoulders:  {type: scale, scale: s10_down, tags: [soreness]}
+    neck_traps: {type: scale, scale: s10_down, tags: [soreness], label: Neck / traps, since: 2026-10-20}   # new (Q9)
+    wrists:     {type: scale, scale: s10_down, tags: [soreness]}
+    skin:       {type: scale, scale: s10_down, tags: [soreness]}
+
+entities:
+  session:
+    label: Session
+    date_field: date
+    key: [date, session_no]              # natural key, repeated on every section tab (D-006, D-015)
+    anchor_tab: Session                  # section rows without a matching Session row → data issue
+    sections:                            # one tab per class, as in the legacy workbook
+      info:      {label: Session details, phase: pre, tab: Session}
+      wb_pre:    {label: Wellbeing · before, phase: pre,  tab: Wellbeing}
+      wb_post:   {label: Wellbeing · after,  phase: post, tab: Wellbeing}
+      ph_pre:    {label: Physical · before,  phase: pre,  tab: Physical}
+      ph_post:   {label: Physical · after,   phase: post, tab: Physical}
+      mn_pre:    {label: Mental · before,    phase: pre,  tab: Mental}
+      mn_post:   {label: Mental · during/after, phase: post, tab: Mental}
+      feel:      {label: Session feel,       phase: post, tab: Session Feel}
+      reflect:   {label: Wins & reflect,     phase: post, tab: Wins & Reflect}
+    fields:
+      # key (present on every tab)
+      date:         {type: date, required: true, section: "*"}
+      session_no:   {type: integer, min: 1, default: 1, section: "*", label: "Session # (blank = 1)"}
+      # info
+      venue:        {type: text, section: info, suggest_from_history: true}
+      setting:      {type: choice, choices: [Indoor, Outdoor, Home wall], section: info, label: Indoor / outdoor}
+      session_type: {type: choice, choices: [Climbing, Hangboard, Strength, Endurance / ARC, Active rest], section: info}
+      partners:     {type: text, section: info, suggest_from_history: true}
+      duration_min: {type: duration, section: info, phase: post}
+      hardest_grade: {type: grade, systems: [french, gym], section: info, phase: post, label: Hardest grade tried}
+        # french: "6b+", "7a"; gym: plain numbers ("5", "6"), stored as typed, no conversion to French (D-017); charted on separate axes
+      notes:        {type: text, multiline: true, section: info, phase: post}
+      # wellbeing
+      wb_sleep_hours:   {type: number, min: 0, max: 14, step: 0.5, unit: h, section: wb_pre}
+      wb_sleep_quality: {type: scale, scale: s10, section: wb_pre}
+      wb_mood_pre:      {type: scale, scale: s10, section: wb_pre}
+      wb_energy_pre:    {type: scale, scale: s10, section: wb_pre}
+      wb_note_pre:      {type: text, section: wb_pre}
+      wb_fatigue_post:  {type: scale, scale: s10_down, section: wb_post}
+      wb_mood_post:     {type: scale, scale: s10, section: wb_post}
+      wb_recovery_feel: {type: scale, scale: s10, section: wb_post}
+      wb_note_post:     {type: text, section: wb_post}
+      # physical (template expansion → ph_pre_fingers, …, ph_post_skin)
+      ph_pre_:  {template: soreness, section: ph_pre}
+      ph_note_pre:  {type: text, section: ph_pre}
+      ph_post_: {template: soreness, section: ph_post}
+      ph_note_post: {type: text, section: ph_post}
+      # mental
+      mn_life_stress:   {type: scale, scale: s10_down, section: mn_pre}
+      mn_confidence:    {type: scale, scale: s10, section: mn_pre}
+      mn_motivation:    {type: scale, scale: s10, section: mn_pre}
+      mn_anxiety:       {type: scale, scale: s10_down, section: mn_pre}
+      mn_note_pre:      {type: text, section: mn_pre}
+      mn_focus:         {type: scale, scale: s10, section: mn_post}
+      mn_fall_commitment: {type: scale, scale: s10, section: mn_post, label: Commitment to falls}
+      mn_fear_response: {type: scale, scale: s10_down, section: mn_post}
+      mn_route_confidence: {type: scale, scale: s10, section: mn_post, label: Confidence on routes}
+      mn_approach:      {type: scale, scale: s10, section: mn_post, label: Approach mindset}
+      mn_note_post:     {type: text, section: mn_post}
+      # feel
+      feel_outcome:  {type: choice, section: feel, choices: [Excellent – exceeded plan, Good – as planned, Ok – mixed, Poor – struggled, Incomplete – cut short]}
+      feel_plan:     {type: choice, section: feel, label: "Stuck to plan?", choices: [Yes – fully, Mostly, Partially, No – changed a lot]}
+      feel_enjoyment:    {type: scale, scale: s10, section: feel}
+      feel_satisfaction: {type: scale, scale: s10, section: feel}
+      feel_effort:   {type: scale, scale: effort, section: feel, label: Effort / energy used}
+      feel_note:     {type: text, section: feel}
+      # reflect
+      rf_good:          {type: text, section: reflect, label: What felt good}
+      rf_good_score:    {type: scale, scale: s10, section: reflect}
+      rf_off:           {type: text, section: reflect, label: What felt off}
+      rf_off_severity:  {type: scale, scale: s10_down, section: reflect}
+      rf_surprise:      {type: text, section: reflect, label: What surprised you}
+      rf_surprise_impact: {type: scale, scale: s10, section: reflect}
+      rf_change:        {type: text, section: reflect, label: What would you change next time}
+      rf_change_priority: {type: scale, scale: s10_down, section: reflect}
+      rf_session_score: {type: scale, scale: s10, section: reflect, label: Overall session score}
+      rf_win_size:      {type: choice, section: reflect, choices: [Major send, Solid progress, Small win, Insight / learning, Effort win]}
+      rf_win:           {type: text, section: reflect, label: Win to bank}
+
+    derived:
+      weekday: "weekday(date)"
+      days_since_prev: "days_between(prev(date), date)"
+      session_load: "duration_min * feel_effort"          # session-RPE load (new)
+
+      wb_pre_status:
+        require: "all_present(wb_sleep_quality, wb_mood_pre, wb_energy_pre)"
+        bands_of: "min(wb_sleep_quality, wb_mood_pre, wb_energy_pre)"
+        bands: &std_bands
+          - {le: settings.low_max,   label: LOW}
+          - {le: settings.watch_max, label: WATCH}
+          - {else: GOOD}
+      wb_post_status:
+        require: "all_present(wb_fatigue_post, wb_mood_post, wb_recovery_feel)"
+        bands_of: "min(flip(wb_fatigue_post), wb_mood_post, wb_recovery_feel)"
+        bands: *std_bands
+      wb_status: "worst_of(wb_pre_status, wb_post_status)"
+      wb_score:
+        require: "all_present(fields(section=wb_pre, type=scale), fields(section=wb_post, type=scale))"
+        expr: "round(mean(flip_all(fields(section=[wb_pre, wb_post], type=scale))), 1)"
+
+      ph_readiness: "round(11 - mean(fields(section=ph_pre, tag=soreness)), 1)"
+      ph_status:
+        bands_of: "flip(max(fields(section=ph_pre, tag=soreness)))"
+        bands: *std_bands
+
+      mn_score:
+        require: "all_present(fields(section=[mn_pre, mn_post], type=scale))"
+        expr: "round(mean(flip_all(fields(section=[mn_pre, mn_post], type=scale))), 1)"
+      mn_status:
+        bands_of: "min(flip_all(fields(section=[mn_pre, mn_post], type=scale)), missing_as=10)"
+        bands: *std_bands
+
+      feel_score:
+        require: "all_present(feel_enjoyment, feel_satisfaction)"
+        expr: "round(mean(feel_enjoyment, feel_satisfaction), 1)"
+      feel_status:
+        bands_of: "min(feel_enjoyment, feel_satisfaction)"
+        bands: *std_bands
+
+      overall_score: "round(mean(wb_score, ph_readiness, mn_score, feel_score), 1)"
+      overall_status: "worst_of(wb_status, ph_status, mn_status, feel_status)"
+
+      reflect_status:
+        levels: reflect_levels
+        when:
+          - {if: "max(rf_off_severity, rf_change_priority) >= settings.attn_min", then: NEEDS ATTENTION}
+          - {if: "max(rf_off_severity, rf_change_priority) >= settings.note_min", then: WORTH NOTING}
+          - {if: "notnull(max(rf_off_severity, rf_change_priority))", then: GOOD}
+
+      log_check: {plugin: journal.log_check}   # lists incomplete sections
+
+  rest_day:
+    label: Rest day
+    tab: Rest Days
+    date_field: date
+    key: [date]
+    fields:
+      date:      {type: date, required: true}
+      rest_type: {type: choice, choices: [Full rest, Active recovery]}
+      activity:  {type: choice, choices: [None, Mobility / stretching, Walk / hike, Easy cardio, Yoga, Massage / self-massage, Other]}
+      sleep_hours:   {type: number, min: 0, max: 14, step: 0.5, unit: h}
+      sleep_quality: {type: scale, scale: s10}
+      mood:          {type: scale, scale: s10}
+      energy:        {type: scale, scale: s10}
+      motivation:    {type: scale, scale: s10, label: Motivation to climb}
+      life_stress:   {type: scale, scale: s10_down}
+      body_:         {template: soreness}
+      note:          {type: text, multiline: true}
+    derived:
+      wellbeing_score:
+        require: "all_present(sleep_quality, mood, energy, motivation, life_stress)"
+        expr: "round(mean(sleep_quality, mood, energy, motivation, flip(life_stress)), 1)"
+      body_readiness: "round(11 - mean(fields(tag=soreness)), 1)"
+      wellbeing_status:
+        bands_of: "min(sleep_quality, mood, energy, motivation, flip(life_stress), missing_as=10)"
+        bands: *std_bands
+      body_status:
+        bands_of: "flip(max(fields(tag=soreness)))"
+        bands: *std_bands
+      status: "worst_of(wellbeing_status, body_status)"
+      days_since_climb: "days_between(last(session.date, before=date), date)"
+
+forms:
+  pre_session:  {entity: session, phase: pre,  sections: [info, wb_pre, ph_pre, mn_pre]}
+  post_session: {entity: session, phase: post, sections: [wb_post, ph_post, mn_post, feel, reflect]}
+  rest_day:     {entity: rest_day}
+
+recommendation:
+  plugin: journal.readiness      # RECOVER / MODERATE / GREEN LIGHT (00-current-state §1)
+
+views:
+  overview:
+    - {widget: kpi, metric: session.overall_status, agg: latest, label: Latest status}
+    - {widget: kpi, metric: session.date, agg: days_since_latest, label: Days since last session}
+    - {widget: status_board, metrics: [session.wb_score, session.ph_readiness, session.mn_score, session.feel_score, session.overall_score], compare: last4_vs_prev4}
+    - {widget: heatmap_calendar, metric: session.overall_status, extra: rest_day.status}
+    - {widget: line, metrics: [session.wb_score, session.ph_readiness, session.mn_score, session.feel_score], bands: std_bands, rolling: 4}
+    - {widget: side_by_side, entity: session, last: 4}
+    - {widget: text_feed, entity: session, fields: [rf_good, rf_off, rf_change], sort_by: rf_good_score, window_days: 14, top: 3}
+    - {widget: table, entity: rest_day, last: 7}

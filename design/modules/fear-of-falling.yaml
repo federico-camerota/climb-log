@@ -1,0 +1,150 @@
+# DRAFT module definition: Fear of Falling program
+# Mirrors Fear_of_Falling_Tracker.xlsx (see design/00-current-state.md §2).
+
+module: fear_of_falling
+name: Fear of falling · 12 weeks
+version: 1
+kind: program
+
+settings:
+  start_date: {type: date, default: 2026-10-12}
+  advance_berp_min: {type: integer, default: 3}
+  advance_fear_max: {type: integer, default: 5}
+  stepback_fear_min: {type: integer, default: 8}
+  stepback_berp_max: {type: integer, default: 1}
+
+program:
+  start_date: {setting: start_date}
+  weeks: 12
+  phases:
+    - {name: "Phase 1 · Foundations", weeks: [1, 4]}
+    - {name: "Phase 2 · Variability", weeks: [5, 8]}
+    - {name: "Phase 3 · Transfer",    weeks: [9, 12]}
+  checkpoints: {W0: 0, W8: 8, W12: 12}
+
+scales:
+  fear: {min: 0, max: 10, direction: lower_better}
+  berp: {min: 0, max: 4, direction: higher_better}
+  q5:   {min: 1, max: 5, direction: higher_better}
+
+reference:
+  tracks:   {tab: tracks, key: id, fields: {id: {type: text}, name: {type: text}}}            # A..G
+  rungs:                                                                                       # 40 rows
+    tab: rungs
+    key: id                                   # "A3"
+    fields:
+      id: {type: text}
+      track: {type: ref, reference: tracks}
+      order: {type: integer}
+      description: {type: text}
+      target_weeks: {type: text}              # "W2–W6", "W4, W11" → parsed to a week list
+  scenarios:                                  # Fear Map, 11 rows
+    tab: scenarios
+    key: id
+    fields:
+      id: {type: text}
+      label: {type: text}
+      priority: {type: choice, choices: [Base, Medium, High, High (reasonable), Highest]}
+      plan_ref: {type: text}
+  questions:                                  # 20Q
+    tab: questions
+    key: id
+    fields:
+      id: {type: text}                        # q1..q20
+      category: {type: choice, choices: [Stress, Technique, Terrain, Thoughts, Belayer, Commitment]}
+      text: {type: text}
+
+entities:
+  fall:
+    label: Fall
+    tab: falls
+    id_prefix: fall
+    date_field: date
+    fields:
+      date:       {type: date, required: true}
+      session_kind: {type: choice, choices: [Gym 1, Gym 2, Outdoor 1, Outdoor 2], label: Session,
+                     choice_map: {G1: Gym 1, G2: Gym 2, Sat: Outdoor 1, Sun: Outdoor 2}}   # legacy labels → new (Q15)
+      rung:      {type: ref, reference: rungs, required: true}
+      level:      {type: choice, choices: [L1, L2, L3, L4]}
+      pred_hurt_pct:  {type: percent, label: Predicted % hurt}
+      pred_ooc_pct:   {type: percent, label: Predicted % out of control}
+      peak_fear:  {type: scale, scale: fear}
+      berp:       {type: scale, scale: berp, help: "Breathing, Eyes, Relaxation, Posture intact (count)"}
+      soft_catch: {type: bool}
+      tired:      {type: bool}                 # new: the step-back rule mentions fatigue
+      notes:      {type: text, multiline: true, label: What happened / what I learned}
+    derived:
+      session_label: "concat('W', program.week, ' ', session_kind)"   # e.g. "W1 Gym 2"; also a formula column (Q5, Q15)
+      good_try: "berp >= settings.advance_berp_min and peak_fear <= settings.advance_fear_max and soft_catch"
+      verdict:
+        plugin: fear_of_falling.ladder_verdict      # Advance / Hold / Step back (needs consecutive tries per rung)
+
+  rung_clearance:
+    label: Rung cleared
+    tab: rung_clearances
+    id_prefix: rc
+    date_field: date
+    fields:
+      date: {type: date, required: true}
+      rung: {type: ref, reference: rungs}
+      notes: {type: text}
+
+  fear_map_score:
+    label: Fear map score
+    tab: fear_map_scores
+    id_prefix: fm
+    date_field: date
+    fields:
+      date: {type: date}
+      checkpoint: {type: choice, choices: [W0, W8, W12]}
+      scenario: {type: ref, reference: scenarios}
+      score: {type: scale, scale: fear}
+
+  q20:
+    label: 20Q session evaluation
+    tab: q20
+    id_prefix: q
+    date_field: date
+    fields:
+      date: {type: date, required: true}
+      session_kind: {type: choice, choices: [Gym 1, Gym 2, Outdoor 1, Outdoor 2], label: Session, choice_map: {G1: Gym 1, G2: Gym 2, Sat: Outdoor 1, Sun: Outdoor 2}}
+      q_: {template_from_reference: questions, type: scale, scale: q5}   # expands to q1..q20
+    derived:
+      avg_all: "round(mean(fields(tag=q)), 2)"
+      by_category: {per_reference_group: {reference: questions, group_by: category, agg: mean}}
+
+  weekly_review:
+    label: Weekly review
+    tab: weekly_review
+    id_prefix: wr
+    date_field: date
+    fields:
+      date: {type: date}
+      surprise_fall: {type: text, label: "Which fall surprised me most?"}
+      committed:     {type: text, label: "Where did I commit when I would have backed off before?"}
+      step_too_big:  {type: text, label: "What step felt too big? What half-step could I add?"}
+      next_week:     {type: text, label: "What to ask or change for next week?"}
+
+aggregates:                         # replaces the manual "Progress" section 1
+  weekly:
+    group: program_week
+    metrics:
+      falls_taken:   "count(fall)"
+      peak_fear_max: "max(fall.peak_fear)"
+      berp_avg:      "mean(fall.berp)"
+      rungs_cleared: "count(rung_clearance)"
+      off_wall_days: "count_days_without(journal.session)"     # cross-module
+
+forms:
+  falls:    {entity: fall, repeat: true, keep_fields: [date, session_kind, rung, level]}
+  q20:      {entity: q20, phase: post}
+  fear_map: {entity: fear_map_score, batch_over: scenarios}
+  weekly_review: {entity: weekly_review, due: "end_of_program_week"}
+
+views:
+  overview:
+    - {widget: ladder, reference: rungs, cleared: rung_clearance, attempts: fall}
+    - {widget: radar, entity: fear_map_score, axis: scenario, series: checkpoint}
+    - {widget: scatter, x: fall.pred_hurt_pct, y: fall.peak_fear, color: fall.rung.track}
+    - {widget: line, metrics: [weekly.peak_fear_max, weekly.berp_avg], x: program_week}
+    - {widget: radar, entity: q20, axis: category, series: program_week, last: 3}

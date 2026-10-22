@@ -1,0 +1,53 @@
+# ---- Personal data: never commit (public repo, see design/08-workflow.md §5) ----
+# Real journals / legacy workbooks at the repo root
+/*.xlsx
+/*.xlsm
+/*.ods
+/*.csv
+# Local data, backups and app snapshots
+/data/
+/backups/
+/snapshots/
+*.parquet
+# Office lock files
+~$*
+.~lock.*#
+# Credentials and local config
+.env
+.env.*
+client_secret*.json
+*-token.json
+*token*.json
+credentials*.json
+service-account*.json
+climblog.toml
+config.local.*
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# ---- Node / frontend ----
+node_modules/
+frontend/dist/
+.vite/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+# ---- Editors / OS ----
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db

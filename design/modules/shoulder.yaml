@@ -1,0 +1,139 @@
+# DRAFT module definition: Shoulder program
+# Mirrors Shoulder_Program_Tracker_Fixed.xlsx (see design/00-current-state.md §3).
+
+module: shoulder
+name: Shoulder capacity program
+version: 1
+kind: program
+status_levels: [GREEN, YELLOW, RED]
+
+settings:
+  start_date: {type: date, default: 2026-10-13, label: Program start date}
+  yellow_min: {type: number, default: 3}
+  red_min:    {type: number, default: 5}
+
+program:
+  start_date: {setting: start_date}
+  weeks: 12
+  phases:
+    - {name: "Block 1 · Calm and control", weeks: [1, 4], note: "RPE 5-6"}
+    - {name: "Block 2 · Build strength", weeks: [5, 8], note: "RPE 7"}
+    - {name: "Block 3 · Endurance and transfer", weeks: [9, 12], note: "RPE 6-7"}
+  light_weeks: [4, 8, 12]
+
+scales:
+  pain: {min: 0, max: 10, direction: lower_better}
+  rpe:  {min: 1, max: 10, direction: neutral}
+  freq: {type: ordinal, choices: [Rarely, Sometimes, Often], direction: lower_better}
+
+reference:
+  exercises:                       # seeded from the legacy "Plan" tab (17 rows)
+    tab: plan
+    key: id
+    fields:
+      id:        {type: text}       # P1..P3, A1..A7, B1..B7
+      name:      {type: text}
+      session:   {type: choice, choices: [Primer, A, B]}
+      load_rule: {type: text}
+    per_week: {name: prescription, type: text}   # columns w1..w12 ("3×8", "Skip", "—")
+  retest_measures:                 # seeded from the legacy "Retests" tab (14 rows)
+    tab: retest_measures
+    key: id
+    fields:
+      id: {type: text}
+      label: {type: text}
+      value_type: {type: choice, choices: [number, bool, choice]}
+      choices: {type: text}
+      direction: {type: choice, choices: [higher_better, lower_better, neutral]}
+      guidance: {type: text}
+
+entities:
+  checkin:
+    label: Check-in
+    tab: checkins
+    id_prefix: chk
+    date_field: date
+    fields:
+      date:         {type: date, required: true}
+      activity:     {type: choice, choices: [Climbing indoor, Climbing outdoor, Hangboard, Session A, Session B, Rest day],
+                     from: "journal.session.setting+session_type"}       # shared/prefilled (Q4)
+      primer_done:  {type: bool, phase: pre}
+      trap_fatigue: {type: scale, scale: pain, label: Upper-trap fatigue}
+      pain_during:  {type: scale, scale: pain, label: Front-shoulder pain during}
+      pain_next_am: {type: scale, scale: pain, label: Front-shoulder pain next morning, phase: next_day}
+      pec_fatigue:  {type: scale, scale: pain}
+      shrug_flare:  {type: choice, scale: freq, label: Shrug / elbow flare}
+      red_flag:     {type: bool, label: "Red-flag symptom?"}
+      hardest_grade: {type: grade, system: french, from: journal.session.hardest_grade}
+      attempts_before_stop: {type: integer, min: 0}
+      stop_reason:  {type: choice, choices: [Upper traps, Front-shoulder pain, Fingers, Skin or tweak, Other, Did not stop]}
+      notes:        {type: text, multiline: true}
+    derived:
+      pain_max: "max(pain_during, pain_next_am)"
+      status:
+        when:
+          - {if: "red_flag", then: RED}
+          - {if: "pain_max >= settings.red_min", then: RED}
+          - {if: "pain_max >= settings.yellow_min", then: YELLOW}
+          - {if: "notnull(pain_max)", then: GREEN}
+      action:
+        map_from: status
+        map:
+          RED: Do not progress; stop aggravating work and seek clinical advice if persistent/severe
+          YELLOW: Hold/reduce load; review next-morning response
+          GREEN: Progress only if movement quality is good and trend remains stable
+      review_flag:
+        when:
+          - {if: "red_flag", then: "REVIEW NOW — red-flag symptom"}
+          - {if: "max(pain_during, pain_next_am) >= settings.red_min", then: "REVIEW NOW — pain ≥5/10"}
+          - {if: "max(pain_during, pain_next_am) >= settings.yellow_min", then: "REVIEW — pain ≥3/10"}
+          - {if: "pain_next_am > prev(pain_next_am) and pain_next_am >= 2", then: "REVIEW — next-morning pain rising"}
+          - {if: "pain_next_am >= prev(pain_next_am) and prev(pain_next_am) >= prev(pain_next_am, 2) and pain_next_am >= 2",
+             then: "REVIEW — repeated upward pain trend"}
+          - {else: "OK — monitor"}
+
+  exercise_log:
+    label: Exercise log
+    tab: exercise_log
+    id_prefix: ex
+    date_field: date
+    fields:
+      date:        {type: date, required: true}
+      exercise_id: {type: ref, reference: exercises}
+      actual:      {type: text, label: Actual sets × reps}
+      load_kg:     {type: number, min: 0, step: 0.25, unit: kg}
+      rpe:         {type: scale, scale: rpe}
+      quality:     {type: choice, choices: [Clean, Some shrug/compensation, Stopped early, Skipped]}
+      pain_during: {type: scale, scale: pain}
+      notes:       {type: text}
+    derived:
+      prescribed: "reference.exercises[exercise_id].prescription[program.week]"
+      done: "notnull(actual) and quality != 'Skipped'"
+
+  retest:
+    label: Retest
+    tab: retests
+    id_prefix: rt
+    date_field: date
+    fields:
+      date:       {type: date, required: true}
+      checkpoint: {type: choice, choices: [Start, End W4, End W8, End W12]}
+      measure_id: {type: ref, reference: retest_measures}
+      value:      {type: text}          # typed by measure.value_type
+      notes:      {type: text}
+
+forms:
+  checkin:      {entity: checkin}
+  session_a:    {entity: exercise_log, batch_over: "exercises where session in [Primer, A]"}
+  session_b:    {entity: exercise_log, batch_over: "exercises where session in [Primer, B]"}
+  retest:       {entity: retest, batch_over: retest_measures}
+
+views:
+  overview:
+    - {widget: kpi, metric: checkin.status, agg: latest}
+    - {widget: kpi, metric: checkin.review_flag, agg: latest}
+    - {widget: line, metrics: [checkin.trap_fatigue, checkin.pain_during, checkin.pain_next_am, checkin.pec_fatigue],
+       bands: [{ge: settings.red_min, color: red}, {ge: settings.yellow_min, color: yellow}]}
+    - {widget: weekbars, metric: checkin.status, agg: count_by_value, group: program_week}
+    - {widget: program_grid, reference: exercises, entity: exercise_log}
+    - {widget: before_after, entity: retest, by: measure_id, across: checkpoint}

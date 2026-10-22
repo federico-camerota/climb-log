@@ -1,0 +1,115 @@
+# DRAFT module definition: Finger strength journal (the 4th, LOCAL journal; D-019, D-025, D-030, D-032)
+# New tracker, no legacy workbook. Lives in a local .xlsx and is the end-to-end test of the
+# local backend. It also exercises a framework feature the other journals don't:
+# child entities (many set rows per session), here split over two tabs.
+
+module: finger_strength
+name: Finger strength
+version: 3
+kind: journal
+description: Max hangs and finger curls (single-handed block). Readiness before, sets with loads, notes.
+status_levels: [GOOD, WATCH, LOW]
+
+settings:
+  low_max:   {type: number, default: 4}
+  watch_max: {type: number, default: 6}
+
+scales:
+  s10_down: {min: 1, max: 10, direction: lower_better}
+  rpe:      {min: 1, max: 10, direction: neutral}
+
+entities:
+  session:
+    label: Session
+    tab: Sessions
+    date_field: date
+    # One row per session, identified by date + type (D-032). Hangs and curls on the same day
+    # are two sessions, each with its own readiness, because they may happen at different
+    # times and you may feel different.
+    key: [date, session_type]
+    fields:
+      date:          {type: date, required: true}
+      session_type:  {type: choice, choices: [Max hangs, Finger curls], required: true}
+      start_time:    {type: time, label: Start time (optional)}
+      # before: same 1–10 ↓ soreness scale as the climbing journal → directly comparable
+      pre_fingers:   {type: scale, scale: s10_down, tags: [soreness], phase: pre}
+      pre_forearms:  {type: scale, scale: s10_down, tags: [soreness], phase: pre}
+      pre_shoulders: {type: scale, scale: s10_down, tags: [soreness], phase: pre}
+      session_rpe:   {type: scale, scale: rpe, phase: post, label: Session effort}
+      notes:         {type: text, multiline: true, phase: post}
+      # body weight deliberately not logged for now (Q18). Can be added later as one field with
+      # `since:`, which would enable % body weight metrics from that date on.
+    derived:
+      readiness: "round(11 - mean(fields(tag=soreness)), 1)"
+      readiness_status:
+        bands_of: "flip(max(fields(tag=soreness)))"
+        bands:
+          - {le: settings.low_max,   label: LOW}
+          - {le: settings.watch_max, label: WATCH}
+          - {else: GOOD}
+      n_sets: "count(children(hang_set)) if session_type == 'Max hangs' else count(children(curl_set))"
+      top_added_kg:     "max(children(hang_set).added_kg)"
+      est_1rm_left:     "max(children(curl_set).est_1rm_left)"
+      est_1rm_right:    "max(children(curl_set).est_1rm_right)"
+      curl_volume:      "sum(children(curl_set).volume_kg)"
+      lr_imbalance_pct: "round(100 * (est_1rm_left - est_1rm_right) / max(est_1rm_left, est_1rm_right), 1)"   # + = left stronger
+
+  hang_set:
+    label: Hang set
+    tab: Hang sets
+    parent: {entity: session, key: [date], fixed: {session_type: Max hangs}}   # child entity; type implied by the tab
+    key: [date, set_no]
+    fields:
+      date:       {type: date, required: true}
+      set_no:     {type: integer, min: 1, help: "blank = next number"}
+      edge_mm:    {type: number, min: 5, max: 40, step: 1, unit: mm}
+      grip:       {type: choice, choices: [Half crimp, Open hand, Full crimp, Three-finger drag], allow_other: true}
+      arms:       {type: choice, choices: [Two arms, One arm], default: Two arms}
+      hang_s:     {type: number, min: 1, max: 60, unit: s}
+      added_kg:   {type: number, step: 0.5, unit: kg, help: "negative = assistance"}
+      rest_s:     {type: number, min: 0, unit: s}
+      rpe:        {type: scale, scale: rpe}
+      completed:  {type: bool, default: true, label: "Completed?"}
+      note:       {type: text}
+
+  curl_set:
+    label: Curl set
+    tab: Curl sets
+    parent: {entity: session, key: [date], fixed: {session_type: Finger curls}}
+    key: [date, set_no]
+    fields:
+      date:          {type: date, required: true}
+      set_no:        {type: integer, min: 1, help: "blank = next number"}
+      # single-handed block, each hand logged separately in the same row (Q19)
+      load_left_kg:  {type: number, min: 0, step: 0.5, unit: kg, label: Block left (kg)}
+      reps_left:     {type: integer, min: 1, label: Reps left}
+      load_right_kg: {type: number, min: 0, step: 0.5, unit: kg, label: Block right (kg)}
+      reps_right:    {type: integer, min: 1, label: Reps right}
+      rest_s:        {type: number, min: 0, unit: s}
+      rpe:           {type: scale, scale: rpe}
+      completed:     {type: bool, default: true, label: "Completed?"}
+      note:          {type: text}
+    derived:
+      volume_kg:        "sum(load_left_kg * reps_left, load_right_kg * reps_right)"
+      est_1rm_left:     "round(load_left_kg * (1 + reps_left / 30), 1)"     # Epley
+      est_1rm_right:    "round(load_right_kg * (1 + reps_right / 30), 1)"
+      lr_imbalance_pct: "round(100 * (est_1rm_left - est_1rm_right) / max(est_1rm_left, est_1rm_right), 1)"
+
+forms:
+  session:
+    entity: session
+    children:   # the form shows the hang block or the curl block, by session type
+      - {entity: hang_set, repeat: true, copy_previous: [edge_mm, grip, arms, hang_s, added_kg, rest_s]}
+      - {entity: curl_set, repeat: true, copy_previous: [load_left_kg, reps_left, load_right_kg, reps_right, rest_s]}
+
+views:
+  overview:
+    - {widget: kpi, metric: session.readiness_status, agg: latest}
+    - {widget: line, metrics: [session.top_added_kg],
+       split_by: [hang_set.edge_mm, hang_set.grip, hang_set.arms, hang_set.hang_s], label: "Max hang added load per protocol"}
+    - {widget: line, metrics: [session.est_1rm_left, session.est_1rm_right], label: Finger curl est. 1RM per hand}
+    - {widget: line, metrics: [session.lr_imbalance_pct], bands: [{between: [-10, 10], color: neutral}], label: Left/right imbalance}
+    - {widget: weekbars, metric: session.n_sets, split_by: session.session_type, stacked: true}
+    - {widget: box_by, metric: session.readiness, by: session.start_time, bins: [morning, afternoon, evening]}
+    - {widget: scatter, x: session.readiness, y: session.top_added_kg, label: Readiness vs performance}
+    - {widget: text_feed, entity: session, fields: [notes]}
