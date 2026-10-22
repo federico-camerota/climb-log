@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../modules/module.schema.json
 # DRAFT module definition: Shoulder program
 # Mirrors Shoulder_Program_Tracker_Fixed.xlsx (see design/00-current-state.md §3).
 
@@ -64,7 +65,7 @@ entities:
       pec_fatigue:  {type: scale, scale: pain}
       shrug_flare:  {type: choice, scale: freq, label: Shrug / elbow flare}
       red_flag:     {type: bool, label: "Red-flag symptom?"}
-      hardest_grade: {type: grade, system: french, from: journal.session.hardest_grade}
+      hardest_grade: {type: grade, systems: [french], from: journal.session.hardest_grade}
       attempts_before_stop: {type: integer, min: 0}
       stop_reason:  {type: choice, choices: [Upper traps, Front-shoulder pain, Fingers, Skin or tweak, Other, Did not stop]}
       notes:        {type: text, multiline: true}

@@ -23,6 +23,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - GitHub Actions CI: hooks, lint and tests on every pull request and push to `main` (D-040).
 - `README.md` (status, quick start, data and privacy), `CONTRIBUTING.md`, a pull request
   template with the review sections and checklist, and bug / feature issue forms.
+- Module YAML meta-schema and loader: `climblog module validate FILE...` reports every problem
+  with file, line and path; `climblog module schema` prints the JSON Schema, committed as
+  `modules/module.schema.json` for editor autocompletion (D-041).
 
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../modules/module.schema.json
 # DRAFT module definition: Fear of Falling program
 # Mirrors Fear_of_Falling_Tracker.xlsx (see design/00-current-state.md §2).
 

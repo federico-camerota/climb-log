@@ -110,11 +110,11 @@ entities:
 | `number` | number | numeric input | `min`, `max`, `step`, `unit` |
 | `integer` | number | stepper | |
 | `scale` | number | 1–10 (or other) segmented slider | references `scales:`; carries `direction` |
-| `choice` | text | select / chips | `choices`, `allow_other` |
+| `choice` | text | select / chips | `choices` or an ordinal `scale` (one of the two), `allow_other`, `choice_map` (legacy value → choice) |
 | `multichoice` | `a; b; c` text | chips | |
 | `bool` | `Yes`/`No` | toggle | accepts Y/N, TRUE/FALSE on read |
 | `text` | text | input / textarea | `multiline`, searchable by default |
-| `grade` | text | grade picker | `system: french \| uiaa \| yds \| font \| v`; parsed to numeric index |
+| `grade` | text | grade picker | `systems: [french, gym]` (any of `french`, `uiaa`, `yds`, `font`, `v`, `gym`); the system is auto-detected among them (D-017) and parsed to a numeric index |
 | `duration` | minutes (number) | h:mm input | |
 | `ref` | id/key text | lookup select | references a reference-table key (e.g. ladder rung `A3`) |
 | `percent` | number 0–100 | slider | |
@@ -298,9 +298,20 @@ The `version` of the module and the schema it was synced with are stored in `_me
 the app can tell that the sheet was last synced with v2 while the YAML is now v3.
 
 ## 4. Validation of the YAML itself
-Module files are validated against a pydantic meta-schema at load. Errors point to the
-file, the line and the problem, e.g. `shoulder.yaml:42 derived.status: unknown field 'pain_max2'`.
-A JSON Schema export enables autocompletion in VS Code.
+Module files are read as YAML 1.2 (ruamel.yaml: an unquoted `No` stays text) and validated
+against a pydantic meta-schema at load (`climblog/modules/`, D-041). Unknown keys are errors.
+Problems are reported together, with file, line, column and path, in two passes: first every
+shape problem (unknown keys, wrong types), then, once the shape is valid, every reference
+problem (unknown scale, key field that does not exist), e.g.
+`shoulder.yaml:42:7 entities.checkin.fields.trap_fatigue.scale: unknown scale 'pian' (known: pain, rpe)`.
+
+- `climblog module validate FILE...` checks files and prints the problems (exit code 1 if any).
+- `climblog module schema` prints the JSON Schema. It is committed as `modules/module.schema.json`
+  (a test keeps it current); a first line `# yaml-language-server: $schema=<path to it>` gives
+  autocompletion and inline errors in VS Code (YAML extension).
+- Blocks of later milestones (`program`, `reference`, `forms`, `views`, `aggregates`,
+  `recommendation`) and the expressions in `derived` are accepted as they are until their
+  issue adds the checks; templates, split and child entities are checked in M1 (#8).
 
 ## 5. Future: editing modules from the UI
 Phase 2 option: a "Module editor" page (add/retire fields, edit choices and thresholds)

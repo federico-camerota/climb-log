@@ -1,0 +1,1885 @@
+{
+  "$defs": {
+    "BoolField": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "help": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Help"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "phase": {
+          "default": "any",
+          "enum": [
+            "pre",
+            "post",
+            "next_day",
+            "any"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        },
+        "hidden_in_form": {
+          "default": false,
+          "title": "Hidden In Form",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "bool",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "BoolField",
+      "type": "object"
+    },
+    "ChoiceField": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "help": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Help"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "phase": {
+          "default": "any",
+          "enum": [
+            "pre",
+            "post",
+            "next_day",
+            "any"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        },
+        "hidden_in_form": {
+          "default": false,
+          "title": "Hidden In Form",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "choice",
+          "title": "Type",
+          "type": "string"
+        },
+        "choices": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Choices"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scale"
+        },
+        "allow_other": {
+          "default": false,
+          "title": "Allow Other",
+          "type": "boolean"
+        },
+        "choice_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "Choice Map",
+          "type": "object"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "ChoiceField",
+      "type": "object"
+    },
+    "DateField": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "help": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Help"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "phase": {
+          "default": "any",
+          "enum": [
+            "pre",
+            "post",
+            "next_day",
+            "any"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        },
+        "hidden_in_form": {
+          "default": false,
+          "title": "Hidden In Form",
+          "type": "boolean"
+        },
+        "type": {
+          "enum": [
+            "date",
+            "datetime",
+            "time"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "DateField",
+      "type": "object"
+    },
+    "DurationField": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "help": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Help"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "phase": {
+          "default": "any",
+          "enum": [
+            "pre",
+            "post",
+            "next_day",
+            "any"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        },
+        "hidden_in_form": {
+          "default": false,
+          "title": "Hidden In Form",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "duration",
+          "title": "Type",
+          "type": "string"
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min"
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "DurationField",
+      "type": "object"
+    },
+    "Entity": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "tab": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tab"
+        },
+        "date_field": {
+          "default": "date",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Date Field",
+          "type": "string"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "items": {
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
+        },
+        "id_prefix": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id Prefix"
+        },
+        "fields": {
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DateField"
+                },
+                {
+                  "$ref": "#/$defs/NumberField"
+                },
+                {
+                  "$ref": "#/$defs/ScaleField"
+                },
+                {
+                  "$ref": "#/$defs/ChoiceField"
+                },
+                {
+                  "$ref": "#/$defs/MultichoiceField"
+                },
+                {
+                  "$ref": "#/$defs/BoolField"
+                },
+                {
+                  "$ref": "#/$defs/TextField"
+                },
+                {
+                  "$ref": "#/$defs/GradeField"
+                },
+                {
+                  "$ref": "#/$defs/DurationField"
+                },
+                {
+                  "$ref": "#/$defs/RefField"
+                },
+                {
+                  "$ref": "#/$defs/PercentField"
+                },
+                {
+                  "$ref": "#/$defs/TemplateUse"
+                }
+              ]
+            }
+          },
+          "title": "Fields",
+          "type": "object"
+        },
+        "derived": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Derived",
+          "type": "object"
+        },
+        "rules": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Rules",
+          "type": "object"
+        },
+        "sections": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sections"
+        },
+        "anchor_tab": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Anchor Tab"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent"
+        }
+      },
+      "required": [
+        "label",
+        "fields"
+      ],
+      "title": "Entity",
+      "type": "object"
+    },
+    "GradeField": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "help": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Help"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "phase": {
+          "default": "any",
+          "enum": [
+            "pre",
+            "post",
+            "next_day",
+            "any"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        },
+        "hidden_in_form": {
+          "default": false,
+          "title": "Hidden In Form",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "grade",
+          "title": "Type",
+          "type": "string"
+        },
+        "systems": {
+          "items": {
+            "enum": [
+              "french",
+              "uiaa",
+              "yds",
+              "font",
+              "v",
+              "gym"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Systems",
+          "type": "array"
+        }
+      },
+      "required": [
+        "type",
+        "systems"
+      ],
+      "title": "GradeField",
+      "type": "object"
+    },
+    "MultichoiceField": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "help": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Help"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "phase": {
+          "default": "any",
+          "enum": [
+            "pre",
+            "post",
+            "next_day",
+            "any"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        },
+        "hidden_in_form": {
+          "default": false,
+          "title": "Hidden In Form",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "multichoice",
+          "title": "Type",
+          "type": "string"
+        },
+        "choices": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Choices",
+          "type": "array"
+        },
+        "allow_other": {
+          "default": false,
+          "title": "Allow Other",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "choices"
+      ],
+      "title": "MultichoiceField",
+      "type": "object"
+    },
+    "NumberField": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "help": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Help"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "phase": {
+          "default": "any",
+          "enum": [
+            "pre",
+            "post",
+            "next_day",
+            "any"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        },
+        "hidden_in_form": {
+          "default": false,
+          "title": "Hidden In Form",
+          "type": "boolean"
+        },
+        "type": {
+          "enum": [
+            "number",
+            "integer"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min"
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Step"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "NumberField",
+      "type": "object"
+    },
+    "NumericScale": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "numeric",
+          "default": "numeric",
+          "title": "Type",
+          "type": "string"
+        },
+        "min": {
+          "title": "Min",
+          "type": "number"
+        },
+        "max": {
+          "title": "Max",
+          "type": "number"
+        },
+        "direction": {
+          "enum": [
+            "higher_better",
+            "lower_better",
+            "neutral"
+          ],
+          "title": "Direction",
+          "type": "string"
+        }
+      },
+      "required": [
+        "min",
+        "max",
+        "direction"
+      ],
+      "title": "NumericScale",
+      "type": "object"
+    },
+    "OrdinalScale": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "ordinal",
+          "title": "Type",
+          "type": "string"
+        },
+        "choices": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Choices",
+          "type": "array"
+        },
+        "direction": {
+          "enum": [
+            "higher_better",
+            "lower_better",
+            "neutral"
+          ],
+          "title": "Direction",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "choices",
+        "direction"
+      ],
+      "title": "OrdinalScale",
+      "type": "object"
+    },
+    "PercentField": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "help": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Help"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "phase": {
+          "default": "any",
+          "enum": [
+            "pre",
+            "post",
+            "next_day",
+            "any"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        },
+        "hidden_in_form": {
+          "default": false,
+          "title": "Hidden In Form",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "percent",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "PercentField",
+      "type": "object"
+    },
+    "RefField": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "help": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Help"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "phase": {
+          "default": "any",
+          "enum": [
+            "pre",
+            "post",
+            "next_day",
+            "any"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        },
+        "hidden_in_form": {
+          "default": false,
+          "title": "Hidden In Form",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "ref",
+          "title": "Type",
+          "type": "string"
+        },
+        "reference": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "reference"
+      ],
+      "title": "RefField",
+      "type": "object"
+    },
+    "ScaleField": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "help": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Help"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "phase": {
+          "default": "any",
+          "enum": [
+            "pre",
+            "post",
+            "next_day",
+            "any"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        },
+        "hidden_in_form": {
+          "default": false,
+          "title": "Hidden In Form",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "scale",
+          "title": "Type",
+          "type": "string"
+        },
+        "scale": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Scale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "scale"
+      ],
+      "title": "ScaleField",
+      "type": "object"
+    },
+    "Setting": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "number",
+            "integer",
+            "date",
+            "text",
+            "bool"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "default": {
+          "title": "Default"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "help": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Help"
+        }
+      },
+      "required": [
+        "type",
+        "default"
+      ],
+      "title": "Setting",
+      "type": "object"
+    },
+    "TemplateUse": {
+      "additionalProperties": true,
+      "description": "A field entry that expands a template (`ph_pre_: {template: soreness}`). Checked in #8.",
+      "properties": {
+        "template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Template"
+        },
+        "template_from_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Template From Reference"
+        }
+      },
+      "title": "TemplateUse",
+      "type": "object"
+    },
+    "TextField": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "help": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Help"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "phase": {
+          "default": "any",
+          "enum": [
+            "pre",
+            "post",
+            "next_day",
+            "any"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        },
+        "hidden_in_form": {
+          "default": false,
+          "title": "Hidden In Form",
+          "type": "boolean"
+        },
+        "type": {
+          "const": "text",
+          "title": "Type",
+          "type": "string"
+        },
+        "multiline": {
+          "default": false,
+          "title": "Multiline",
+          "type": "boolean"
+        },
+        "searchable": {
+          "default": true,
+          "title": "Searchable",
+          "type": "boolean"
+        },
+        "suggest_from_history": {
+          "default": false,
+          "title": "Suggest From History",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "TextField",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "module": {
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "title": "Module",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "kind": {
+      "enum": [
+        "journal",
+        "program"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "status_levels": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Status Levels",
+      "type": "array"
+    },
+    "settings": {
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "$ref": "#/$defs/Setting"
+        }
+      },
+      "title": "Settings",
+      "type": "object"
+    },
+    "scales": {
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NumericScale"
+            },
+            {
+              "$ref": "#/$defs/OrdinalScale"
+            }
+          ]
+        }
+      },
+      "title": "Scales",
+      "type": "object"
+    },
+    "entities": {
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "$ref": "#/$defs/Entity"
+        }
+      },
+      "title": "Entities",
+      "type": "object"
+    },
+    "templates": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Templates"
+    },
+    "program": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Program"
+    },
+    "reference": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reference"
+    },
+    "forms": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Forms"
+    },
+    "views": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Views"
+    },
+    "aggregates": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Aggregates"
+    },
+    "recommendation": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recommendation"
+    }
+  },
+  "required": [
+    "module",
+    "name",
+    "version",
+    "kind",
+    "entities"
+  ],
+  "title": "Module",
+  "type": "object"
+}
