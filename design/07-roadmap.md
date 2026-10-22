@@ -6,7 +6,7 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 - Repo layout (`backend/`, `frontend/`, `modules/`, `design/`), `uv` + `pnpm` projects,
   ruff/eslint/prettier, pytest/vitest, a `Makefile` (`make dev`, `make test`, `make build`).
 - FastAPI hello + SPA served by FastAPI; `climblog serve`.
-- Choose the UI kit (Mantine vs shadcn/ui).
+- Choose the UI kit (Mantine vs shadcn/ui). → Mantine (D-039).
 - Project basics (`08-workflow.md` §7): README, CHANGELOG (LICENSE already added, D-036), CONTRIBUTING,
   `CLAUDE.md` commands section, pre-commit config (incl. the personal-data check),
   GitHub Actions CI, PR and issue templates, branch protection on `main`,

@@ -38,14 +38,18 @@ forms and widgets from module schemas and view definitions served by the API.
 | Server state | TanStack Query | caching, refetch after writes |
 | Forms | react-hook-form + zod (zod schema generated from module schema JSON) | |
 | Charts | Apache ECharts (`echarts-for-react`) | calendar heatmaps, radar, large set of chart types, good interactivity |
-| UI kit | Mantine (or shadcn/ui), to be decided at M0 | responsive, decent forms/date pickers |
+| UI kit | Mantine (D-039) | responsive, ready-made forms/date pickers; library code stays a dependency |
 | Tooling | `uv` (Python), `pnpm` (JS), pytest, vitest, ruff, eslint/prettier | |
 
 ## Runtime
 - `climblog serve`: FastAPI serves the API and the built SPA on `http://127.0.0.1:8000`.
+  `make build` writes the SPA into the Python package (`backend/climblog/static/`, git-ignored);
+  `/api/*` goes to the API (unknown paths: JSON 404), `/assets/*` to the bundled files, and every
+  other path returns `index.html` so client-side routes survive a reload (D-039).
 - `climblog serve --lan`: binds `0.0.0.0` for phone access and **requires a PIN/token**
   (set on first run) because the API can write data.
-- Dev mode: Vite dev server proxying `/api` to uvicorn with reload.
+- Dev mode (`make dev`): Vite dev server on `127.0.0.1:5173` (hot reload) proxying `/api` to
+  `climblog serve --reload` on `:8000`; Ctrl-C stops both.
 - App config: `~/.config/climblog/config.toml` holds the data sources per module, the
   Google token path, the backup location and the LAN PIN hash. It contains no training data.
 
