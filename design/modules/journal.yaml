@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../modules/module.schema.json
 # DRAFT module definition: Climbing Journal
 # Mirrors Climbing_Journal.xlsx (see design/00-current-state.md §1).
 # Validates the vocabulary in design/03-module-framework.md; will move to /modules at M1.

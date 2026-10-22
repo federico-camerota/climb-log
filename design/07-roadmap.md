@@ -2,7 +2,7 @@
 
 Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in progress · ☑ done.
 
-### M0 · Skeleton ◐
+### M0 · Skeleton ☑
 - Repo layout (`backend/`, `frontend/`, `modules/`, `design/`), `uv` + `pnpm` projects,
   ruff/eslint/prettier, pytest/vitest, a `Makefile` (`make dev`, `make test`, `make build`).
 - FastAPI hello + SPA served by FastAPI; `climblog serve`.
@@ -14,8 +14,8 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
   README, CONTRIBUTING, PR and issue templates done (README screenshots wait for M3).
 - **Done when**: `make dev` shows an empty app; `make test` passes.
 
-### M1 · Module framework + local storage ☐
-- Meta-schema (pydantic) for module YAML; loader with good error messages; JSON Schema export.
+### M1 · Module framework + local storage ◐
+- Meta-schema (pydantic) for module YAML; loader with good error messages; JSON Schema export. → done (D-041).
 - Expression evaluator (safe AST), `bands`, `when`, `worst_of`, `flip`, `prev`.
 - Natural keys, **split entities** (one tab per section), **child entities** (sets), templates (`soreness`), `visible_if`; orphan-row detection.
 - Text handling: raw-text writes, decimal commas, accent-insensitive search (D-024).

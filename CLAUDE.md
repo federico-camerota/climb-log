@@ -54,4 +54,5 @@ through `pnpm --dir frontend`. Node 22 via fnm (`.node-version`). `make help` li
 - `make lint`: ruff, mypy `--strict`, `tsc`, eslint, prettier check (changes nothing)
 - `make fmt`: apply ruff, prettier and eslint auto-fixes
 - `uv run pre-commit run --all-files`: run the commit hooks (data check, lint) on every file
+- `uv run climblog module validate FILE...`: check module YAML files (`module schema` prints the JSON Schema)
 - `uv run climblog serve [--port 8000] [--reload]`: run the built app on `http://127.0.0.1:8000`
