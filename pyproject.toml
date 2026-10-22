@@ -3,7 +3,7 @@
 name = "climblog"
 version = "0.0.0"
 description = "Local web app for logging and analysing climbing training, backed by spreadsheets."
-readme = "design/README.md"
+readme = "README.md"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"

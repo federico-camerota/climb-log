@@ -95,4 +95,5 @@ The repo is **public**, and training/health notes are personal data (D-034).
 `README.md` (what it is, screenshots, quick start), `LICENSE` (GPL-3.0-or-later, D-036; already added), `CHANGELOG.md`,
 `CONTRIBUTING.md` (short: points to this document), `CLAUDE.md`, `.gitignore`,
 `.pre-commit-config.yaml` (with `scripts/check_data.py`), `.github/workflows/ci.yml` (D-040), `.github/pull_request_template.md`
-(the section headings of §2.5), issue templates (feature / bug).
+(the section headings of §2.5), issue templates (feature / bug, as GitHub issue forms in
+`.github/ISSUE_TEMPLATE/`; blank issues disabled).
