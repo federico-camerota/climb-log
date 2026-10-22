@@ -47,10 +47,11 @@ GPL-3.0-or-later (`/LICENSE`). Start new source files with an SPDX header
 ## Commands
 Python commands run through `uv run` (keeps `.venv` in sync with `uv.lock`); frontend commands
 through `pnpm --dir frontend`. Node 22 via fnm (`.node-version`). `make help` lists targets.
-- `make install`: install Python and frontend dependencies from the lock files
+- `make install`: install Python and frontend dependencies from the lock files, and the git hooks
 - `make dev`: backend (:8000, reload) + Vite (:5173, hot reload); open `http://127.0.0.1:5173`
 - `make build`: build the SPA into `backend/climblog/static/`
 - `make test`: pytest with coverage + vitest
 - `make lint`: ruff, mypy `--strict`, `tsc`, eslint, prettier check (changes nothing)
 - `make fmt`: apply ruff, prettier and eslint auto-fixes
+- `uv run pre-commit run --all-files`: run the commit hooks (data check, lint) on every file
 - `uv run climblog serve [--port 8000] [--reload]`: run the built app on `http://127.0.0.1:8000`

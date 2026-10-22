@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Checks every push and pull request with the same commands used locally (D-040).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      # uv installs the Python version from .python-version.
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+      # pnpm version from the `packageManager` field.
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install dependencies
+        run: make install
+      - name: Pre-commit hooks (data check, file hygiene)
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+      - name: Lint and types
+        run: make lint
+      - name: Tests
+        run: make test

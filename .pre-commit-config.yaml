@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Git hooks run on `git commit` (installed by `make install`; D-040). Run them on every file
+# with `uv run pre-commit run --all-files`. Lint and type checks are `local` hooks that call
+# the same tools as `make lint`, so their versions come from uv.lock and pnpm-lock.yaml.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: detect-private-key
+      - id: check-yaml
+        args: [--allow-multiple-documents]  # pnpm-lock.yaml has several
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: local
+    hooks:
+      # Personal data: spreadsheets only in design/mockups/ and tests/fixtures/ (08-workflow.md §4).
+      - id: check-data
+        name: no spreadsheets outside fictional-data folders
+        entry: uv run python scripts/check_data.py
+        language: system
+        files: '(?i)\.(xlsx|xlsm|xls|ods|csv)$'
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format --check
+        language: system
+        types: [python]
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check
+        language: system
+        types: [python]
+      # mypy and tsc check the whole project (types cross files), so they ignore the file list.
+      - id: mypy
+        name: mypy --strict
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: frontend-lint
+        name: tsc, eslint, prettier (frontend)
+        entry: pnpm --dir frontend lint
+        language: system
+        files: ^frontend/
+        pass_filenames: false
