@@ -3,7 +3,9 @@
 name: CI
 
 on:
+  # Branch pushes are covered by their pull request; checking pushes too would run CI twice.
   push:
+    branches: [main]
   pull_request:
 
 permissions:

@@ -20,7 +20,7 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - pre-commit hooks, installed by `make install`: file hygiene, private-key detection, a
   personal-data check that rejects spreadsheets outside `design/mockups/` and `tests/fixtures/`,
   and the `make lint` checks (D-040).
-- GitHub Actions CI: hooks, lint and tests on every push and pull request (D-040).
+- GitHub Actions CI: hooks, lint and tests on every pull request and push to `main` (D-040).
 
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).
