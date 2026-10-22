@@ -10,7 +10,7 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 - Project basics (`08-workflow.md` §7): README, CHANGELOG (LICENSE already added, D-036), CONTRIBUTING,
   `CLAUDE.md` commands section, pre-commit config (incl. the personal-data check),
   GitHub Actions CI, PR and issue templates, branch protection on `main`,
-  GitHub milestones/issues for M1.
+  GitHub milestones/issues for M1. → pre-commit and CI done (D-040).
 - **Done when**: `make dev` shows an empty app; `make test` passes.
 
 ### M1 · Module framework + local storage ☐

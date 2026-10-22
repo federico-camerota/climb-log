@@ -27,6 +27,7 @@ module-root = "backend"
 dev = [
     "httpx2>=2.16.0",
     "mypy>=2.4.0",
+    "pre-commit>=4.7.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.1",
@@ -35,7 +36,7 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["backend"]
+src = ["backend", "scripts"]
 # Design docs contain sketch code blocks; they are not formatted or linted.
 extend-exclude = ["design"]
 
@@ -44,10 +45,13 @@ select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF"]
 
 [tool.mypy]
 strict = true
-files = ["backend", "tests"]
+files = ["backend", "scripts", "tests"]
+mypy_path = "scripts"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Lets tests import the dev scripts (e.g. `import check_data`).
+pythonpath = ["scripts"]
 addopts = "--strict-markers"
 # Fail on warnings so deprecations are dealt with when they appear.
 filterwarnings = ["error"]
