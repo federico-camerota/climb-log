@@ -13,9 +13,7 @@ install:  ## install Python and frontend dependencies from the lock files
 	$(PNPM) install --frozen-lockfile
 
 dev:  ## run backend (:8000, auto-reload) and Vite (:5173, hot reload); open http://127.0.0.1:5173
-	@trap 'kill 0' EXIT; \
-	uv run climblog serve --reload & \
-	$(PNPM) dev
+	@sh scripts/dev.sh
 
 build:  ## build the frontend into backend/climblog/static, served by `climblog serve`
 	$(PNPM) build
