@@ -14,7 +14,8 @@ from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError, YAMLError
 
-from climblog.modules.schema import Module, Problem, cross_check
+from climblog.modules.checks import cross_check, expand_templates
+from climblog.modules.schema import Module, Problem
 
 # Friendlier wording for the most common pydantic errors.
 _MESSAGES = {
@@ -36,7 +37,7 @@ class ModuleError(Exception):
 
 
 def load_module(file: Path) -> Module:
-    """Read and validate one module file. Raises `ModuleError` listing every problem found.
+    """Read, validate and expand one module file. Raises `ModuleError` listing every problem.
 
     Reference checks need a well-formed module, so they run only when there are no shape problems.
     """
@@ -55,7 +56,7 @@ def load_module(file: Path) -> Module:
         problems = cross_check(module)
     if problems:
         raise ModuleError(file, [_locate(doc, p) for p in problems])
-    return module
+    return expand_templates(module)
 
 
 def _plain(node: Any) -> Any:

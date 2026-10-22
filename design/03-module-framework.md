@@ -143,6 +143,26 @@ Common field options: `label`, `help`, `required`, `default`, `phase` (`pre`, `p
   without a parent is a data issue with a one-click fix. In the formula compiler, children
   aggregates become `MAXIFS/SUMIFS/COUNTIFS` on the key columns.
 
+**Rules checked at load (D-042):**
+- *Templates*: `templates: {name: {field: …}}` at module level. A field entry
+  `prefix_: {template: name, section: …, phase: …}` is replaced, in place, by the template's
+  fields with keys `prefix_<field>`; it may set only `section` and `phase` (the template's
+  fields cannot set `section`). Templates cannot use templates; an expanded key that collides
+  with another field is an error. The loader returns the module with templates expanded.
+  `template_from_reference` (fields from reference-table rows, e.g. 20Q) waits for M5.
+- *Sections and tabs*: an entity has either one `tab` or sections that all have a `tab`
+  (split). Sections without tabs only group fields in forms. In a split entity every non-key
+  field names a section, the entity has a natural `key`, and `anchor_tab` (default: the first
+  section's tab) is one of its tabs. Key fields are on every tab; `section: "*"` is allowed only
+  on them. Tab names are unique across the module's entities (case-insensitive), are not
+  `_meta`, `_settings`, `Summary` or `README`, and follow spreadsheet rules (1–31 characters,
+  none of `[]:*?/\`).
+- *Children*: one level only (a child cannot have children). The parent has a natural key;
+  `parent.key` + `parent.fixed` are exactly that key; each `parent.key` field is in the child's
+  key; `fixed` values must be valid choices.
+- *Evolution*: key and required fields cannot be `retired`; `renamed_from` must not be a current
+  field, and two fields cannot claim the same old key. `visible_if` is parsed in #9.
+
 ### 2.2 Derived fields: the expression language
 A small, **safe** expression language evaluated per record (parsed with Python `ast` and
 an allow-list; no `eval`):
@@ -311,7 +331,7 @@ problem (unknown scale, key field that does not exist), e.g.
   autocompletion and inline errors in VS Code (YAML extension).
 - Blocks of later milestones (`program`, `reference`, `forms`, `views`, `aggregates`,
   `recommendation`) and the expressions in `derived` are accepted as they are until their
-  issue adds the checks; templates, split and child entities are checked in M1 (#8).
+  issue adds the checks. Templates, split and child entities are checked (§2.1b).
 
 ## 5. Future: editing modules from the UI
 Phase 2 option: a "Module editor" page (add/retire fields, edit choices and thresholds)

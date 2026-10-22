@@ -1,14 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import json
-from collections.abc import Callable
 from pathlib import Path
-from textwrap import dedent
 
 import pytest
+from conftest import LoadYaml, Problems, WriteYaml
 from typer.testing import CliRunner
 
 from climblog import cli
-from climblog.modules import Module, ModuleError, load_module
+from climblog.modules import Module, load_module
 from climblog.modules.schema import ChoiceField, NumericScale, OrdinalScale, ScaleField
 
 ROOT = Path(__file__).parent.parent
@@ -34,30 +33,6 @@ entities:
       date: {type: date, required: true}
       mood: {type: scale, scale: s10}
 """
-
-LoadYaml = Callable[[str], Module]
-
-
-@pytest.fixture
-def write(tmp_path: Path) -> Callable[[str], Path]:
-    def write(text: str) -> Path:
-        file = tmp_path / "test.yaml"
-        file.write_text(dedent(text), encoding="utf-8")
-        return file
-
-    return write
-
-
-@pytest.fixture
-def load(write: Callable[[str], Path]) -> LoadYaml:
-    return lambda text: load_module(write(text))
-
-
-def problems(load: LoadYaml, text: str) -> list[str]:
-    """The error lines for a module that must fail, without the temp file path."""
-    with pytest.raises(ModuleError) as error:
-        load(text)
-    return [line.removeprefix(f"{error.value.file}:") for line in error.value.lines()]
 
 
 def with_field(field: str) -> str:
@@ -90,7 +65,6 @@ def test_valid_module_loads_with_typed_parts(load: LoadYaml) -> None:
         "pred_hurt: {type: percent}",
         "activity: {type: text, from: journal.session.setting}",
         "elbows: {type: scale, scale: s10, tags: [soreness], since: 2026-10-20}",
-        "body_: {template: soreness}",
     ],
 )
 def test_every_field_type_loads(load: LoadYaml, field: str) -> None:
@@ -186,18 +160,18 @@ def test_unchecked_blocks_are_accepted(load: LoadYaml) -> None:
         (BASE.replace("kind: journal", "kind: diary"), "4:1 kind: Input should be 'journal'"),
     ],
 )
-def test_problems_point_at_the_line(load: LoadYaml, text: str, expected: str) -> None:
-    found = problems(load, text)
+def test_problems_point_at_the_line(problems: Problems, text: str, expected: str) -> None:
+    found = problems(text)
     assert any(p.startswith(expected) for p in found), found
 
 
-def test_unknown_top_level_key_is_reported(load: LoadYaml) -> None:
-    assert problems(load, BASE + "descripton: typo\n") == ["19:1 descripton: unknown key (typo?)"]
+def test_unknown_top_level_key_is_reported(problems: Problems) -> None:
+    assert problems(BASE + "descripton: typo\n") == ["19:1 descripton: unknown key (typo?)"]
 
 
-def test_all_problems_are_reported_at_once(load: LoadYaml) -> None:
+def test_all_problems_are_reported_at_once(problems: Problems) -> None:
     text = with_field("a: {type: scale, scale: nope}") + "      b: {type: ref, reference: none}\n"
-    assert len(problems(load, text)) == 2
+    assert len(problems(text)) == 2
 
 
 @pytest.mark.parametrize(
@@ -208,8 +182,8 @@ def test_all_problems_are_reported_at_once(load: LoadYaml) -> None:
         ("- just\n- a list\n", "1:1 a module file must be a mapping"),
     ],
 )
-def test_unreadable_files(load: LoadYaml, text: str, expected: str) -> None:
-    found = problems(load, text)
+def test_unreadable_files(problems: Problems, text: str, expected: str) -> None:
+    found = problems(text)
     assert found[0].startswith(expected), found
 
 
@@ -228,7 +202,7 @@ def test_committed_json_schema_is_current() -> None:
 runner = CliRunner()
 
 
-def test_cli_validate_reports_ok_and_problems(write: Callable[[str], Path]) -> None:
+def test_cli_validate_reports_ok_and_problems(write: WriteYaml) -> None:
     good = runner.invoke(cli.app, ["module", "validate", str(write(BASE))])
     assert good.exit_code == 0
     assert good.output.endswith(": ok\n")
