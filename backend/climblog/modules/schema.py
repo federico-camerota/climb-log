@@ -2,8 +2,7 @@
 """Meta-schema of module YAML files (design/03-module-framework.md §2, D-041).
 
 The pydantic models check the shape of each part (unknown keys, field types and their options).
-`cross_check` then checks references between parts (an entity's key, a field's scale) and
-returns problems with their YAML path, so the loader can point at the line.
+References between parts (an entity's key, a field's scale) are checked in `checks.py`.
 """
 
 import datetime as dt
@@ -31,9 +30,6 @@ Unchecked = dict[str, Any]
 Direction = Literal["higher_better", "lower_better", "neutral"]
 Phase = Literal["pre", "post", "next_day", "any"]
 GradeSystem = Literal["french", "uiaa", "yds", "font", "v", "gym"]
-
-# Columns the app adds to every tab (04-storage.md §1).
-RESERVED_FIELDS = frozenset({"updated_at", "deleted"})
 
 
 @dataclass(frozen=True)
@@ -130,6 +126,9 @@ class BaseField(Strict):
     since: dt.date | None = None
     from_: str | None = Field(default=None, alias="from")  # prefilled from another module
     hidden_in_form: bool = False
+    visible_if: str | None = None  # expression, parsed in #9
+    retired: bool = False  # hidden from forms; column and data kept (§3)
+    renamed_from: Key | None = None
 
 
 class DateField(BaseField):
@@ -210,12 +209,21 @@ class PercentField(BaseField):
     type: Literal["percent"]
 
 
-class TemplateUse(BaseModel):
-    """A field entry that expands a template (`ph_pre_: {template: soreness}`). Checked in #8."""
+class TemplateUse(Strict):
+    """A field entry that expands a template: `ph_pre_: {template: soreness, section: ph_pre}`
+    adds `ph_pre_fingers`, `ph_pre_forearms`, … in its place. Only placement can be set here."""
+
+    template: Key
+    section: str | None = None
+    phase: Phase | None = None
+
+
+class ReferenceTemplateUse(BaseModel):
+    """`q_: {template_from_reference: questions, ...}`: one field per reference row (q1..q20).
+    The rows live in the sheet, so this expands once reference tables exist (M5)."""
 
     model_config = ConfigDict(extra="allow", frozen=True)
-    template: str | None = None
-    template_from_reference: str | None = None
+    template_from_reference: str
 
 
 # `type:` value → model tag. Date-like and number-like types share a model.
@@ -240,8 +248,10 @@ _FIELD_TAGS = {
 def _field_kind(value: Any) -> str | None:
     if not isinstance(value, dict):
         return None
-    if "template" in value or "template_from_reference" in value:
+    if "template" in value:
         return "template field"
+    if "template_from_reference" in value:
+        return "reference template field"
     kind = _FIELD_TAGS.get(value.get("type"))  # type: ignore[arg-type]
     return f"{kind} field" if kind else None
 
@@ -258,7 +268,8 @@ ModuleField = Annotated[
     | Annotated[DurationField, Tag("duration field")]
     | Annotated[RefField, Tag("ref field")]
     | Annotated[PercentField, Tag("percent field")]
-    | Annotated[TemplateUse, Tag("template field")],
+    | Annotated[TemplateUse, Tag("template field")]
+    | Annotated[ReferenceTemplateUse, Tag("reference template field")],
     Discriminator(
         _field_kind,
         custom_error_type="field_type",
@@ -271,6 +282,26 @@ ModuleField = Annotated[
 # ---- Entities and module ----
 
 
+class Section(Strict):
+    """A group of fields. With a `tab`, the entity is split: one tab per section (D-006)."""
+
+    label: str | None = None
+    phase: Phase = "any"
+    tab: str | None = None
+
+
+class Parent(Strict):
+    """Makes an entity a child (many rows per parent row, e.g. sets of a session; D-025).
+
+    `key` lists the parent key fields repeated in the child's rows; `fixed` gives the rest,
+    implied by the child's tab (`Hang sets` → `session_type: Max hangs`; D-032).
+    """
+
+    entity: Key
+    key: list[Key] = Field(min_length=1)
+    fixed: dict[Key, Any] = {}
+
+
 class Entity(Strict):
     label: str
     tab: str | None = None
@@ -280,10 +311,36 @@ class Entity(Strict):
     fields: dict[Key, ModuleField] = Field(min_length=1)
     derived: Unchecked = {}  # expressions: #9, #10
     rules: Unchecked = {}
-    # Split and child entities: #8.
-    sections: Unchecked | None = None
-    anchor_tab: str | None = None
-    parent: Unchecked | None = None
+    sections: dict[Key, Section] = {}
+    anchor_tab: str | None = None  # split entities: rows of other tabs need a row here
+    parent: Parent | None = None
+
+    @property
+    def is_split(self) -> bool:
+        return any(section.tab for section in self.sections.values())
+
+    def tab_fields(self) -> dict[str, list[str]]:
+        """Columns of each tab, in order. Key fields are repeated on every tab of a split entity.
+
+        Only meaningful for a checked module (`load_module` returns one).
+        """
+        if not self.is_split:
+            assert self.tab is not None
+            return {self.tab: list(self.fields)}
+        key = self.key or []
+        tabs = {s.tab: list(key) for s in self.sections.values() if s.tab}
+        for name, field in self.fields.items():
+            if name not in key and isinstance(field, BaseField) and field.section:
+                tab = self.sections[field.section].tab
+                assert tab is not None
+                tabs[tab].append(name)
+        return tabs
+
+    @property
+    def main_tab(self) -> str:
+        """The tab every record has a row in: `tab`, or `anchor_tab` (first section's tab)."""
+        tab = self.tab or self.anchor_tab or next(iter(self.tab_fields()))
+        return tab
 
 
 class Module(Strict):
@@ -300,68 +357,10 @@ class Module(Strict):
     settings: dict[Key, Setting] = {}
     scales: dict[Key, Scale] = {}
     entities: dict[Key, Entity] = Field(min_length=1)
-    templates: Unchecked | None = None  # #8
+    templates: dict[Key, dict[Key, ModuleField]] = {}
     program: Unchecked | None = None  # M5
     reference: Unchecked | None = None  # M5
     forms: Unchecked | None = None  # M3
     views: Unchecked | None = None  # M3, M4
     aggregates: Unchecked | None = None  # M5
     recommendation: Unchecked | None = None  # M3
-
-
-def cross_check(module: Module) -> list[Problem]:
-    """Check references between parts of a module that the models alone cannot see."""
-    problems: list[Problem] = []
-    for key, value in (module.model_extra or {}).items():
-        if not key.endswith("_levels"):
-            problems.append(Problem((key,), "unknown key (typo?)"))
-        elif not (isinstance(value, list) and value and all(isinstance(v, str) for v in value)):
-            problems.append(Problem((key,), "a level list must be a list of names"))
-
-    references = set(module.reference or {})
-    for e_name, entity in module.entities.items():
-        at: YamlPath = ("entities", e_name)
-        fields = entity.fields
-
-        date_field = fields.get(entity.date_field)
-        if not isinstance(date_field, DateField) or date_field.type == "time":
-            problems.append(
-                Problem(
-                    (*at, "date_field") if "date_field" in entity.model_fields_set else at,
-                    f"date field '{entity.date_field}' must be a field of type date or datetime",
-                )
-            )
-        for i, part in enumerate(entity.key or []):
-            if part not in fields:
-                problems.append(Problem((*at, "key", i), f"key field '{part}' is not a field"))
-
-        for f_name, field in fields.items():
-            f_at = (*at, "fields", f_name)
-            if f_name in RESERVED_FIELDS:
-                problems.append(Problem(f_at, f"'{f_name}' is reserved for a column the app adds"))
-            if isinstance(field, ScaleField | ChoiceField) and field.scale is not None:
-                problems += _check_scale_use(module, field, (*f_at, "scale"))
-            if isinstance(field, RefField) and field.reference not in references:
-                known = ", ".join(sorted(references)) or "none defined"
-                problems.append(
-                    Problem(
-                        (*f_at, "reference"),
-                        f"unknown reference table '{field.reference}' (known: {known})",
-                    )
-                )
-    return problems
-
-
-def _check_scale_use(
-    module: Module, field: ScaleField | ChoiceField, at: YamlPath
-) -> list[Problem]:
-    assert field.scale is not None
-    scale = module.scales.get(field.scale)
-    if scale is None:
-        known = ", ".join(module.scales) or "none defined"
-        return [Problem(at, f"unknown scale '{field.scale}' (known: {known})")]
-    if isinstance(field, ScaleField) and isinstance(scale, OrdinalScale):
-        return [Problem(at, f"scale '{field.scale}' is ordinal; use a choice field for it")]
-    if isinstance(field, ChoiceField) and isinstance(scale, NumericScale):
-        return [Problem(at, f"a choice field needs an ordinal scale; '{field.scale}' is numeric")]
-    return []

@@ -26,6 +26,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - Module YAML meta-schema and loader: `climblog module validate FILE...` reports every problem
   with file, line and path; `climblog module schema` prints the JSON Schema, committed as
   `modules/module.schema.json` for editor autocompletion (D-041).
+- Module templates (expanded at load), split entities (one tab per section) and child entities
+  are validated, with checks on sections, tab names, parents and renamed/retired fields (D-042).
 
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

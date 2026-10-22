@@ -98,6 +98,36 @@
           "title": "Hidden In Form",
           "type": "boolean"
         },
+        "visible_if": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible If"
+        },
+        "retired": {
+          "default": false,
+          "title": "Retired",
+          "type": "boolean"
+        },
+        "renamed_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Renamed From"
+        },
         "type": {
           "const": "bool",
           "title": "Type",
@@ -207,6 +237,36 @@
           "default": false,
           "title": "Hidden In Form",
           "type": "boolean"
+        },
+        "visible_if": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible If"
+        },
+        "retired": {
+          "default": false,
+          "title": "Retired",
+          "type": "boolean"
+        },
+        "renamed_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Renamed From"
         },
         "type": {
           "const": "choice",
@@ -360,6 +420,36 @@
           "title": "Hidden In Form",
           "type": "boolean"
         },
+        "visible_if": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible If"
+        },
+        "retired": {
+          "default": false,
+          "title": "Retired",
+          "type": "boolean"
+        },
+        "renamed_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Renamed From"
+        },
         "type": {
           "enum": [
             "date",
@@ -473,6 +563,36 @@
           "default": false,
           "title": "Hidden In Form",
           "type": "boolean"
+        },
+        "visible_if": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible If"
+        },
+        "retired": {
+          "default": false,
+          "title": "Retired",
+          "type": "boolean"
+        },
+        "renamed_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Renamed From"
         },
         "type": {
           "const": "duration",
@@ -604,6 +724,9 @@
                 },
                 {
                   "$ref": "#/$defs/TemplateUse"
+                },
+                {
+                  "$ref": "#/$defs/ReferenceTemplateUse"
                 }
               ]
             }
@@ -624,17 +747,14 @@
           "type": "object"
         },
         "sections": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "null"
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "$ref": "#/$defs/Section"
             }
-          ],
-          "default": null,
-          "title": "Sections"
+          },
+          "title": "Sections",
+          "type": "object"
         },
         "anchor_tab": {
           "anyOf": [
@@ -651,15 +771,13 @@
         "parent": {
           "anyOf": [
             {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/Parent"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Parent"
+          "default": null
         }
       },
       "required": [
@@ -766,6 +884,36 @@
           "default": false,
           "title": "Hidden In Form",
           "type": "boolean"
+        },
+        "visible_if": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible If"
+        },
+        "retired": {
+          "default": false,
+          "title": "Retired",
+          "type": "boolean"
+        },
+        "renamed_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Renamed From"
         },
         "type": {
           "const": "grade",
@@ -894,6 +1042,36 @@
           "title": "Hidden In Form",
           "type": "boolean"
         },
+        "visible_if": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible If"
+        },
+        "retired": {
+          "default": false,
+          "title": "Retired",
+          "type": "boolean"
+        },
+        "renamed_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Renamed From"
+        },
         "type": {
           "const": "multichoice",
           "title": "Type",
@@ -1017,6 +1195,36 @@
           "default": false,
           "title": "Hidden In Form",
           "type": "boolean"
+        },
+        "visible_if": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible If"
+        },
+        "retired": {
+          "default": false,
+          "title": "Retired",
+          "type": "boolean"
+        },
+        "renamed_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Renamed From"
         },
         "type": {
           "enum": [
@@ -1151,6 +1359,40 @@
       "title": "OrdinalScale",
       "type": "object"
     },
+    "Parent": {
+      "additionalProperties": false,
+      "description": "Makes an entity a child (many rows per parent row, e.g. sets of a session; D-025).\n\n`key` lists the parent key fields repeated in the child's rows; `fixed` gives the rest,\nimplied by the child's tab (`Hang sets` → `session_type: Max hangs`; D-032).",
+      "properties": {
+        "entity": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Entity",
+          "type": "string"
+        },
+        "key": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Key",
+          "type": "array"
+        },
+        "fixed": {
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {}
+          },
+          "title": "Fixed",
+          "type": "object"
+        }
+      },
+      "required": [
+        "entity",
+        "key"
+      ],
+      "title": "Parent",
+      "type": "object"
+    },
     "PercentField": {
       "additionalProperties": false,
       "properties": {
@@ -1248,6 +1490,36 @@
           "default": false,
           "title": "Hidden In Form",
           "type": "boolean"
+        },
+        "visible_if": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible If"
+        },
+        "retired": {
+          "default": false,
+          "title": "Retired",
+          "type": "boolean"
+        },
+        "renamed_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Renamed From"
         },
         "type": {
           "const": "percent",
@@ -1359,6 +1631,36 @@
           "title": "Hidden In Form",
           "type": "boolean"
         },
+        "visible_if": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible If"
+        },
+        "retired": {
+          "default": false,
+          "title": "Retired",
+          "type": "boolean"
+        },
+        "renamed_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Renamed From"
+        },
         "type": {
           "const": "ref",
           "title": "Type",
@@ -1375,6 +1677,21 @@
         "reference"
       ],
       "title": "RefField",
+      "type": "object"
+    },
+    "ReferenceTemplateUse": {
+      "additionalProperties": true,
+      "description": "`q_: {template_from_reference: questions, ...}`: one field per reference row (q1..q20).\nThe rows live in the sheet, so this expands once reference tables exist (M5).",
+      "properties": {
+        "template_from_reference": {
+          "title": "Template From Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "template_from_reference"
+      ],
+      "title": "ReferenceTemplateUse",
       "type": "object"
     },
     "ScaleField": {
@@ -1475,6 +1792,36 @@
           "title": "Hidden In Form",
           "type": "boolean"
         },
+        "visible_if": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible If"
+        },
+        "retired": {
+          "default": false,
+          "title": "Retired",
+          "type": "boolean"
+        },
+        "renamed_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Renamed From"
+        },
         "type": {
           "const": "scale",
           "title": "Type",
@@ -1491,6 +1838,49 @@
         "scale"
       ],
       "title": "ScaleField",
+      "type": "object"
+    },
+    "Section": {
+      "additionalProperties": false,
+      "description": "A group of fields. With a `tab`, the entity is split: one tab per section (D-006).",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "phase": {
+          "default": "any",
+          "enum": [
+            "pre",
+            "post",
+            "next_day",
+            "any"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "tab": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tab"
+        }
+      },
+      "title": "Section",
       "type": "object"
     },
     "Setting": {
@@ -1543,22 +1933,15 @@
       "type": "object"
     },
     "TemplateUse": {
-      "additionalProperties": true,
-      "description": "A field entry that expands a template (`ph_pre_: {template: soreness}`). Checked in #8.",
+      "additionalProperties": false,
+      "description": "A field entry that expands a template: `ph_pre_: {template: soreness, section: ph_pre}`\nadds `ph_pre_fingers`, `ph_pre_forearms`, … in its place. Only placement can be set here.",
       "properties": {
         "template": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Template"
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Template",
+          "type": "string"
         },
-        "template_from_reference": {
+        "section": {
           "anyOf": [
             {
               "type": "string"
@@ -1568,9 +1951,30 @@
             }
           ],
           "default": null,
-          "title": "Template From Reference"
+          "title": "Section"
+        },
+        "phase": {
+          "anyOf": [
+            {
+              "enum": [
+                "pre",
+                "post",
+                "next_day",
+                "any"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phase"
         }
       },
+      "required": [
+        "template"
+      ],
       "title": "TemplateUse",
       "type": "object"
     },
@@ -1671,6 +2075,36 @@
           "default": false,
           "title": "Hidden In Form",
           "type": "boolean"
+        },
+        "visible_if": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible If"
+        },
+        "retired": {
+          "default": false,
+          "title": "Retired",
+          "type": "boolean"
+        },
+        "renamed_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Renamed From"
         },
         "type": {
           "const": "text",
@@ -1782,17 +2216,59 @@
       "type": "object"
     },
     "templates": {
-      "anyOf": [
-        {
-          "additionalProperties": true,
+      "default": {},
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DateField"
+                },
+                {
+                  "$ref": "#/$defs/NumberField"
+                },
+                {
+                  "$ref": "#/$defs/ScaleField"
+                },
+                {
+                  "$ref": "#/$defs/ChoiceField"
+                },
+                {
+                  "$ref": "#/$defs/MultichoiceField"
+                },
+                {
+                  "$ref": "#/$defs/BoolField"
+                },
+                {
+                  "$ref": "#/$defs/TextField"
+                },
+                {
+                  "$ref": "#/$defs/GradeField"
+                },
+                {
+                  "$ref": "#/$defs/DurationField"
+                },
+                {
+                  "$ref": "#/$defs/RefField"
+                },
+                {
+                  "$ref": "#/$defs/PercentField"
+                },
+                {
+                  "$ref": "#/$defs/TemplateUse"
+                },
+                {
+                  "$ref": "#/$defs/ReferenceTemplateUse"
+                }
+              ]
+            }
+          },
           "type": "object"
-        },
-        {
-          "type": "null"
         }
-      ],
-      "default": null,
-      "title": "Templates"
+      },
+      "title": "Templates",
+      "type": "object"
     },
     "program": {
       "anyOf": [
