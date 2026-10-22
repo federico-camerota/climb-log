@@ -2,7 +2,7 @@
 
 Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in progress · ☑ done.
 
-### M0 · Skeleton ☐
+### M0 · Skeleton ◐
 - Repo layout (`backend/`, `frontend/`, `modules/`, `design/`), `uv` + `pnpm` projects,
   ruff/eslint/prettier, pytest/vitest, a `Makefile` (`make dev`, `make test`, `make build`).
 - FastAPI hello + SPA served by FastAPI; `climblog serve`.
