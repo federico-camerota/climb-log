@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: Feature
+description: Propose a new feature or a change in behaviour.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is missing or awkward today, and when does it come up?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should happen instead? Sketches, example values and screens are welcome.
+    validations:
+      required: true
+  - type: input
+    id: milestone
+    attributes:
+      label: Roadmap milestone
+      description: The milestone in design/07-roadmap.md this belongs to, if any (e.g. M3).
+  - type: input
+    id: decisions
+    attributes:
+      label: Related decisions
+      description: Entries in design/decisions.md this builds on or changes (e.g. D-013).
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
