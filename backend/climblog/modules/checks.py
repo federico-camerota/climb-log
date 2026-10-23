@@ -2,14 +2,16 @@
 """Checks across the parts of a module, and template expansion (03-module-framework.md §2.1b).
 
 The models in `schema.py` see one part at a time. These checks see the whole module: an entity's
-key, a field's scale, template uses, sections and tabs, parents. They run on the module as
-written, so every problem has a path that exists in the YAML file; `expand_templates` runs only
-once they pass.
+key, a field's scale, template uses, sections and tabs, parents, `visible_if` conditions. They
+run on the module as written, so every problem has a path that exists in the YAML file;
+`expand_templates` runs only once they pass.
 """
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from typing import Any
 
+from climblog.expr import Env, ExprError, FieldMeta, NameInfo, prepare
+from climblog.expr.nodes import ValueType
 from climblog.modules.schema import (
     BaseField,
     ChoiceField,
@@ -32,6 +34,19 @@ RESERVED_FIELDS = frozenset({"updated_at", "deleted"})
 RESERVED_TABS = frozenset({"_meta", "_settings", "summary", "readme"})
 _TAB_FORBIDDEN_CHARS = set("[]:*?/\\")
 _TAB_MAX_LENGTH = 31  # Excel's limit
+# The value an expression sees for each field or setting type; the others are text.
+_VALUE_TYPES: dict[str, ValueType] = {
+    "date": "date",
+    "datetime": "date",
+    "time": "time",
+    "number": "number",
+    "integer": "number",
+    "scale": "number",
+    "duration": "number",
+    "percent": "number",
+    "bool": "bool",
+    "text": "text",
+}
 
 
 def cross_check(module: Module) -> list[Problem]:
@@ -138,6 +153,11 @@ def _check_entity(module: Module, e_name: str, entity: Entity) -> list[Problem]:
                 Problem((*at, "fields", new, "renamed_from"), f"'{old}' is still a field")
             )
 
+    env = expression_env(module, fields, entity.date_field)
+    for f_key, field, f_at in _expanded(module, e_name, entity):
+        if isinstance(field, BaseField) and field.visible_if is not None:
+            problems += _check_visible_if(env, f_key, field.visible_if, (*f_at, "visible_if"))
+
     date_field = fields.get(entity.date_field)
     if not isinstance(date_field, DateField) or date_field.type == "time":
         problems.append(
@@ -154,6 +174,44 @@ def _check_entity(module: Module, e_name: str, entity: Entity) -> list[Problem]:
     if entity.parent is not None:
         problems += _check_parent(module, e_name, entity, fields)
     return problems
+
+
+def expression_env(module: Module, fields: Mapping[str, Any], date_field: str) -> Env:
+    """What expressions in an entity can use: its stored fields (as written) and the settings."""
+    names: dict[str, NameInfo] = {}
+    for key, field in fields.items():
+        if not isinstance(field, BaseField):
+            continue
+        scale = module.scales.get(field.scale) if isinstance(field, ScaleField) else None
+        choices = None
+        if isinstance(field, ChoiceField) and not field.allow_other:
+            ordinal = module.scales.get(field.scale) if field.scale else None
+            choices = field.choices or (
+                ordinal.choices if isinstance(ordinal, OrdinalScale) else None
+            )
+        names[key] = NameInfo(
+            _VALUE_TYPES.get(field.type, "text"),
+            scale=(scale.min, scale.max) if isinstance(scale, NumericScale) else None,
+            choices=tuple(choices) if choices else None,
+            field=FieldMeta(
+                field.type, field.section, tuple(field.tags), field.since, field.retired
+            ),
+        )
+    settings = {key: _VALUE_TYPES[s.type] for key, s in module.settings.items()}
+    return Env(names, settings, date_field)
+
+
+def _check_visible_if(env: Env, f_key: str, source: str, at: YamlPath) -> list[Problem]:
+    """A condition on the record's other fields (03-module-framework.md §2.1b)."""
+    try:
+        checked = prepare(source, env)
+    except ExprError as error:
+        return [Problem(at, str(error))]
+    if checked.kind.many or checked.kind.type != "bool":
+        return [Problem(at, f"visible_if must be a condition (yes/no), not {checked.kind.type}")]
+    if f_key in checked.names:
+        return [Problem(at, "visible_if cannot depend on its own field")]
+    return []
 
 
 def _check_field(module: Module, field: BaseField, at: YamlPath) -> list[Problem]:
