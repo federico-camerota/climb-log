@@ -41,6 +41,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   `last(e.x, before=d)`, checked at load and computed over whole tables (children before
   parents, rows in date order); journal days since the previous session or climb, shoulder
   review flags and finger-strength set totals are now computed (D-045).
+- Cells are read by field type with data issues (tab, row, column) instead of errors: decimal
+  commas, ISO and day-first dates, date serials, `h:mm` durations, `75%`, Yes/No variants
+  (incl. Sì), choices ignoring case and spaces, legacy choice values, raw text; required fields
+  left empty are reported. Accent-insensitive search helper (D-046).
 
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

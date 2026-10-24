@@ -71,6 +71,7 @@ backend/climblog/
   main.py              # FastAPI app factory, static SPA mount
   cli.py               # climblog serve | import-legacy | check | backup
   config.py            # app config (TOML)
+  text.py              # accent-insensitive matching for search (D-024)
   expr/                # expression language: parse, check, evaluate, functions (D-043)
   modules/
     schema.py          # pydantic models for module YAML (the "meta-schema")
@@ -81,6 +82,7 @@ backend/climblog/
   engine/
     rules.py           # windows (counts over recent records), recommendations (M3)
   storage/
+    cells.py           # read cells by field type, data issues (D-046)
     base.py            # Repository protocol, TableSchema, errors
     xlsx.py            # XlsxBackend
     gsheets.py         # GSheetsBackend

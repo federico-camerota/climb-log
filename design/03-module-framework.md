@@ -107,13 +107,13 @@ entities:
 ### 2.1 Field types
 | type | Spreadsheet cell | Form control | Notes |
 |---|---|---|---|
-| `date`, `datetime`, `time` | ISO date / datetime | date picker | |
+| `date`, `datetime`, `time` | ISO date / datetime | date picker | typed by hand: ISO or day-first (`24/10/2026`), never month-first (04 §3b) |
 | `number` | number | numeric input | `min`, `max`, `step`, `unit` |
 | `integer` | number | stepper | |
 | `scale` | number | 1–10 (or other) segmented slider | references `scales:`; carries `direction` |
-| `choice` | text | select / chips | `choices` or an ordinal `scale` (one of the two), `allow_other`, `choice_map` (legacy value → choice) |
+| `choice` | text | select / chips | `choices` or an ordinal `scale` (one of the two), `allow_other`, `choice_map` (legacy value → choice); read ignoring case and surrounding spaces |
 | `multichoice` | `a; b; c` text | chips | |
-| `bool` | `Yes`/`No` | toggle | accepts Y/N, TRUE/FALSE on read |
+| `bool` | `Yes`/`No` | toggle | accepts Y/N, TRUE/FALSE, Sì/Si, 1/0 on read, any case |
 | `text` | text | input / textarea | `multiline`, searchable by default |
 | `grade` | text | grade picker | `systems: [french, gym]` (any of `french`, `uiaa`, `yds`, `font`, `v`, `gym`); the system is auto-detected among them (D-017) and parsed to a numeric index |
 | `duration` | minutes (number) | h:mm input | |
