@@ -25,7 +25,7 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 - **Formula compiler** (D-018): derived fields → per-row sheet formulas, `_settings`
   references, pre-filled formula buffer, conditional formatting, drift check.
 - Local snapshot (D-020).
-- `modules/journal.yaml` complete; legacy journal importer + parity report; grade parser (French + gym).
+- `modules/journal.yaml` complete; legacy journal importer + parity report; grade parser (French + gym). → grade parser done (D-047).
 - **Synthetic fixture generator** (D-034): fictional workbooks in the legacy layouts (with their
   original formulas) and in the new layout, used by importer, parity and hand-entry tests.
 - **Finger strength** journal (`modules/finger-strength.yaml`, local xlsx): child entities, conditional fields; end-to-end test of the xlsx backend (D-019, D-025).

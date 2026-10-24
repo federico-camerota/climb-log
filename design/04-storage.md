@@ -130,7 +130,8 @@ How each type is read (D-046); blank and whitespace-only cells are blank:
 | choice, multichoice | the choice ignoring case and surrounding spaces (stored as written in the YAML); `choice_map` legacy values; any text with `allow_other`; multichoice items separated by `;` | an unknown value |
 | bool | Yes/No, Y/N, TRUE/FALSE, Sì/Si, 1/0, any case | anything else |
 | text | anything, kept raw (§3b) | never |
-| grade, ref | text, trimmed (grades parsed in #13, references checked in M5) | (later) |
+| grade | French `6b+` (any case, stored lower case) or a gym number, as the field's `systems` allow; close slash grades `6a/6a+` | anything else, e.g. `5+`, or a bare `6` in a French-only field (D-047) |
+| ref | text, trimmed | (references are checked in M5) |
 
 - A **required** field left empty is a data issue, unless the field is hidden by its
   `visible_if` or the row is dated before the field's `since:`.

@@ -14,12 +14,14 @@ from typing import Any
 
 from climblog.expr import Env, ExprError, FieldMeta, NameInfo, prepare
 from climblog.expr.nodes import ValueType
+from climblog.grades import SUPPORTED
 from climblog.modules.derived import DerivedPlan, check_derived
 from climblog.modules.schema import (
     BaseField,
     ChoiceField,
     DateField,
     Entity,
+    GradeField,
     Module,
     NumericScale,
     OrdinalScale,
@@ -274,6 +276,13 @@ def _check_visible_if(env: Env, f_key: str, source: str, at: YamlPath) -> list[P
 
 def _check_field(module: Module, field: BaseField, at: YamlPath) -> list[Problem]:
     """Checks that depend only on the field and the module (run once per template field)."""
+    if isinstance(field, GradeField):
+        return [
+            Problem((*at, "systems", i), f"grade system '{system}' is not supported yet "
+                    f"(supported: {', '.join(SUPPORTED)})")
+            for i, system in enumerate(field.systems)
+            if system not in SUPPORTED
+        ]  # fmt: skip
     if isinstance(field, ScaleField | ChoiceField) and field.scale is not None:
         return _check_scale_use(module, field, (*at, "scale"))
     if isinstance(field, RefField) and field.reference not in (module.reference or {}):

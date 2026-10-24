@@ -59,8 +59,9 @@ the previous day's session). That is all the explorer needs.
   - The ACWR is shown as context with zones, not as a hard rule.
 - **Recovery patterns**: performance metrics (feel score, overall score, hardest grade) vs
   days since the previous session (box plot), vs rest-day type before it, vs weekday.
-- **Grades**: hardest grade over time (numeric index via the grade parser), grade pyramid
-  by period, indoor vs outdoor, by venue.
+- **Grades**: hardest grade over time (numeric index via the grade parser, `climblog/grades.py`:
+  French 6a = 30 with one step per letter or `+`, gym = the number; French and gym on separate
+  axes, never converted, D-017/D-047), grade pyramid by period, indoor vs outdoor, by venue.
 - **Venue/partner view**: sessions and average feel by venue/partner.
 - **Wins timeline**: banked wins by size, filterable, for a motivation feed.
 - **Reflection themes**: frequency of words/keywords in "what felt off" / "what to change"
