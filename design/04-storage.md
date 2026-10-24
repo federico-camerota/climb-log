@@ -104,15 +104,38 @@ are picked up by change polling.
   string cells with the `@` text format on text columns). A note starting with `'` (common
   when typing *po'*, *giovedi'*), `=`, `+` or `-` is therefore stored literally. It is
   never turned into a formula or stripped by the spreadsheet (this also prevents formula injection).
-- On read, whitespace is preserved and line breaks in multiline notes are kept.
+- On read, text cells are kept exactly as written: leading `'` or `=`, surrounding spaces and
+  line breaks in multiline notes (`climblog/storage/cells.py`, D-046).
 - Numbers typed by hand with a decimal comma (`7,5`) are accepted and normalised, as Italian
-  keyboards and locales produce them.
+  keyboards and locales produce them. Only one decimal separator: `1.234,5` is a data issue.
+- Dates typed as text: ISO (`2026-10-24`) or day-first (`24/10/2026`, `24.10.2026`,
+  `24-10-26`; a 2-digit year is 20xx), never month-first (`03/04/2026` is 3 April). Date
+  serial numbers (what the Sheets API returns) are dates too.
+- Search is accent- and case-insensitive: `perche` finds *perché* (`climblog/text.py`).
 
 ## 4. Validation and data issues
 On every load, each cell is parsed according to its field type. Problems (e.g.
-`"7,5"` in a number field, unknown choice, out-of-range scale, duplicate id, unparseable
+`"7.5x"` in a number field, unknown choice, out-of-range scale, duplicate id, unparseable
 date) are collected into **data issues** with tab/row/column and shown in the UI with
 "fix" links. The record still loads (the bad field is treated as missing).
+
+How each type is read (D-046); blank and whitespace-only cells are blank:
+
+| Type | Accepted | Data issue |
+|---|---|---|
+| number, integer, scale | numbers; text with a decimal point or comma | not a number; a non-whole integer; outside `min`/`max` or the scale |
+| percent | as number, also `75%` | outside 0–100 |
+| duration | minutes, `h:mm`, a time or duration cell | anything else; outside `min`/`max` |
+| date, datetime, time | real date/time cells, serials, the text formats of §3b, `HH:MM[:SS]` | anything else; impossible dates (`31/02/2026`) |
+| choice, multichoice | the choice ignoring case and surrounding spaces (stored as written in the YAML); `choice_map` legacy values; any text with `allow_other`; multichoice items separated by `;` | an unknown value |
+| bool | Yes/No, Y/N, TRUE/FALSE, Sì/Si, 1/0, any case | anything else |
+| text | anything, kept raw (§3b) | never |
+| grade, ref | text, trimmed (grades parsed in #13, references checked in M5) | (later) |
+
+- A **required** field left empty is a data issue, unless the field is hidden by its
+  `visible_if` or the row is dated before the field's `since:`.
+- Messages show a bad value only for non-text fields (shortened to 40 characters). Text cells
+  never produce an issue, so note contents never appear in issues or logs.
 
 ## 5. Derived values
 The YAML is the single source of logic. The app computes derived values in Python, and the
