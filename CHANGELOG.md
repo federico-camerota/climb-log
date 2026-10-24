@@ -28,6 +28,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   `modules/module.schema.json` for editor autocompletion (D-041).
 - Module templates (expanded at load), split entities (one tab per section) and child entities
   are validated, with checks on sections, tab names, parents and renamed/retired fields (D-042).
+- Expression language for derived fields and conditions: safe parser (no `eval`), checks at
+  load with "did you mean" suggestions and the position of the problem, and per-record
+  evaluation with the legacy blank-cell rules; `visible_if` conditions are checked when a module
+  loads (D-043).
 
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

@@ -161,20 +161,32 @@ Common field options: `label`, `help`, `required`, `default`, `phase` (`pre`, `p
   `parent.key` + `parent.fixed` are exactly that key; each `parent.key` field is in the child's
   key; `fixed` values must be valid choices.
 - *Evolution*: key and required fields cannot be `retired`; `renamed_from` must not be a current
-  field, and two fields cannot claim the same old key. `visible_if` is parsed in #9.
+  field, and two fields cannot claim the same old key.
+- *Conditions*: `visible_if` is an expression (§2.2) on the entity's own fields and settings that
+  gives yes/no; it cannot use the field it belongs to. Comparing a choice field with a value that
+  is not one of its choices is an error (`session_type == 'Max hang'`).
 
 ### 2.2 Derived fields: the expression language
 A small, **safe** expression language evaluated per record (parsed with Python `ast` and
-an allow-list; no `eval`):
+an allow-list; no `eval`; code in `climblog/expr/`, D-043):
 
-- arithmetic `+ - * /`, comparisons, `and/or/not`, literals
-- field references (`pain_during`), `settings.x`, `program.week`, `program.phase`
-- functions: `mean(...)`, `min(...)`, `max(...)`, `sum(...)`, `count(...)`,
-  `round(x, n)`, `concat(...)`, `flip(field)` (maps a scale value to its "higher is better" orientation:
-  `scale.max + scale.min − x`, i.e. `11 − x` on 1–10), `coalesce(...)`, `notnull(x)`,
-  `all_present(...)`, `days_between(a, b)`, `weekday(date)`
-- group helpers: `fields(section=pre, tag=soreness)` returns the list of matching fields,
-  so formulas don't need to name every field (adding a soreness field updates them automatically)
+- arithmetic `+ - * /` and unary `-`; comparisons `== != < <= > >=` (one per comparison:
+  write `a < b and b < c`); `and/or/not`; `x if cond else y`; numbers, `'text'`, `True`/`False`
+- field references (`pain_during`), `settings.x`; `program.week`, `program.phase` (M5)
+- functions: `mean(...)`, `min(...)`, `max(...)`, `sum(...)`, `count(...)` (aggregates; the
+  first four take `missing_as=`), `round(x, n)` (halves away from zero, like the sheets),
+  `concat(...)`, `flip(x)` (maps a scale value to its "higher is better" orientation:
+  `scale.max + scale.min − x`, i.e. `11 − x` on 1–10), `flip_all(fields(...))`,
+  `coalesce(...)`, `notnull(x)`, `all_present(...)`, `days_between(a, b)`,
+  `weekday(date)` (`Mon` … `Sun`)
+- group helpers: `fields(section=pre, tag=soreness, type=scale)` returns the list of matching
+  stored fields (each selector takes a name or a list, `section=[wb_pre, wb_post]`; all
+  selectors must match), so formulas don't need to name every field (adding a soreness field
+  updates them automatically). A list can be passed to the aggregates, `all_present`, `count`
+  and `flip_all`. A record leaves out a field dated before its `since:`, and a `retired` field
+  where it is blank (so old scores keep counting it, new records don't need it)
+- `flip` needs to know the scale: its argument is a scale field, or `min/max/mean/round/coalesce`
+  of values on one scale (`flip(max(fields(tag=soreness)))`); otherwise the module doesn't load
 - `when:` lists for categorical results (first match wins), and
   `bands:` for thresholds:
 
@@ -191,9 +203,25 @@ wellbeing_pre_status:
 - `worst_of(a, b, ...)` over statuses, using the status order declared in
   `status_levels:` (e.g. `[GOOD, WATCH, LOW]`, `[GREEN, YELLOW, RED]`).
 
-Missing-value semantics follow the original sheets: `mean` ignores blanks, `require`
-makes the result blank unless the inputs are present, and `min` can use
-`missing_as: 10` (as in the Mental status).
+Missing-value semantics follow the original sheets (D-043); a blank cell is "blank":
+
+| Case | Result |
+|---|---|
+| arithmetic, `round`, `flip`, `days_between`, `weekday` with a blank input; division by 0 | blank |
+| `<`, `<=`, `>`, `>=` with a blank | false (`pain_max >= settings.red_min` doesn't fire when nothing was logged) |
+| `==`, `!=` | blank equals only blank (`quality != 'Skipped'` is true when quality is blank) |
+| `and`, `or`, `not`, `if` | only a true value counts: a blank Yes/No counts as No |
+| `mean/min/max/sum` | ignore blanks; all blank → blank (not 0) |
+| `missing_as: 10` (`min(..., missing_as=10)`, as in the Mental status) | blanks count as 10, but all blank → still blank |
+| `count` | number of filled values |
+| `concat` | a blank adds nothing |
+
+`require` makes the result blank unless the inputs are present (#10).
+
+Expressions are checked when the module loads: unknown fields, settings and functions (with a
+"did you mean" suggestion), type mismatches (`notes + 1`, `mood == 'x'`), and the position of
+the problem in the text. The check also gives each expression's result type, used for the
+sheet column's number format (§2.2b), and the names it reads, which order the derived fields.
 
 ### 2.2b Derived fields are also compiled to spreadsheet formulas (D-018)
 So the sheets stay informative **without the app** (e.g. hand-logging in Google Sheets

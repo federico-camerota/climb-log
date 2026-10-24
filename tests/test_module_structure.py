@@ -228,3 +228,31 @@ def test_two_fields_cannot_be_renamed_from_the_same_key(problems: Problems) -> N
     assert problems(text) == [
         "22:7 entities.session.fields.gym: 'venue' is already renamed from 'place'"
     ]
+
+
+def _with_visible_if(condition: str) -> str:
+    return BASE.replace(
+        "venue: {type: text, section: info}",
+        f'venue: {{type: text, section: info, visible_if: "{condition}"}}',
+    )
+
+
+def test_visible_if_can_use_the_other_fields(load: LoadYaml) -> None:
+    module = load(_with_visible_if("session_type == 'Hangs' and notnull(pre_fingers)"))
+    assert module.entities["session"].fields["venue"].visible_if is not None  # type: ignore[union-attr]
+
+
+@pytest.mark.parametrize(
+    ("condition", "message"),
+    [
+        ("sesion_type == 'Hangs'", "unknown field 'sesion_type' (did you mean 'session_type'?)"),
+        ("session_type == 'Hang'", "'Hang' is not a choice of 'session_type' (choices: Hangs"),
+        ("pre_fingers + 1", "visible_if must be a condition (yes/no), not number"),
+        ("notnull(venue)", "visible_if cannot depend on its own field"),
+        ("session_type ==", "invalid expression: invalid syntax (at character 16)"),
+    ],
+)  # fmt: skip
+def test_visible_if_problems(problems: Problems, condition: str, message: str) -> None:
+    found = problems(_with_visible_if(condition))
+    assert len(found) == 1
+    assert found[0].startswith(f"21:42 entities.session.fields.venue.visible_if: {message}")

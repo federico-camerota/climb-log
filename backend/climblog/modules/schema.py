@@ -126,7 +126,7 @@ class BaseField(Strict):
     since: dt.date | None = None
     from_: str | None = Field(default=None, alias="from")  # prefilled from another module
     hidden_in_form: bool = False
-    visible_if: str | None = None  # expression, parsed in #9
+    visible_if: str | None = None  # condition on other fields, checked in checks.py
     retired: bool = False  # hidden from forms; column and data kept (§3)
     renamed_from: Key | None = None
 
@@ -309,7 +309,7 @@ class Entity(Strict):
     key: list[Key] | None = None  # natural key; None means a generated id (D-015)
     id_prefix: Key | None = None
     fields: dict[Key, ModuleField] = Field(min_length=1)
-    derived: Unchecked = {}  # expressions: #9, #10
+    derived: Unchecked = {}  # #10
     rules: Unchecked = {}
     sections: dict[Key, Section] = {}
     anchor_tab: str | None = None  # split entities: rows of other tabs need a row here
