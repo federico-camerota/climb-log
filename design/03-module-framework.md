@@ -115,7 +115,7 @@ entities:
 | `multichoice` | `a; b; c` text | chips | |
 | `bool` | `Yes`/`No` | toggle | accepts Y/N, TRUE/FALSE, Sì/Si, 1/0 on read, any case |
 | `text` | text | input / textarea | `multiline`, searchable by default |
-| `grade` | text | grade picker | `systems: [french, gym]` (any of `french`, `uiaa`, `yds`, `font`, `v`, `gym`); the system is auto-detected among them (D-017) and parsed to a numeric index |
+| `grade` | text | grade picker | `systems: [french, gym]`; the system is auto-detected among them (D-017) and parsed to a numeric index (D-047): French `6a` = 30, one step per letter or `+`; gym = the number; a slash grade `6a/6a+` sits halfway. `uiaa`, `yds`, `font`, `v` are not supported yet (load error) |
 | `duration` | minutes (number) | h:mm input | |
 | `ref` | id/key text | lookup select | references a reference-table key (e.g. ladder rung `A3`) |
 | `percent` | number 0–100 | slider | |

@@ -45,6 +45,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   commas, ISO and day-first dates, date serials, `h:mm` durations, `75%`, Yes/No variants
   (incl. Sì), choices ignoring case and spaces, legacy choice values, raw text; required fields
   left empty are reported. Accent-insensitive search helper (D-046).
+- Grade parser: French (`6b+`) and gym (plain numbers) grades with a numeric index, the
+  system detected per value, slash grades (`6a/6a+`) halfway; bad grades are data issues and
+  unsupported systems a load error (D-047).
 
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

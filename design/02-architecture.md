@@ -72,6 +72,7 @@ backend/climblog/
   cli.py               # climblog serve | import-legacy | check | backup
   config.py            # app config (TOML)
   text.py              # accent-insensitive matching for search (D-024)
+  grades.py            # French and gym grades with a numeric index (D-047)
   expr/                # expression language: parse, check, evaluate, functions (D-043)
   modules/
     schema.py          # pydantic models for module YAML (the "meta-schema")

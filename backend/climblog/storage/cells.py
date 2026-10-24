@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from climblog.expr import Checked, Value, evaluate, prepare
+from climblog.grades import GradeError, parse_grade
 from climblog.modules.checks import expression_env
 from climblog.modules.schema import (
     BaseField,
@@ -101,7 +102,12 @@ def parse_cell(module: Module, field: BaseField, raw: RawCell) -> Value:
             return "; ".join(_choice(field.choices, field, item) for item in items) or None
         case BoolField():
             return _bool(raw)
-        case GradeField() | RefField():  # grades are parsed in #13, references checked in M5
+        case GradeField():
+            try:
+                return parse_grade(_plain(raw), field.systems).text
+            except GradeError as error:
+                raise CellError(f"{_show(raw)} {error.reason}") from None
+        case RefField():  # references are checked in M5
             return _plain(raw).strip()
     raise TypeError(f"no parser for {type(field).__name__}")  # pragma: no cover
 

@@ -42,6 +42,7 @@ entities:
       red_flag: {type: bool}
       notes: {type: text, multiline: true}
       grade: {type: grade, systems: [french]}
+      gym_grade: {type: grade, systems: [french, gym]}
       rung: {type: ref, reference: rungs}
       venue: {type: choice, choices: [Gym, Crag], required: true, visible_if: "kind == 'Max hangs'"}
       elbows: {type: scale, scale: s10, required: true, since: 2026-10-20}
@@ -137,8 +138,12 @@ def cell(module: Module, key: str, raw: RawCell) -> Value:
         ("notes", dt.datetime(2026, 10, 24), "2026-10-24"),
         ("notes", dt.datetime(2026, 10, 24, 18, 30), "2026-10-24 18:30:00"),
         ("notes", dt.time(18, 30), "18:30:00"),
-        # grades (parsed in #13) and references (checked in M5): stripped text
+        # grades (D-047): canonical text; references (checked in M5): stripped text
         ("grade", " 6b+ ", "6b+"),
+        ("grade", "6B+", "6b+"),
+        ("grade", "6a/6a+", "6a/6a+"),
+        ("gym_grade", 6, "6"),  # a number cell
+        ("gym_grade", 6.0, "6"),
         ("rung", "A3", "A3"),
     ],
 )
@@ -184,6 +189,9 @@ def test_values(module: Module, key: str, raw: RawCell, expected: Value) -> None
         ("tags", "Indoor; Gym", "'Gym' is not one of: Indoor, Outdoor, Board"),
         ("red_flag", "maybe", "'maybe' is not Yes or No"),
         ("red_flag", 2, "2 is not Yes or No"),
+        ("grade", 6, "6 is not a French grade (e.g. 6b+)"),  # bare French number
+        ("gym_grade", "5+", "'5+' is not a French grade (e.g. 6b+) or a gym grade (a number)"),
+        ("grade", "6" * 50, "'" + "6" * 39 + "…' is not a French grade"),  # shortened
         ("kind", "x" * 60, "'" + "x" * 39 + "…' is not one of"),  # shortened
     ],
 )
