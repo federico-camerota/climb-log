@@ -32,6 +32,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   load with "did you mean" suggestions and the position of the problem, and per-record
   evaluation with the legacy blank-cell rules; `visible_if` conditions are checked when a module
   loads (D-043).
+- Derived fields: expressions, `bands:` thresholds, `when:` cases and `map_from:` lookups are
+  checked when a module loads (status labels against `status_levels` or a `levels:` list,
+  `type: text` for messages) and computed per record in dependency order; new `worst_of()`.
+  Entries that need later issues (`prev`, program, reference tables, plugins) are accepted and
+  left for later (D-044).
 
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

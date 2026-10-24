@@ -19,6 +19,9 @@ ValueType = Choice["number", "text", "bool", "date", "time", "any"]
 Bounds = tuple[float, float]
 """(min, max) of a numeric scale, used by `flip`."""
 
+Levels = tuple[str, ...]
+"""The labels of a status, best first (`status_levels:`), used by `worst_of`."""
+
 
 class ExprError(Exception):
     """A problem in an expression, at a 0-based character position in its text."""
@@ -36,6 +39,7 @@ class Kind:
     type: ValueType
     many: bool = False  # a list of values: the result of fields(...) or flip_all(...)
     scale: Bounds | None = None  # the scale the value lies on, if any (for flip)
+    levels: Levels | None = None  # a status: its level list, best first (for worst_of)
 
 
 @dataclass(frozen=True)
@@ -111,6 +115,7 @@ class Call(Node):
     args: tuple[Node, ...]
     kwargs: tuple[tuple[str, Node], ...] = ()
     bounds: Bounds | None = None  # set by `check` for functions that use the scale (flip)
+    levels: Levels | None = None  # set by `check` for functions that use the levels (worst_of)
 
 
 # ---- Nodes made by `check` ----

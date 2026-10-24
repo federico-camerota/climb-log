@@ -26,6 +26,7 @@ class Function:
     check: CheckFn
     run: RunFn
     uses_scale: bool = False  # `check` stores the argument's scale bounds on the call node
+    uses_levels: bool = False  # `check` stores the result's status levels on the call node
 
 
 # ---- Checks ----
@@ -154,6 +155,21 @@ def _check_flip_all(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]
     return args[0]
 
 
+def _check_worst_of(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]) -> Kind:
+    _arity(call, 1)
+    _keywords(call)
+    for i, kind in enumerate(args):
+        _expect(call, i, kind, ("text",))
+        if kind.levels is None:
+            raise ExprError("worst_of() needs statuses (bands: or when: results)", call.args[i].at)
+    if len({kind.levels for kind in args}) > 1:
+        lists = " and ".join(
+            f"[{', '.join(levels)}]" for levels in dict.fromkeys(k.levels for k in args) if levels
+        )
+        raise ExprError(f"worst_of() needs statuses on one level list, not {lists}", call.at)
+    return Kind("text", levels=args[0].levels)
+
+
 def _check_days_between(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]) -> Kind:
     _arity(call, 2, 2)
     _keywords(call)
@@ -270,6 +286,13 @@ def _run_flip_all(
     return [_flip(value, call.bounds) for value in _flat(args)]
 
 
+def _run_worst_of(args: Sequence[Arg], kwargs: Mapping[str, Value], call: Call) -> Value:
+    """The worst status given (last in the level list); blanks are left out (D-044)."""
+    assert call.levels is not None
+    ranks = [call.levels.index(value) for value in _flat(args) if value in call.levels]
+    return call.levels[max(ranks)] if ranks else None
+
+
 def _day(value: Arg) -> dt.date | None:
     if isinstance(value, dt.datetime):
         return value.date()
@@ -301,5 +324,6 @@ FUNCTIONS: dict[str, Function] = {
     "flip_all": Function(_check_flip_all, _run_flip_all, uses_scale=True),
     "days_between": Function(_check_days_between, _run_days_between),
     "weekday": Function(_check_weekday, _run_weekday),
+    "worst_of": Function(_check_worst_of, _run_worst_of, uses_levels=True),
 }
-"""Functions by name. #10 and #11 add `worst_of`, `prev`, `children`, … here."""
+"""Functions by name. #11 adds `prev`, `children`, … here."""

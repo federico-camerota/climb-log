@@ -1,5 +1,99 @@
 {
   "$defs": {
+    "Band": {
+      "additionalProperties": false,
+      "properties": {
+        "le": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Le"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "le",
+        "label"
+      ],
+      "title": "Band",
+      "type": "object"
+    },
+    "BandsDerived": {
+      "additionalProperties": false,
+      "properties": {
+        "require": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Require"
+        },
+        "levels": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Levels"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "const": "text",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        },
+        "bands_of": {
+          "title": "Bands Of",
+          "type": "string"
+        },
+        "bands": {
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/Band"
+              },
+              {
+                "$ref": "#/$defs/Otherwise"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Bands",
+          "type": "array"
+        }
+      },
+      "required": [
+        "bands_of",
+        "bands"
+      ],
+      "title": "BandsDerived",
+      "type": "object"
+    },
     "BoolField": {
       "additionalProperties": false,
       "properties": {
@@ -138,6 +232,25 @@
         "type"
       ],
       "title": "BoolField",
+      "type": "object"
+    },
+    "Case": {
+      "additionalProperties": false,
+      "properties": {
+        "if": {
+          "title": "If",
+          "type": "string"
+        },
+        "then": {
+          "title": "Then",
+          "type": "string"
+        }
+      },
+      "required": [
+        "if",
+        "then"
+      ],
+      "title": "Case",
       "type": "object"
     },
     "ChoiceField": {
@@ -735,8 +848,34 @@
           "type": "object"
         },
         "derived": {
-          "additionalProperties": true,
           "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/ExprDerived"
+                },
+                {
+                  "$ref": "#/$defs/BandsDerived"
+                },
+                {
+                  "$ref": "#/$defs/WhenDerived"
+                },
+                {
+                  "$ref": "#/$defs/MapDerived"
+                },
+                {
+                  "$ref": "#/$defs/PluginDerived"
+                },
+                {
+                  "$ref": "#/$defs/ReferenceGroupDerived"
+                }
+              ]
+            }
+          },
           "title": "Derived",
           "type": "object"
         },
@@ -785,6 +924,32 @@
         "fields"
       ],
       "title": "Entity",
+      "type": "object"
+    },
+    "ExprDerived": {
+      "additionalProperties": false,
+      "properties": {
+        "expr": {
+          "title": "Expr",
+          "type": "string"
+        },
+        "require": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Require"
+        }
+      },
+      "required": [
+        "expr"
+      ],
+      "title": "ExprDerived",
       "type": "object"
     },
     "GradeField": {
@@ -942,6 +1107,31 @@
         "systems"
       ],
       "title": "GradeField",
+      "type": "object"
+    },
+    "MapDerived": {
+      "additionalProperties": false,
+      "description": "`map_from: status` + `map: {RED: text, …}`: a text for each value of a status or choice.",
+      "properties": {
+        "map_from": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Map From",
+          "type": "string"
+        },
+        "map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "minProperties": 1,
+          "title": "Map",
+          "type": "object"
+        }
+      },
+      "required": [
+        "map_from",
+        "map"
+      ],
+      "title": "MapDerived",
       "type": "object"
     },
     "MultichoiceField": {
@@ -1359,6 +1549,20 @@
       "title": "OrdinalScale",
       "type": "object"
     },
+    "Otherwise": {
+      "additionalProperties": false,
+      "properties": {
+        "else": {
+          "title": "Else",
+          "type": "string"
+        }
+      },
+      "required": [
+        "else"
+      ],
+      "title": "Otherwise",
+      "type": "object"
+    },
     "Parent": {
       "additionalProperties": false,
       "description": "Makes an entity a child (many rows per parent row, e.g. sets of a session; D-025).\n\n`key` lists the parent key fields repeated in the child's rows; `fixed` gives the rest,\nimplied by the child's tab (`Hang sets` → `session_type: Max hangs`; D-032).",
@@ -1533,6 +1737,20 @@
       "title": "PercentField",
       "type": "object"
     },
+    "PluginDerived": {
+      "additionalProperties": false,
+      "properties": {
+        "plugin": {
+          "title": "Plugin",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plugin"
+      ],
+      "title": "PluginDerived",
+      "type": "object"
+    },
     "RefField": {
       "additionalProperties": false,
       "properties": {
@@ -1677,6 +1895,21 @@
         "reference"
       ],
       "title": "RefField",
+      "type": "object"
+    },
+    "ReferenceGroupDerived": {
+      "additionalProperties": false,
+      "properties": {
+        "per_reference_group": {
+          "additionalProperties": true,
+          "title": "Per Reference Group",
+          "type": "object"
+        }
+      },
+      "required": [
+        "per_reference_group"
+      ],
+      "title": "ReferenceGroupDerived",
       "type": "object"
     },
     "ReferenceTemplateUse": {
@@ -2131,6 +2364,69 @@
         "type"
       ],
       "title": "TextField",
+      "type": "object"
+    },
+    "WhenDerived": {
+      "additionalProperties": false,
+      "properties": {
+        "require": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Require"
+        },
+        "levels": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Levels"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "const": "text",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        },
+        "when": {
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/Case"
+              },
+              {
+                "$ref": "#/$defs/Otherwise"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "When",
+          "type": "array"
+        }
+      },
+      "required": [
+        "when"
+      ],
+      "title": "WhenDerived",
       "type": "object"
     }
   },

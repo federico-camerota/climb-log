@@ -84,6 +84,7 @@ entities:
           YELLOW: Hold/reduce load; review next-morning response
           GREEN: Progress only if movement quality is good and trend remains stable
       review_flag:
+        type: text                        # a message, not a status (D-044)
         when:
           - {if: "red_flag", then: "REVIEW NOW — red-flag symptom"}
           - {if: "max(pain_during, pain_next_am) >= settings.red_min", then: "REVIEW NOW — pain ≥5/10"}

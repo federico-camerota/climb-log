@@ -45,6 +45,8 @@ def problems(load: LoadYaml) -> Problems:
 
 S10 = (1.0, 10.0)
 S5 = (1.0, 5.0)
+LEVELS = ("GOOD", "WATCH", "LOW")
+REFLECT = ("GOOD", "WORTH NOTING", "NEEDS ATTENTION")
 
 # A fictional record: a few pre/post scales, soreness on two body parts, and plain fields.
 ENV = Env(
@@ -72,6 +74,10 @@ ENV = Env(
         "notes": NameInfo("text", field=FieldMeta("text", "post")),
         "red_flag": NameInfo("bool", field=FieldMeta("bool")),
         "status": NameInfo("text"),  # a derived value: not selectable by fields()
+        # derived statuses (bands:/when: results, D-044)
+        "pre_status": NameInfo("text", choices=LEVELS, levels=LEVELS),
+        "post_status": NameInfo("text", choices=LEVELS, levels=LEVELS),
+        "reflect": NameInfo("text", choices=REFLECT, levels=REFLECT),
     },
     settings={"low_max": "number", "start": "date"},
 )

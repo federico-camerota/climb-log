@@ -24,6 +24,9 @@ RECORD: dict[str, Value] = {
     "notes": "Più riposo tra le serie",
     "red_flag": None,
     "status": "WATCH",
+    "pre_status": "WATCH",
+    "post_status": "LOW",
+    "reflect": None,
 }
 
 
@@ -66,6 +69,8 @@ def run(source: str, **changes: Value) -> Value | list[Value]:
         ("flip_all(fields(section=pre))", [4, 7]),
         ("min(mood, flip(fatigue))", 3),
         ("round(11 - mean(fields(tag=soreness)), 1)", 6.5),
+        ("worst_of(pre_status, post_status)", "LOW"),
+        ("worst_of(pre_status)", "WATCH"),
     ],
 )
 def test_values(source: str, expected: Value | list[Value]) -> None:
@@ -167,3 +172,9 @@ def test_dates_and_datetimes_compare() -> None:
 def test_missing_names_count_as_blank() -> None:
     checked = prepare("notnull(mood)", ENV)
     assert evaluate(checked, {}, SETTINGS) is False
+
+
+def test_worst_of_ignores_blank_statuses() -> None:
+    """D-044: a section not filled in does not hide the others; all blank stays blank."""
+    assert run("worst_of(pre_status, post_status)", post_status=None) == "WATCH"
+    assert run("worst_of(pre_status, post_status)", pre_status=None, post_status=None) is None
