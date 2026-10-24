@@ -2,6 +2,7 @@
 """Evaluating expressions, with the legacy blank-cell rules (03-module-framework.md §2.2, D-043)."""
 
 import datetime as dt
+from collections.abc import Mapping, Sequence
 
 import pytest
 from conftest import ENV
@@ -178,3 +179,62 @@ def test_worst_of_ignores_blank_statuses() -> None:
     """D-044: a section not filled in does not hide the others; all blank stays blank."""
     assert run("worst_of(pre_status, post_status)", post_status=None) == "WATCH"
     assert run("worst_of(pre_status, post_status)", pre_status=None, post_status=None) is None
+
+
+# ---- Other records (D-045) ----
+
+
+class FakeRelated:
+    """Two previous records, a parent, two sets and one rest day."""
+
+    def prev(self, name: str, n: int) -> Value:
+        rows: list[dict[str, Value]] = [{"mood": 5}, {"mood": None}]
+        return rows[n - 1].get(name)
+
+    def parent(self, name: str) -> Value:
+        return {"goal": "Power"}.get(name)
+
+    def children(self, entity: str) -> Sequence[Mapping[str, Value]]:
+        return [{"kg": 10, "volume": 50}, {"kg": None, "volume": 30}]
+
+    def last(self, entity: str, name: str, before: dt.date) -> Value:
+        return 6 if before > dt.date(2026, 10, 20) else None
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("prev(mood)", 5),
+        ("prev(mood, 2)", None),  # the record exists, its value is blank
+        ("mood > prev(mood, 2)", False),
+        ("parent.goal == 'Power'", True),
+        ("count(children(set))", 2),  # rows, even with blank values
+        ("count(children(set).kg)", 1),
+        ("sum(children(set).volume)", 80),
+        ("last(rest_day.sleep, before=date)", 6),
+        ("last(rest_day.sleep, before=settings.start)", None),
+    ],
+)
+def test_other_records(source: str, expected: Value) -> None:
+    assert evaluate(prepare(source, ENV), RECORD, SETTINGS, FakeRelated()) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("prev(mood)", None),
+        ("parent.goal", None),
+        ("count(children(set))", 0),
+        ("max(children(set).kg)", None),
+        ("last(rest_day.sleep, before=date)", None),
+        ("last(rest_day.sleep, before=prev(date))", None),  # a blank date
+    ],
+)
+def test_a_record_on_its_own(source: str, expected: Value) -> None:
+    assert run(source) == expected
+
+
+def test_last_takes_datetimes_as_days() -> None:
+    expr = prepare("last(rest_day.sleep, before=date)", ENV)
+    record = RECORD | {"date": dt.datetime(2026, 10, 22, 18, 30)}
+    assert evaluate(expr, record, SETTINGS, FakeRelated()) == 6

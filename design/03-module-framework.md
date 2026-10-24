@@ -140,8 +140,10 @@ Common field options: `label`, `help`, `required`, `default`, `phase` (`pre`, `p
   columns, so hand entry needs no ids. A child tab may **fix** part of the parent key
   (`parent: {key: [date], fixed: {session_type: Max hangs}}`): on `Hang sets` the session type
   is implied by the tab and isn't typed. Derived fields can use
-  `parent.x` and, on the parent, `children(set).x` with `count/sum/max/mean`. A child row
-  without a parent is a data issue with a one-click fix. In the formula compiler, children
+  `parent.x` (a stored field of the parent row) and, on the parent, `children(set)` (one item
+  per child row, for `count`) and `children(set).x` (the child rows' stored or derived values)
+  with `count/sum/max/mean/min` (§2.3, D-045). A child row
+  without a parent is a data issue with a one-click fix; its `parent.x` values are blank. In the formula compiler, children
   aggregates become `MAXIFS/SUMIFS/COUNTIFS` on the key columns.
 
 **Rules checked at load (D-042):**
@@ -173,7 +175,9 @@ an allow-list; no `eval`; code in `climblog/expr/`, D-043):
 
 - arithmetic `+ - * /` and unary `-`; comparisons `== != < <= > >=` (one per comparison:
   write `a < b and b < c`); `and/or/not`; `x if cond else y`; numbers, `'text'`, `True`/`False`
-- field references (`pain_during`), `settings.x`; `program.week`, `program.phase` (M5)
+- field references (`pain_during`), `settings.x`; other records: `prev(x, n)`, `parent.x`,
+  `children(e)` / `children(e).x`, `last(e.x, before=d)` (§2.3); `program.week`,
+  `program.phase` (M5)
 - functions: `mean(...)`, `min(...)`, `max(...)`, `sum(...)`, `count(...)` (aggregates; the
   first four take `missing_as=`), `round(x, n)` (halves away from zero, like the sheets),
   `concat(...)`, `flip(x)` (maps a scale value to its "higher is better" orientation:
@@ -220,8 +224,8 @@ wellbeing_pre_status:
   Comparing a status with a label that is not in its list is an error (`overall_status == 'LOWW'`).
 - An entry can read other derived values; they are computed first (the order follows what
   each entry reads, not the YAML order). A cycle is an error.
-- **Deferred until their issue**: entries using `prev`, `last`, `children`, `parent` (#11),
-  `program.` or `reference.` (M5), `plugin:` entries, `per_reference_group`, and `fields(...)`
+- **Deferred until their issue**: entries using `program.` or `reference.` (M5), `plugin:`
+  entries, `per_reference_group`, and `fields(...)`
   in an entity with fields from a reference table (`template_from_reference`, M5). They are
   accepted but neither checked nor computed, and so is every entry that reads one of them.
 
@@ -285,9 +289,24 @@ column** in the sheet:
   (headless) or read back from Google, and compared with the Python results on the same fixtures.
 
 ### 2.3 Cross-record rules
-- **Declarative** (covers most cases): `prev(field, n)` returns the value of the *n*-th
-  previous record of the same entity ordered by date; `window(field, days=14).count(status == LOW)`;
-  `since_last(entity, date_field)` (e.g. days since last climb from the rest-day tab).
+- **Declarative** (covers most cases; D-045):
+  - `prev(x)`, `prev(x, n)`: `x` in the *n*-th previous record of the same entity, ordered by
+    date, then key fields, then row. It is the previous *record*: if `x` is blank there, the
+    result is blank (as the legacy sheets look at the row above). No previous record → blank;
+    a record without a date has no previous record and is nobody's previous record. `x` can be
+    a stored field or a derived value, but not the entry's own value (`prev(streak)` inside
+    `streak` is not supported yet: its type would depend on itself).
+  - `parent.x`, `children(e)`, `children(e).x`: the parent row and the child rows (§2.1b).
+    Children are matched on the parent key columns they repeat and on `fixed`; no children →
+    an empty list (`count` 0, `max`/`sum` blank).
+  - `last(e.x, before=d)`: `x` in the latest record of entity `e` dated strictly before `d`
+    (e.g. days since the last climb on the rest-day tab:
+    `days_between(last(session.date, before=date), date)`). None → blank.
+  - What they read: `prev` and `children(e).x` read stored and derived values; `parent.x` and
+    `last(e.x, ...)` read stored fields only. So child entities are computed before their
+    parents, and an entity's rows in date order (`climblog/modules/compute.py`).
+  - `window(field, days=14).count(status == LOW)` (counts over recent records) comes with the
+    Summary and the recommendation (M3).
 - **Plugin**: `{plugin: module.rule_name}`, a Python function
   `(records: DataFrame, ctx) -> Series | list[Flag]`. Example: fall-ladder advancement
   (two consecutive falls on the same rung with BERP ≥ 3, fear ≤ 5, soft catch).

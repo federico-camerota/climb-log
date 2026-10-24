@@ -43,6 +43,15 @@ def kind(source: str) -> Kind:
         ("worst_of(pre_status, post_status)", Kind("text", levels=LEVELS)),
         ("pre_status if red_flag else post_status", Kind("text", levels=LEVELS)),
         ("pre_status if red_flag else 'LOW'", Kind("text")),
+        # other records (D-045)
+        ("prev(mood)", Kind("number", scale=S10)),
+        ("prev(pre_status, 2)", Kind("text", levels=LEVELS)),
+        ("days_between(prev(date), date)", Kind("number")),
+        ("parent.goal == 'Power'", Kind("bool")),
+        ("count(children(set))", Kind("number")),
+        ("children(set).rpe", Kind("number", many=True, scale=S10)),
+        ("max(children(set).volume)", Kind("number")),
+        ("last(rest_day.sleep, before=date)", Kind("number", scale=S10)),
     ],
 )
 def test_kinds(source: str, expected: Kind) -> None:
@@ -94,7 +103,7 @@ def test_fields_combines_selectors() -> None:
         ("settings", "write settings.<name>", 0),
         ("settings.low", "unknown setting 'low' (did you mean 'low_max'?)", 0),
         ("settings.zzz", "unknown setting 'zzz' (known: low_max, start)", 0),
-        ("program.week", "`x.y` is only valid as settings.<name>", 0),
+        ("program.week", "`x.y` is only valid as settings.<name>, parent.<name> or", 0),
         ("meen(mood)", "unknown function 'meen' (did you mean 'mean'?)", 0),
         ("__import__('os')", "unknown function '__import__'", 0),
         ("session_type == 'Max hang'", "'Max hang' is not a choice of 'session_type'", 16),
@@ -139,6 +148,27 @@ def test_fields_combines_selectors() -> None:
         ),
         ("worst_of(mood)", "worst_of() needs text values, not number", 9),
         ("pre_status == 'LOWW'", "'LOWW' is not a choice of 'pre_status'", 14),
+        # other records (D-045)
+        ("prev(mod)", "unknown field 'mod' (did you mean 'mood'?)", 5),
+        ("prev(mood + 1)", "prev() takes a field or derived value, e.g. prev(date)", 5),
+        ("prev(mood, 0)", "prev() counts back by a whole number, 1 or more", 11),
+        ("prev(mood, energy)", "prev() counts back by a whole number", 11),
+        ("prev()", "prev() takes 1 to 2 values, got 0", 0),
+        ("prev(mood, n=2)", "prev() takes no options", 13),
+        ("parent", "write parent.<name>", 0),
+        ("parent.gaol", "the parent has no field 'gaol' (did you mean 'goal'?)", 0),
+        ("parent.goal == 'Speed'", "'Speed' is not a choice of 'parent.goal'", 15),
+        ("children(sets)", "'sets' is not a child entity of this one (did you mean 'set'?)", 9),
+        ("children(x)", "'x' is not a child entity of this one (child entities: set)", 9),
+        ("children('set')", "children() takes a child entity, e.g. children(set)", 0),
+        ("children(set).kgs", "'set' has no field 'kgs' (did you mean 'kg'?)", 0),
+        ("mean(children(set))", "mean() needs number values, not any", 5),
+        ("last(rest.date, before=date)", "unknown entity 'rest' (did you mean 'rest_day'?)", 5),
+        ("last(rest_day.slep, before=date)", "'rest_day' has no field 'slep'", 5),
+        ("last(rest_day.sleep)", "last() takes an entity's field and a date", 0),
+        ("last(sleep, before=date)", "last() takes an entity's field and a date", 0),
+        ("last(rest_day.sleep, before=mood)", "`before` needs date, not number", 28),
+        ("lats(rest_day.sleep)", "unknown function 'lats' (did you mean 'last'?)", 0),
         # fields()
         ("fields()", "fields() needs at least one of section=, tag=, type=", 0),
         ("fields(pre)", "fields() takes only section=, tag= or type=", 7),
@@ -156,3 +186,17 @@ def test_errors(source: str, message: str, at: int) -> None:
     assert error.value.message.startswith(message), error.value.message
     assert error.value.at == at
     assert str(error.value).endswith(f"(at character {at + 1})")
+
+
+def test_parent_is_only_valid_in_a_child_entity() -> None:
+    from dataclasses import replace
+
+    with pytest.raises(ExprError) as error:
+        prepare("parent.goal", replace(ENV, parent=None))
+    assert error.value.message == "parent.<name> is only valid in derived fields of a child entity"
+
+
+def test_prev_is_a_name_the_expression_reads() -> None:
+    """It orders derived entries; children(...), last(...) and parent.x read other records."""
+    checked = prepare("prev(mood) + count(children(set)) + last(rest_day.sleep, before=date)", ENV)
+    assert checked.names == {"mood", "date"}

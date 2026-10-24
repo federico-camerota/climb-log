@@ -80,4 +80,22 @@ ENV = Env(
         "reflect": NameInfo("text", choices=REFLECT, levels=REFLECT),
     },
     settings={"low_max": "number", "start": "date"},
+    # Other records (D-045): this record is a child of a block; it has sets; there are rest days.
+    parent={
+        "date": NameInfo("date", field=FieldMeta("date")),
+        "goal": NameInfo("text", choices=("Power", "Endurance"), field=FieldMeta("choice")),
+    },
+    children={
+        "set": {
+            "kg": NameInfo("number", field=FieldMeta("number")),
+            "rpe": NameInfo("number", scale=S10, field=FieldMeta("scale")),
+            "volume": NameInfo("number"),  # a derived value of the set
+        }
+    },
+    entities={
+        "rest_day": {
+            "date": NameInfo("date", field=FieldMeta("date")),
+            "sleep": NameInfo("number", scale=S10, field=FieldMeta("scale")),
+        }
+    },
 )

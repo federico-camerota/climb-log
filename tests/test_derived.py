@@ -72,7 +72,7 @@ entities:
       score:
         require: "all_present(mood, energy)"
         expr: "round(mean(mood, energy), 1)"
-      gap: "days_between(prev(date), date)"
+      gap: "program.week * 7"
       gap_weeks: "gap / 7"
       verdict: {plugin: test.verdict}
 """
@@ -241,7 +241,7 @@ def test_fields_selectors_are_not_dependencies(load: LoadYaml) -> None:
 def test_journal_session_plan() -> None:
     journal = load_module(DRAFTS / "journal.yaml")
     plan = derived_plan(journal, "session")
-    assert plan.deferred == ("days_since_prev", "log_check")
+    assert plan.deferred == ("log_check",)
     statuses = [step.key for step in plan.steps if step.kind.levels == LEVELS]
     assert statuses == [
         "wb_pre_status",
@@ -291,10 +291,25 @@ def test_shoulder_action_maps_the_status() -> None:
     result = compute(plan, {"pain_during": 3, "pain_next_am": 1}, settings)
     assert result["status"] == "YELLOW"
     assert str(result["action"]).startswith("Hold/reduce load")
-    assert plan.deferred == ("review_flag",)
+    assert plan.deferred == ()
 
 
 def test_fields_wait_for_reference_templates() -> None:
     """q1..q20 come from a reference table (M5), so `fields(tag=q)` cannot be checked yet."""
     fear = load_module(DRAFTS / "fear-of-falling.yaml")
     assert derived_plan(fear, "q20").deferred == ("avg_all", "by_category")
+
+
+def test_prev_orders_the_entries(load: LoadYaml) -> None:
+    """`prev(x)` needs x's type, so x is checked (and computed) first."""
+    text = BASE.replace(
+        'gap_weeks: "gap / 7"', 'was_low: "prev(late) == \'LOW\'"\n      late: "overall"'
+    )
+    keys = [step.key for step in derived_plan(load(text), "day").steps]
+    assert keys.index("late") < keys.index("was_low")
+
+
+def test_prev_of_the_entry_itself_is_not_supported_yet(problems: Problems) -> None:
+    found = problems(BASE.replace('gap_weeks: "gap / 7"', 'streak: "prev(streak) + 1"'))
+    assert len(found) == 1
+    assert "derived.streak: prev() of the entry itself is not supported yet" in found[0]
