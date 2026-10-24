@@ -56,6 +56,7 @@ name: Shoulder program
 version: 3                        # bump when you change the definition
 kind: program                     # journal | program
 description: 12-week shoulder capacity plan
+status_levels: [GREEN, YELLOW, RED]  # best → worst: the order of `worst_of`
 
 program:                          # only for kind: program
   start_date: {setting: start_date}
@@ -178,7 +179,7 @@ an allow-list; no `eval`; code in `climblog/expr/`, D-043):
   `concat(...)`, `flip(x)` (maps a scale value to its "higher is better" orientation:
   `scale.max + scale.min − x`, i.e. `11 − x` on 1–10), `flip_all(fields(...))`,
   `coalesce(...)`, `notnull(x)`, `all_present(...)`, `days_between(a, b)`,
-  `weekday(date)` (`Mon` … `Sun`)
+  `weekday(date)` (`Mon` … `Sun`), `worst_of(a, b, ...)` (statuses, below)
 - group helpers: `fields(section=pre, tag=soreness, type=scale)` returns the list of matching
   stored fields (each selector takes a name or a list, `section=[wb_pre, wb_post]`; all
   selectors must match), so formulas don't need to name every field (adding a soreness field
@@ -187,8 +188,16 @@ an allow-list; no `eval`; code in `climblog/expr/`, D-043):
   where it is blank (so old scores keep counting it, new records don't need it)
 - `flip` needs to know the scale: its argument is a scale field, or `min/max/mean/round/coalesce`
   of values on one scale (`flip(max(fields(tag=soreness)))`); otherwise the module doesn't load
-- `when:` lists for categorical results (first match wins), and
-  `bands:` for thresholds:
+
+A **derived entry** is one of these shapes (D-044):
+
+| Shape | Example | Result |
+|---|---|---|
+| expression | `pain_max: "max(pain_during, pain_next_am)"`, or `{expr: ..., require: ...}` | the expression's value |
+| `bands:` thresholds | below | the label of the first band with `value ≤ le`, else the `else` label |
+| `when:` cases | `{if: "red_flag", then: RED}`, …, `{else: GREEN}` | the label of the first true `if`, else the `else` label |
+| `map_from:` | `{map_from: status, map: {RED: "Do not progress…", …}}` | the text for the value of a status or choice |
+| deferred | `{plugin: ...}`, `{per_reference_group: ...}` | not computed yet (see below) |
 
 ```yaml
 wellbeing_pre_status:
@@ -200,8 +209,21 @@ wellbeing_pre_status:
     - {else: GOOD}
 ```
 
-- `worst_of(a, b, ...)` over statuses, using the status order declared in
-  `status_levels:` (e.g. `[GOOD, WATCH, LOW]`, `[GREEN, YELLOW, RED]`).
+- `le` is a number or an expression (`settings.low_max`); `label`, `then` and `else` are
+  labels, not expressions. `else` comes last; without it, no match gives a blank.
+- **Statuses.** A `bands:` or `when:` result is a status on a level list, best first:
+  the module's `status_levels:` (e.g. `[GOOD, WATCH, LOW]`, `[GREEN, YELLOW, RED]`), or another
+  `*_levels` list named by `levels:` (`levels: reflect_levels`). Every label must be in that
+  list, so a typo (`WACTH`) stops the module from loading. A result that is a message rather
+  than a status says `type: text` (shoulder `review_flag`); its labels are then its only values.
+- `worst_of(a, b, ...)` takes statuses on one level list and gives the worst (last in the list).
+  Comparing a status with a label that is not in its list is an error (`overall_status == 'LOWW'`).
+- An entry can read other derived values; they are computed first (the order follows what
+  each entry reads, not the YAML order). A cycle is an error.
+- **Deferred until their issue**: entries using `prev`, `last`, `children`, `parent` (#11),
+  `program.` or `reference.` (M5), `plugin:` entries, `per_reference_group`, and `fields(...)`
+  in an entity with fields from a reference table (`template_from_reference`, M5). They are
+  accepted but neither checked nor computed, and so is every entry that reads one of them.
 
 Missing-value semantics follow the original sheets (D-043); a blank cell is "blank":
 
@@ -215,12 +237,17 @@ Missing-value semantics follow the original sheets (D-043); a blank cell is "bla
 | `missing_as: 10` (`min(..., missing_as=10)`, as in the Mental status) | blanks count as 10, but all blank → still blank |
 | `count` | number of filled values |
 | `concat` | a blank adds nothing |
-
-`require` makes the result blank unless the inputs are present (#10).
+| `worst_of` | ignores blank statuses; all blank → blank (an empty section doesn't hide the others) |
+| `require:` not true | blank |
+| `bands:` with a blank `bands_of` | blank (not the lowest band, not the `else` label) |
+| `when:` with no true `if` and no `else` | blank |
+| `map_from:` with a blank or unmapped value | blank |
 
 Expressions are checked when the module loads: unknown fields, settings and functions (with a
 "did you mean" suggestion), type mismatches (`notes + 1`, `mood == 'x'`), and the position of
-the problem in the text. The check also gives each expression's result type, used for the
+the problem in the text. In a derived entry, `require` and `if` must give yes/no, `bands_of`
+and `le` a number, and every expression a single value (not a list of fields); `map` keys must
+be values of the `map_from` status or choice, and a derived key cannot be a stored field. The check also gives each expression's result type, used for the
 sheet column's number format (§2.2b), and the names it reads, which order the derived fields.
 
 ### 2.2b Derived fields are also compiled to spreadsheet formulas (D-018)
@@ -358,8 +385,9 @@ problem (unknown scale, key field that does not exist), e.g.
   (a test keeps it current); a first line `# yaml-language-server: $schema=<path to it>` gives
   autocompletion and inline errors in VS Code (YAML extension).
 - Blocks of later milestones (`program`, `reference`, `forms`, `views`, `aggregates`,
-  `recommendation`) and the expressions in `derived` are accepted as they are until their
-  issue adds the checks. Templates, split and child entities are checked (§2.1b).
+  `recommendation`, `rules`) are accepted as they are until their issue adds the checks.
+  Templates, split and child entities are checked (§2.1b), and so are derived fields (§2.2),
+  except the deferred ones.
 
 ## 5. Future: editing modules from the UI
 Phase 2 option: a "Module editor" page (add/retire fields, edit choices and thresholds)

@@ -4,7 +4,7 @@
 import datetime as dt
 
 import pytest
-from conftest import ENV, S5, S10
+from conftest import ENV, LEVELS, S5, S10
 
 from climblog.expr import ExprError, Kind, prepare
 from climblog.expr.nodes import Call, FieldRef, Fields, Setting
@@ -39,6 +39,10 @@ def kind(source: str) -> Kind:
         ("mood if red_flag else minutes", Kind("number")),
         ("status == 'LOW'", Kind("bool")),
         ("red_flag == True", Kind("bool")),
+        ("pre_status", Kind("text", levels=LEVELS)),
+        ("worst_of(pre_status, post_status)", Kind("text", levels=LEVELS)),
+        ("pre_status if red_flag else post_status", Kind("text", levels=LEVELS)),
+        ("pre_status if red_flag else 'LOW'", Kind("text")),
     ],
 )
 def test_kinds(source: str, expected: Kind) -> None:
@@ -127,6 +131,14 @@ def test_fields_combines_selectors() -> None:
         ("flip_all(fields(type=scale))", "flip_all() needs fields(...) on one scale", 9),
         ("days_between(date)", "days_between() takes 2 values, got 1", 0),
         ("weekday(minutes)", "weekday() needs date values, not number", 8),
+        ("worst_of(status, pre_status)", "worst_of() needs statuses (bands: or when: results)", 9),
+        (
+            "worst_of(pre_status, reflect)",
+            "worst_of() needs statuses on one level list, not [GOOD, WATCH, LOW] and [GOOD, WORTH",
+            0,
+        ),
+        ("worst_of(mood)", "worst_of() needs text values, not number", 9),
+        ("pre_status == 'LOWW'", "'LOWW' is not a choice of 'pre_status'", 14),
         # fields()
         ("fields()", "fields() needs at least one of section=, tag=, type=", 0),
         ("fields(pre)", "fields() takes only section=, tag= or type=", 7),

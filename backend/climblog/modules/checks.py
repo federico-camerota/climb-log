@@ -2,7 +2,8 @@
 """Checks across the parts of a module, and template expansion (03-module-framework.md §2.1b).
 
 The models in `schema.py` see one part at a time. These checks see the whole module: an entity's
-key, a field's scale, template uses, sections and tabs, parents, `visible_if` conditions. They
+key, a field's scale, template uses, sections and tabs, parents, `visible_if` conditions and
+derived fields (`derived.py`). They
 run on the module as written, so every problem has a path that exists in the YAML file;
 `expand_templates` runs only once they pass.
 """
@@ -12,6 +13,7 @@ from typing import Any
 
 from climblog.expr import Env, ExprError, FieldMeta, NameInfo, prepare
 from climblog.expr.nodes import ValueType
+from climblog.modules.derived import DerivedPlan, check_derived
 from climblog.modules.schema import (
     BaseField,
     ChoiceField,
@@ -157,6 +159,13 @@ def _check_entity(module: Module, e_name: str, entity: Entity) -> list[Problem]:
     for f_key, field, f_at in _expanded(module, e_name, entity):
         if isinstance(field, BaseField) and field.visible_if is not None:
             problems += _check_visible_if(env, f_key, field.visible_if, (*f_at, "visible_if"))
+    for d_key in entity.derived:
+        if d_key in RESERVED_FIELDS:
+            problems.append(
+                Problem((*at, "derived", d_key), f"'{d_key}' is reserved for a column the app adds")
+            )
+    defer_fields = _has_reference_fields(entity)
+    problems += check_derived(module, e_name, entity.derived, env, defer_fields=defer_fields)[1]
 
     date_field = fields.get(entity.date_field)
     if not isinstance(date_field, DateField) or date_field.type == "time":
@@ -199,6 +208,21 @@ def expression_env(module: Module, fields: Mapping[str, Any], date_field: str) -
         )
     settings = {key: _VALUE_TYPES[s.type] for key, s in module.settings.items()}
     return Env(names, settings, date_field)
+
+
+def derived_plan(module: Module, e_name: str) -> DerivedPlan:
+    """The derived fields of an entity of a loaded module, ready for `derived.compute`."""
+    entity = module.entities[e_name]
+    env = expression_env(module, entity.fields, entity.date_field)
+    defer_fields = _has_reference_fields(entity)
+    plan, problems = check_derived(module, e_name, entity.derived, env, defer_fields=defer_fields)
+    assert not problems, problems  # `load_module` reported them
+    return plan
+
+
+def _has_reference_fields(entity: Entity) -> bool:
+    """Fields made from a reference table's rows (`template_from_reference`, M5)."""
+    return any(isinstance(field, ReferenceTemplateUse) for field in entity.fields.values())
 
 
 def _check_visible_if(env: Env, f_key: str, source: str, at: YamlPath) -> list[Problem]:

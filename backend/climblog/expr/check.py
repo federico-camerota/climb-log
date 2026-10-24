@@ -24,6 +24,7 @@ from climblog.expr.nodes import (
     FieldRef,
     Fields,
     Kind,
+    Levels,
     ListNode,
     Literal,
     Name,
@@ -54,6 +55,7 @@ class NameInfo:
     scale: Bounds | None = None
     choices: tuple[str, ...] | None = None  # a closed choice list, checked in comparisons
     field: FieldMeta | None = None  # None for derived values
+    levels: Levels | None = None  # a status (a derived `bands:` or `when:`), best first
 
 
 @dataclass(frozen=True)
@@ -146,8 +148,9 @@ class _Checker:
                         node.at,
                     )
                 scale = then_kind.scale if then_kind.scale == else_kind.scale else None
+                levels = then_kind.levels if then_kind.levels == else_kind.levels else None
                 resolved = replace(node, test=test_node, then=then_node, orelse=else_node)
-                return resolved, Kind(then_kind.type, scale=scale)
+                return resolved, Kind(then_kind.type, scale=scale, levels=levels)
             case Call(func="fields"):
                 return self.fields(node)
             case Call():
@@ -163,7 +166,7 @@ class _Checker:
                 f"unknown field '{name}'{_suggest(name, list(self.env.names))}", node.at
             )
         self.names.add(name)
-        return Kind(info.type, scale=info.scale)
+        return Kind(info.type, scale=info.scale, levels=info.levels)
 
     def setting(self, node: Node, name: str) -> Kind:
         value_type = self.env.settings.get(name)
@@ -215,6 +218,8 @@ class _Checker:
         kind = function.check(resolved_call, arg_kinds, kw_kinds)
         if function.uses_scale:
             resolved_call = replace(resolved_call, bounds=arg_kinds[0].scale)
+        if function.uses_levels:
+            resolved_call = replace(resolved_call, levels=kind.levels)
         return resolved_call, kind
 
     def fields(self, node: Call) -> tuple[Node, Kind]:

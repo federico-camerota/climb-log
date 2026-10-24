@@ -16,7 +16,7 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 
 ### M1 · Module framework + local storage ◐
 - Meta-schema (pydantic) for module YAML; loader with good error messages; JSON Schema export. → done (D-041).
-- Expression evaluator (safe AST), `bands`, `when`, `worst_of`, `flip`, `prev`. → parser, load-time check and evaluator done (D-043); `bands`/`when`/`worst_of` in #10, `prev` in #11.
+- Expression evaluator (safe AST), `bands`, `when`, `worst_of`, `flip`, `prev`. → parser, load-time check and evaluator done (D-043); derived fields with `bands`/`when`/`worst_of`/`map_from`, checked at load and computed in dependency order, done (D-044); `prev` in #11.
 - Natural keys, **split entities** (one tab per section), **child entities** (sets), templates (`soreness`), `visible_if`; orphan-row detection. → schema side done (D-042); `visible_if` checked (D-043); orphan rows in #14.
 - Text handling: raw-text writes, decimal commas, accent-insensitive search (D-024).
 - `Repository` interface + `XlsxBackend`: read/append/update/soft delete, atomic save,

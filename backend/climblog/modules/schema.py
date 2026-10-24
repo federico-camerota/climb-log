@@ -279,6 +279,148 @@ ModuleField = Annotated[
 ]
 
 
+# ---- Derived fields (03-module-framework.md §2.2, D-044) ----
+# Expressions are strings here; `derived.py` checks them against the entity's fields.
+
+
+def _else_kind(value: Any) -> str:
+    return "else item" if isinstance(value, dict) and "else" in value else "case item"
+
+
+class Band(Strict):
+    le: float | str  # a number or an expression (`settings.low_max`)
+    label: str
+
+
+class Case(Strict):
+    if_: str = Field(alias="if")
+    then: str  # a label, not an expression
+
+
+class Otherwise(Strict):
+    else_: str = Field(alias="else")
+
+
+BandItem = Annotated[
+    Annotated[Band, Tag("case item")] | Annotated[Otherwise, Tag("else item")],
+    Discriminator(_else_kind),
+]
+CaseItem = Annotated[
+    Annotated[Case, Tag("case item")] | Annotated[Otherwise, Tag("else item")],
+    Discriminator(_else_kind),
+]
+
+
+class ExprDerived(Strict):
+    expr: str
+    require: str | None = None  # the result is blank unless this holds
+
+
+class _Labelled(Strict):
+    """A `bands:` or `when:` result: a status on `levels` (default `status_levels`), or text."""
+
+    require: str | None = None
+    levels: Key | None = None  # a level list of the module (`reflect_levels`)
+    type: Literal["text"] | None = None  # a message, not a status
+
+    def items(self) -> list[Band | Case | Otherwise]:
+        raise NotImplementedError  # pragma: no cover
+
+    @model_validator(mode="after")
+    def _shape(self) -> Self:
+        if self.levels is not None and self.type is not None:
+            raise ValueError("give `levels` for a status or `type: text` for a message, not both")
+        items = self.items()
+        if any(isinstance(item, Otherwise) for item in items[:-1]):
+            raise ValueError("`else` must be the last item")
+        if len(items) == 1 and isinstance(items[0], Otherwise):
+            raise ValueError("an `else` alone is not a rule; write the value as an expression")
+        return self
+
+    @property
+    def otherwise(self) -> str | None:
+        last = self.items()[-1]
+        return last.else_ if isinstance(last, Otherwise) else None
+
+    def labels(self) -> list[str]:
+        """Every label the result can take, in order, each once."""
+        found = [
+            item.label if isinstance(item, Band) else item.then
+            for item in self.items()
+            if not isinstance(item, Otherwise)
+        ]
+        if self.otherwise is not None:
+            found.append(self.otherwise)
+        return list(dict.fromkeys(found))
+
+
+class BandsDerived(_Labelled):
+    bands_of: str
+    bands: list[BandItem] = Field(min_length=1)
+
+    def items(self) -> list[Band | Case | Otherwise]:
+        return list(self.bands)
+
+
+class WhenDerived(_Labelled):
+    when: list[CaseItem] = Field(min_length=1)
+
+    def items(self) -> list[Band | Case | Otherwise]:
+        return list(self.when)
+
+
+class MapDerived(Strict):
+    """`map_from: status` + `map: {RED: text, …}`: a text for each value of a status or choice."""
+
+    map_from: Key
+    map: dict[str, str] = Field(min_length=1)
+
+
+class PluginDerived(Strict):
+    plugin: str  # app-only Python code (§2.3); not checked or computed yet
+
+
+class ReferenceGroupDerived(Strict):
+    per_reference_group: Unchecked  # M5
+
+
+_DERIVED_KEYS = {
+    "expr": "expr entry",
+    "bands_of": "bands entry",
+    "bands": "bands entry",
+    "when": "when entry",
+    "map_from": "map entry",
+    "map": "map entry",
+    "plugin": "plugin entry",
+    "per_reference_group": "reference group entry",
+}
+
+
+def _derived_kind(value: Any) -> str | None:
+    if isinstance(value, str):
+        return "plain expression"
+    if isinstance(value, dict):
+        return next((_DERIVED_KEYS[k] for k in value if k in _DERIVED_KEYS), None)
+    return None
+
+
+Derived = Annotated[
+    Annotated[str, Tag("plain expression")]
+    | Annotated[ExprDerived, Tag("expr entry")]
+    | Annotated[BandsDerived, Tag("bands entry")]
+    | Annotated[WhenDerived, Tag("when entry")]
+    | Annotated[MapDerived, Tag("map entry")]
+    | Annotated[PluginDerived, Tag("plugin entry")]
+    | Annotated[ReferenceGroupDerived, Tag("reference group entry")],
+    Discriminator(
+        _derived_kind,
+        custom_error_type="derived_kind",
+        custom_error_message="a derived field is an expression, or has one of: expr, bands_of, "
+        "when, map_from, plugin",
+    ),
+]
+
+
 # ---- Entities and module ----
 
 
@@ -309,7 +451,7 @@ class Entity(Strict):
     key: list[Key] | None = None  # natural key; None means a generated id (D-015)
     id_prefix: Key | None = None
     fields: dict[Key, ModuleField] = Field(min_length=1)
-    derived: Unchecked = {}  # #10
+    derived: dict[Key, Derived] = {}
     rules: Unchecked = {}
     sections: dict[Key, Section] = {}
     anchor_tab: str | None = None  # split entities: rows of other tabs need a row here
