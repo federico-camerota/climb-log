@@ -71,13 +71,15 @@ backend/climblog/
   main.py              # FastAPI app factory, static SPA mount
   cli.py               # climblog serve | import-legacy | check | backup
   config.py            # app config (TOML)
+  expr/                # expression language: parse, check, evaluate, functions (D-043)
   modules/
     schema.py          # pydantic models for module YAML (the "meta-schema")
     loader.py          # load + validate YAML, resolve plugins
+    checks.py          # checks across the parts of a module, template expansion
+    derived.py         # derived fields: load-time check, order, per-record values (D-044)
+    compute.py         # whole tables: prev(), parent/children, last() (D-045)
   engine/
-    expr.py            # safe expression evaluator for derived fields
-    derive.py          # per-record derived fields, statuses
-    rules.py           # cross-record rules (prev(), windows), recommendations
+    rules.py           # windows (counts over recent records), recommendations (M3)
   storage/
     base.py            # Repository protocol, TableSchema, errors
     xlsx.py            # XlsxBackend

@@ -2,8 +2,9 @@
 """Check an expression against what a record has: names, settings, types (D-043).
 
 `check` runs when a module loads. It reports unknown names with a suggestion, works out the
-type of every part, resolves `settings.x` and `fields(...)`, and returns the names the
-expression reads (derived fields are computed in that order, #10).
+type of every part, resolves `settings.x`, `fields(...)` and the cross-record forms (`prev`,
+`parent.x`, `children(...)`, `last`, D-045), and returns the names the expression reads in the
+same record (derived fields are computed in that order, #10).
 """
 
 import datetime as dt
@@ -18,17 +19,21 @@ from climblog.expr.nodes import (
     BoolOp,
     Bounds,
     Call,
+    Children,
     Compare,
     Cond,
     ExprError,
     FieldRef,
     Fields,
     Kind,
+    Last,
     Levels,
     ListNode,
     Literal,
     Name,
     Node,
+    ParentRef,
+    Prev,
     Setting,
     Unary,
     ValueType,
@@ -36,6 +41,7 @@ from climblog.expr.nodes import (
 from climblog.expr.parse import parse
 
 _SELECTORS = ("section", "tag", "type")
+_SPECIAL = ("fields", "prev", "children", "last")  # forms checked here, not in FUNCTIONS
 
 
 @dataclass(frozen=True)
@@ -65,6 +71,11 @@ class Env:
     names: Mapping[str, NameInfo]
     settings: Mapping[str, ValueType] = field(default_factory=dict)
     date_field: str = "date"
+    # Other records (D-045): the parent's stored fields (child entities only), each child
+    # entity's stored fields and derived values, and every entity's stored fields (for last).
+    parent: Mapping[str, NameInfo] | None = None
+    children: Mapping[str, Mapping[str, NameInfo]] = field(default_factory=dict)
+    entities: Mapping[str, Mapping[str, NameInfo]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -118,8 +129,16 @@ class _Checker:
                 return node, self.name(node, name)
             case Attr(obj=Name(name="settings"), name=name):
                 return Setting(node.at, name), self.setting(node, name)
+            case Attr(obj=Name(name="parent"), name=name):
+                return ParentRef(node.at, name), self.parent(node, name)
+            case Attr(obj=Call(func="children") as call, name=name):
+                return self.children(call, name)
             case Attr():
-                raise ExprError("`x.y` is only valid as settings.<name>", node.at)
+                raise ExprError(
+                    "`x.y` is only valid as settings.<name>, parent.<name> or "
+                    "children(<entity>).<name>",
+                    node.at,
+                )
             case ListNode():
                 raise ExprError("a list is only valid in fields(section=[...])", node.at)
             case Unary(op="-", operand=operand):
@@ -153,6 +172,12 @@ class _Checker:
                 return resolved, Kind(then_kind.type, scale=scale, levels=levels)
             case Call(func="fields"):
                 return self.fields(node)
+            case Call(func="prev"):
+                return self.prev(node)
+            case Call(func="children"):
+                return self.children(node, None)
+            case Call(func="last"):
+                return self.last(node)
             case Call():
                 return self.call(node)
         raise ExprError(f"unexpected {type(node).__name__}", node.at)  # pragma: no cover
@@ -160,8 +185,8 @@ class _Checker:
     def name(self, node: Node, name: str) -> Kind:
         info = self.env.names.get(name)
         if info is None:
-            if name == "settings":
-                raise ExprError("write settings.<name>", node.at)
+            if name in ("settings", "parent"):
+                raise ExprError(f"write {name}.<name>", node.at)
             raise ExprError(
                 f"unknown field '{name}'{_suggest(name, list(self.env.names))}", node.at
             )
@@ -189,11 +214,15 @@ class _Checker:
                 f"`{node.op}` compares numbers, dates or times, not {left.type}", node.at
             )
         for named, other in ((lhs, rhs), (rhs, lhs)):
-            if isinstance(named, Name) and isinstance(other, Literal):
-                choices = self.env.names[named.name].choices
+            if isinstance(named, Name | ParentRef) and isinstance(other, Literal):
+                if isinstance(named, Name):
+                    label, choices = named.name, self.env.names[named.name].choices
+                else:
+                    assert self.env.parent is not None
+                    label, choices = f"parent.{named.name}", self.env.parent[named.name].choices
                 if choices is not None and other.value not in choices:
                     raise ExprError(
-                        f"{other.value!r} is not a choice of '{named.name}' "
+                        f"{other.value!r} is not a choice of '{label}' "
                         f"(choices: {', '.join(choices)})",
                         other.at,
                     )
@@ -202,7 +231,7 @@ class _Checker:
     def call(self, node: Call) -> tuple[Node, Kind]:
         function = FUNCTIONS.get(node.func)
         if function is None:
-            known = [*FUNCTIONS, "fields"]
+            known = [*FUNCTIONS, *_SPECIAL]
             raise ExprError(f"unknown function '{node.func}'{_suggest(node.func, known)}", node.at)
         args, arg_kinds = [], []
         for arg in node.args:
@@ -262,6 +291,79 @@ class _Checker:
             scale=scales.pop() if len(scales) == 1 else None,
         )
         return Fields(node.at, refs, self.env.date_field), kind
+
+    # ---- Other records (D-045) ----
+
+    def prev(self, node: Call) -> tuple[Node, Kind]:
+        """`prev(x)`, `prev(x, n)`: x in the n-th previous record of the same entity."""
+        if node.kwargs:
+            raise ExprError("prev() takes no options", node.kwargs[0][1].at)
+        if not 1 <= len(node.args) <= 2:
+            raise ExprError(f"prev() takes 1 to 2 values, got {len(node.args)}", node.at)
+        target = node.args[0]
+        if not isinstance(target, Name):
+            raise ExprError("prev() takes a field or derived value, e.g. prev(date)", target.at)
+        n = 1
+        if len(node.args) == 2:
+            count = node.args[1]
+            if not (isinstance(count, Literal) and type(count.value) is int and count.value >= 1):
+                raise ExprError("prev() counts back by a whole number, 1 or more", count.at)
+            n = count.value
+        return Prev(node.at, target.name, n), self.name(target, target.name)
+
+    def parent(self, node: Node, name: str) -> Kind:
+        if self.env.parent is None:
+            raise ExprError(
+                "parent.<name> is only valid in derived fields of a child entity", node.at
+            )
+        info = self.env.parent.get(name)
+        if info is None:
+            hint = _suggest(name, list(self.env.parent))
+            raise ExprError(f"the parent has no field '{name}'{hint}", node.at)
+        return Kind(info.type, scale=info.scale, levels=info.levels)
+
+    def children(self, node: Call, name: str | None) -> tuple[Node, Kind]:
+        """`children(e)`: one item per child row (for count); `children(e).x`: their x values."""
+        if node.kwargs or len(node.args) != 1 or not isinstance(node.args[0], Name):
+            raise ExprError("children() takes a child entity, e.g. children(set)", node.at)
+        entity = node.args[0].name
+        fields = self.env.children.get(entity)
+        if fields is None:
+            known = list(self.env.children)
+            hint = _suggest(entity, known) or f" (child entities: {', '.join(known) or 'none'})"
+            raise ExprError(f"'{entity}' is not a child entity of this one{hint}", node.args[0].at)
+        if name is None:
+            return Children(node.at, entity), Kind("any", many=True)
+        info = fields.get(name)
+        if info is None:
+            raise ExprError(
+                f"'{entity}' has no field '{name}'{_suggest(name, list(fields))}", node.at
+            )
+        kind = Kind(info.type, many=True, scale=info.scale, levels=info.levels)
+        return Children(node.at, entity, name), kind
+
+    def last(self, node: Call) -> tuple[Node, Kind]:
+        """`last(e.x, before=d)`: x in the latest record of entity e dated before d."""
+        usage = "last() takes an entity's field and a date, e.g. last(session.date, before=date)"
+        target = node.args[0] if len(node.args) == 1 else None
+        if not (isinstance(target, Attr) and isinstance(target.obj, Name)):
+            raise ExprError(usage, node.at)
+        entity, name = target.obj.name, target.name
+        fields = self.env.entities.get(entity)
+        if fields is None:
+            known = list(self.env.entities)
+            raise ExprError(f"unknown entity '{entity}'{_suggest(entity, known)}", target.at)
+        info = fields.get(name)
+        if info is None:
+            raise ExprError(
+                f"'{entity}' has no field '{name}'{_suggest(name, list(fields))}", target.at
+            )
+        options = dict(node.kwargs)
+        if set(options) != {"before"}:
+            raise ExprError(usage, node.at)
+        before, _ = self.single(options["before"], ("date",), "`before`")
+        kind = Kind(info.type, scale=info.scale, levels=info.levels)
+        return Last(node.at, entity, name, before), kind
 
 
 def _selector_names(value: Node) -> list[tuple[str, int]]:

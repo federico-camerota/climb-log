@@ -2,7 +2,8 @@
 """The expression tree, value types and errors (03-module-framework.md §2.2, D-043).
 
 `parse` builds the tree from the text; `check` resolves names and returns a tree where
-`settings.x` is a `Setting` and `fields(...)` is a `Fields` node with the matched fields.
+`settings.x` is a `Setting`, `fields(...)` a `Fields` node with the matched fields, and the
+cross-record forms (`prev`, `parent.x`, `children(...)`, `last`) nodes of their own.
 Every node keeps `at`, its position in the expression text, for error messages.
 """
 
@@ -139,3 +140,38 @@ class FieldRef:
 class Fields(Node):
     refs: tuple[FieldRef, ...]
     date_field: str
+
+
+# ---- Cross-record nodes made by `check` (03 §2.1b, §2.3, D-045) ----
+
+
+@dataclass(frozen=True)
+class Prev(Node):
+    """`prev(name, n)`: the value in the n-th previous record of the same entity."""
+
+    name: str
+    n: int = 1
+
+
+@dataclass(frozen=True)
+class ParentRef(Node):
+    """`parent.name`: a stored field of the parent record (child entities)."""
+
+    name: str
+
+
+@dataclass(frozen=True)
+class Children(Node):
+    """`children(entity)` (one item per row) or `children(entity).field` (its values)."""
+
+    entity: str
+    field: str | None = None
+
+
+@dataclass(frozen=True)
+class Last(Node):
+    """`last(entity.field, before=date)`: the field in the latest earlier record of `entity`."""
+
+    entity: str
+    field: str
+    before: Node

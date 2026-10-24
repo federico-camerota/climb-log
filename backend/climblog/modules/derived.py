@@ -5,9 +5,10 @@
 settings and the derived values it reads, in dependency order, and returns a `DerivedPlan`.
 `compute` runs the plan on one record.
 
-Entries that need what later issues add (other records, the program, reference tables and
-the fields made from them, plugins) are deferred: accepted, but neither checked nor computed,
-and so is every entry that reads one of them.
+Entries that need what later issues add (the program, reference tables and the fields made
+from them, plugins) are deferred: accepted, but neither checked nor computed, and so is every
+entry that reads one of them. Values from other records come from a `Related`
+(`modules/compute.py` computes whole tables).
 """
 
 import ast
@@ -15,8 +16,20 @@ import dataclasses
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 
-from climblog.expr import Checked, Env, ExprError, Kind, NameInfo, Value, evaluate, parse, prepare
-from climblog.expr.nodes import Call, Levels, Name, Node
+from climblog.expr import (
+    ALONE,
+    Checked,
+    Env,
+    ExprError,
+    Kind,
+    NameInfo,
+    Related,
+    Value,
+    evaluate,
+    parse,
+    prepare,
+)
+from climblog.expr.nodes import Attr, Call, Levels, Name, Node
 from climblog.modules.schema import (
     Band,
     BandsDerived,
@@ -33,8 +46,8 @@ from climblog.modules.schema import (
     YamlPath,
 )
 
-# Names that only #11 (prev, last, children, parent) and M5 (program, reference) give meaning to.
-LATER_NAMES = frozenset({"prev", "last", "children", "parent", "program", "reference"})
+# Names that only M5 (program, reference tables) gives meaning to.
+LATER_NAMES = frozenset({"program", "reference"})
 
 
 @dataclass(frozen=True)
@@ -74,6 +87,7 @@ class DerivedPlan:
 
     steps: tuple[Step, ...]
     deferred: tuple[str, ...]  # entries left for later issues, in YAML order
+    names: Mapping[str, NameInfo]  # what each computed value is, for expressions reading it
 
 
 def check_derived(
@@ -97,10 +111,16 @@ def check_derived(
                 later.add(key)
                 continue
             try:
-                reads.update(_names(parse(source)))
+                tree = parse(source)
             except ExprError as error:
                 problems.append(Problem(at, str(error)))
                 broken.add(key)
+                continue
+            if key in _prev_names(tree):
+                problems.append(Problem(at, "prev() of the entry itself is not supported yet"))
+                broken.add(key)
+                continue  # not also a cycle
+            reads.update(_names(tree))
         if isinstance(entry, PluginDerived | ReferenceGroupDerived):
             later.add(key)
         if key in env.names:
@@ -116,7 +136,7 @@ def check_derived(
         broken.add(key)
 
     names = dict(env.names)
-    scope = Env(names, env.settings, env.date_field)
+    scope = dataclasses.replace(env, names=names)  # grows as entries are checked
     steps: list[Step] = []
     deferred: set[str] = set()
     for key in order:
@@ -136,25 +156,29 @@ def check_derived(
         steps.append(step)
         names[key] = info
 
-    plan = DerivedPlan(tuple(steps), tuple(k for k in derived if k in deferred))
+    computed = {step.key: names[step.key] for step in steps}
+    plan = DerivedPlan(tuple(steps), tuple(k for k in derived if k in deferred), computed)
     return plan, problems
 
 
 def compute(
-    plan: DerivedPlan, values: Mapping[str, Value], settings: Mapping[str, Value]
+    plan: DerivedPlan,
+    values: Mapping[str, Value],
+    settings: Mapping[str, Value],
+    related: Related = ALONE,
 ) -> dict[str, Value]:
     """The derived values of one record (deferred entries are left out).
 
     `values` holds the record's stored fields; a missing one counts as blank. `settings` must
-    hold every setting the plan uses.
+    hold every setting the plan uses. `related` gives the other records (default: none).
     """
     scope = dict(values)
     result: dict[str, Value] = {}
     for step in plan.steps:
-        if step.require is not None and _one(step.require, scope, settings) is not True:
+        if step.require is not None and _one(step.require, scope, settings, related) is not True:
             value = None
         else:
-            value = _value(step, scope, settings)
+            value = _value(step, scope, settings, related)
         scope[step.key] = result[step.key] = value
     return result
 
@@ -316,10 +340,14 @@ def _uses_later(source: str, defer_fields: bool) -> bool:
 
 
 def _names(node: object) -> Iterator[str]:
-    """Every name the tree reads (`fields(section=x)` selects by section, it reads no `x`)."""
+    """Every name of the record the tree reads, to order the entries.
+
+    `fields(section=x)` selects by section, it reads no `x`; `children(...)`, `last(...)` and
+    `parent.x` read other records. `prev(x)` counts: x must be checked first for its type.
+    """
     if isinstance(node, Name):
         yield node.name
-    elif isinstance(node, Call) and node.func == "fields":
+    elif _reads_no_names(node):
         return
     elif isinstance(node, tuple):
         for item in node:
@@ -327,6 +355,24 @@ def _names(node: object) -> Iterator[str]:
     elif isinstance(node, Node):
         for part in dataclasses.fields(node):
             yield from _names(getattr(node, part.name))
+
+
+def _reads_no_names(node: object) -> bool:
+    if isinstance(node, Call):
+        return node.func in ("fields", "children", "last")
+    return isinstance(node, Attr) and isinstance(node.obj, Name) and node.obj.name == "parent"
+
+
+def _prev_names(node: object) -> Iterator[str]:
+    """The names read through `prev(...)`."""
+    if isinstance(node, Call) and node.func == "prev" and node.args:
+        yield from _names(node.args[0])
+    elif isinstance(node, tuple):
+        for item in node:
+            yield from _prev_names(item)
+    elif isinstance(node, Node):
+        for part in dataclasses.fields(node):
+            yield from _prev_names(getattr(node, part.name))
 
 
 def _order(depends: Mapping[str, list[str]]) -> tuple[list[str], dict[str, list[str]]]:
@@ -356,31 +402,39 @@ def _order(depends: Mapping[str, list[str]]) -> tuple[list[str], dict[str, list[
 # ---- Computation ----
 
 
-def _one(expr: Checked, scope: Mapping[str, Value], settings: Mapping[str, Value]) -> Value:
-    value = evaluate(expr, scope, settings)
+def _one(
+    expr: Checked, scope: Mapping[str, Value], settings: Mapping[str, Value], related: Related
+) -> Value:
+    value = evaluate(expr, scope, settings, related)
     assert not isinstance(value, list)  # checked: derived expressions give one value
     return value
 
 
-def _value(step: Step, scope: Mapping[str, Value], settings: Mapping[str, Value]) -> Value:
+def _value(
+    step: Step, scope: Mapping[str, Value], settings: Mapping[str, Value], related: Related
+) -> Value:
     match step:
         case ExprStep(expr=expr):
-            return _one(expr, scope, settings)
+            return _one(expr, scope, settings, related)
         case BandsStep(value=value_expr, bands=bands, otherwise=otherwise):
-            value = _one(value_expr, scope, settings)
+            value = _one(value_expr, scope, settings, related)
             if not isinstance(value, int | float):
                 return None  # a blank is not in the lowest band (D-044)
             for limit, label in bands:
-                upper = limit if isinstance(limit, int | float) else _one(limit, scope, settings)
+                upper = (
+                    limit
+                    if isinstance(limit, int | float)
+                    else _one(limit, scope, settings, related)
+                )
                 if isinstance(upper, int | float) and value <= upper:
                     return label
             return otherwise
         case WhenStep(cases=cases, otherwise=otherwise):
             for condition, label in cases:
-                if _one(condition, scope, settings) is True:
+                if _one(condition, scope, settings, related) is True:
                     return label
             return otherwise
         case MapStep(source=source, mapping=mapping):
-            value = _one(source, scope, settings)
+            value = _one(source, scope, settings, related)
             return mapping.get(value) if isinstance(value, str) else None
     raise TypeError(f"unknown step {type(step).__name__}")  # pragma: no cover

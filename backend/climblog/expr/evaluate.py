@@ -4,12 +4,16 @@
 Blank cells are None. Arithmetic with a blank gives a blank, and so does division by zero.
 `<`, `<=`, `>`, `>=` with a blank are false; `==` and `!=` treat blank as a value equal only
 to blank. In `and`, `or`, `not` and conditions, only True counts as true (a blank Yes/No is no).
+
+Values from other records (`prev`, `parent.x`, `children(...)`, `last`) come from a `Related`
+given by the caller (the table computation, `modules/compute.py`); without one, the record is
+on its own: no previous record, no parent, no children (D-045).
 """
 
 import datetime as dt
 import operator
-from collections.abc import Callable, Mapping
-from typing import Any
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, Protocol
 
 from climblog.expr.check import Checked
 from climblog.expr.functions import FUNCTIONS, Arg
@@ -17,12 +21,16 @@ from climblog.expr.nodes import (
     Binary,
     BoolOp,
     Call,
+    Children,
     Compare,
     Cond,
     Fields,
+    Last,
     Literal,
     Name,
     Node,
+    ParentRef,
+    Prev,
     Setting,
     Unary,
     Value,
@@ -36,20 +44,65 @@ _ORDER: dict[str, Callable[[Any, Any], bool]] = {
 }
 
 
+class Related(Protocol):
+    """The other records an expression can read (03 §2.1b, §2.3)."""
+
+    def prev(self, name: str, n: int) -> Value:
+        """`name` in the n-th previous record of the same entity; blank if there is none."""
+        ...
+
+    def parent(self, name: str) -> Value:
+        """`name` in the parent record; blank if there is none."""
+        ...
+
+    def children(self, entity: str) -> Sequence[Mapping[str, Value]]:
+        """The rows of a child entity that belong to this record (stored and derived values)."""
+        ...
+
+    def last(self, entity: str, name: str, before: dt.date) -> Value:
+        """`name` in the latest record of `entity` dated before `before`; blank if none."""
+        ...
+
+
+class _Alone:
+    """A record on its own: no previous record, no parent, no children."""
+
+    def prev(self, name: str, n: int) -> Value:
+        return None
+
+    def parent(self, name: str) -> Value:
+        return None
+
+    def children(self, entity: str) -> Sequence[Mapping[str, Value]]:
+        return ()
+
+    def last(self, entity: str, name: str, before: dt.date) -> Value:
+        return None
+
+
+ALONE: Related = _Alone()
+
+
 def evaluate(
-    expr: Checked, values: Mapping[str, Value], settings: Mapping[str, Value]
+    expr: Checked,
+    values: Mapping[str, Value],
+    settings: Mapping[str, Value],
+    related: Related = ALONE,
 ) -> Value | list[Value]:
     """The expression's value for a record. A name missing from `values` counts as blank.
 
     `settings` must hold every setting the expression uses (`expr.settings`).
     """
-    return _Evaluator(values, settings).eval(expr.tree)
+    return _Evaluator(values, settings, related).eval(expr.tree)
 
 
 class _Evaluator:
-    def __init__(self, values: Mapping[str, Value], settings: Mapping[str, Value]) -> None:
+    def __init__(
+        self, values: Mapping[str, Value], settings: Mapping[str, Value], related: Related
+    ) -> None:
         self.values = values
         self.settings = settings
+        self.related = related
 
     def one(self, node: Node) -> Value:
         """A single value (`check` guarantees the node is not a list)."""
@@ -82,6 +135,21 @@ class _Evaluator:
                 return self.eval(then if self.one(test) is True else orelse)
             case Fields():
                 return self.fields(node)
+            case Prev(name=name, n=n):
+                return self.related.prev(name, n)
+            case ParentRef(name=name):
+                return self.related.parent(name)
+            case Children(entity=entity, field=None):
+                return [True for _ in self.related.children(entity)]  # one item per row
+            case Children(entity=entity, field=str() as name):
+                return [row.get(name) for row in self.related.children(entity)]
+            case Last(entity=entity, field=name, before=before):
+                day = self.one(before)
+                if isinstance(day, dt.datetime):
+                    day = day.date()
+                if not isinstance(day, dt.date):
+                    return None
+                return self.related.last(entity, name, day)
             case Call():
                 args = [self.eval(arg) for arg in node.args]
                 kwargs = {key: self.one(value) for key, value in node.kwargs}

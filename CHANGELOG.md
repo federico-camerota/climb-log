@@ -37,6 +37,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   `type: text` for messages) and computed per record in dependency order; new `worst_of()`.
   Entries that need later issues (`prev`, program, reference tables, plugins) are accepted and
   left for later (D-044).
+- Cross-record expressions: `prev(x, n)`, `parent.x`, `children(e)` / `children(e).x` and
+  `last(e.x, before=d)`, checked at load and computed over whole tables (children before
+  parents, rows in date order); journal days since the previous session or climb, shoulder
+  review flags and finger-strength set totals are now computed (D-045).
 
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

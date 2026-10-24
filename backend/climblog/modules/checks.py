@@ -9,6 +9,7 @@ run on the module as written, so every problem has a path that exists in the YAM
 """
 
 from collections.abc import Iterator, Mapping
+from dataclasses import replace
 from typing import Any
 
 from climblog.expr import Env, ExprError, FieldMeta, NameInfo, prepare
@@ -164,8 +165,7 @@ def _check_entity(module: Module, e_name: str, entity: Entity) -> list[Problem]:
             problems.append(
                 Problem((*at, "derived", d_key), f"'{d_key}' is reserved for a column the app adds")
             )
-    defer_fields = _has_reference_fields(entity)
-    problems += check_derived(module, e_name, entity.derived, env, defer_fields=defer_fields)[1]
+    problems += _derived_plan(module, e_name, derived_env(module, e_name))[1]
 
     date_field = fields.get(entity.date_field)
     if not isinstance(date_field, DateField) or date_field.type == "time":
@@ -210,14 +210,48 @@ def expression_env(module: Module, fields: Mapping[str, Any], date_field: str) -
     return Env(names, settings, date_field)
 
 
+def derived_env(module: Module, e_name: str) -> Env:
+    """What derived fields can use: `expression_env`, plus other records (D-045).
+
+    The parent's stored fields (`parent.x`), each child entity's stored fields and derived
+    values (`children(e).x`), and every entity's stored fields (`last(e.x, ...)`).
+    """
+    entities = {
+        name: expression_env(module, _fields(module, name), other.date_field).names
+        for name, other in module.entities.items()
+    }
+    children = {}
+    for name, other in module.entities.items():
+        if other.parent is not None and other.parent.entity == e_name and name != e_name:
+            plan, _ = _derived_plan(module, name, _record_env(module, name, entities))
+            children[name] = {**entities[name], **plan.names}  # its problems: reported for it
+    return replace(_record_env(module, e_name, entities), children=children)
+
+
 def derived_plan(module: Module, e_name: str) -> DerivedPlan:
-    """The derived fields of an entity of a loaded module, ready for `derived.compute`."""
-    entity = module.entities[e_name]
-    env = expression_env(module, entity.fields, entity.date_field)
-    defer_fields = _has_reference_fields(entity)
-    plan, problems = check_derived(module, e_name, entity.derived, env, defer_fields=defer_fields)
+    """The derived fields of an entity of a loaded module, ready to compute."""
+    plan, problems = _derived_plan(module, e_name, derived_env(module, e_name))
     assert not problems, problems  # `load_module` reported them
     return plan
+
+
+def _record_env(module: Module, e_name: str, entities: Mapping[str, Mapping[str, NameInfo]]) -> Env:
+    """The entity's fields, the settings, the parent's fields and the other entities."""
+    entity = module.entities[e_name]
+    env = expression_env(module, _fields(module, e_name), entity.date_field)
+    parent = entities.get(entity.parent.entity) if entity.parent is not None else None
+    return replace(env, parent=parent, entities=entities)
+
+
+def _derived_plan(module: Module, e_name: str, env: Env) -> tuple[DerivedPlan, list[Problem]]:
+    entity = module.entities[e_name]
+    defer_fields = _has_reference_fields(entity)
+    return check_derived(module, e_name, entity.derived, env, defer_fields=defer_fields)
+
+
+def _fields(module: Module, e_name: str) -> dict[str, Any]:
+    """An entity's fields with templates expanded (works before and after `expand_templates`)."""
+    return {key: field for key, field, _ in _expanded(module, e_name, module.entities[e_name])}
 
 
 def _has_reference_fields(entity: Entity) -> bool:
