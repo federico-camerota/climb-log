@@ -9,7 +9,7 @@ issue, so note contents never reach a message. Nothing here logs.
 
 import datetime as dt
 import re
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 
 from climblog.expr import Checked, Value, evaluate, prepare
@@ -61,11 +61,11 @@ class CellError(ValueError):
 
 @dataclass(frozen=True)
 class DataIssue:
-    """A problem in one cell: shown in the UI with its place in the sheet (04 §4)."""
+    """A problem in the sheet: shown in the UI with its place (04 §4)."""
 
     tab: str
-    row: int  # the sheet's row number (1-based; data starts at row 3)
-    field: str  # the column's key (row 2)
+    row: int | None  # the sheet's row number (1-based; data starts at row 3); None: whole tab
+    field: str | None  # the column's key (row 2); None: whole row or tab
     message: str
 
 
@@ -113,7 +113,10 @@ def parse_cell(module: Module, field: BaseField, raw: RawCell) -> Value:
 
 
 class RowParser:
-    """Reads the rows of one entity's tab: every stored field, then the required ones."""
+    """Reads the rows of one entity's tabs: every stored field, then the required ones.
+
+    A blank cell of a field with `default:` reads as the default (D-048); a bad cell stays blank.
+    """
 
     def __init__(self, module: Module, entity: str) -> None:
         self.module = module
@@ -127,25 +130,64 @@ class RowParser:
         }
 
     def parse(
-        self, raw: Mapping[str, RawCell], *, tab: str, row: int
+        self,
+        raw: Mapping[str, RawCell],
+        *,
+        tab: str,
+        row: int,
+        fields: Collection[str] | None = None,
+        required: bool = True,
     ) -> tuple[dict[str, Value], list[DataIssue]]:
-        """The row's values (a bad cell is None) and its data issues. Unknown columns are
-        left out: schema sync deals with them (#17)."""
+        """The row's values (a bad cell is None) and its data issues.
+
+        `fields`: the fields on this tab (default: all). Unknown columns are left out: schema
+        sync deals with them (#17). `required=False` leaves the required check to `missing`,
+        for rows joined with other tabs first.
+        """
         values: dict[str, Value] = {}
         issues: list[DataIssue] = []
-        for key, field in self.fields.items():
+        for key, field in self._fields(fields):
             try:
-                values[key] = parse_cell(self.module, field, raw.get(key))
+                value = parse_cell(self.module, field, raw.get(key))
             except CellError as error:
                 values[key] = None
                 issues.append(DataIssue(tab, row, key, error.message))
-
-        bad = {issue.field for issue in issues}
-        for key, field in self.fields.items():
-            missing = field.required and values[key] is None and key not in bad
-            if missing and self._expected(key, field, values):
-                issues.append(DataIssue(tab, row, key, "required, but empty"))
+                continue
+            values[key] = self._default(field) if value is None else value
+        if required:
+            bad = {issue.field for issue in issues}
+            issues += self.missing(values, tab=tab, row=row, fields=fields, skip=bad)
         return values, issues
+
+    def missing(
+        self,
+        values: Mapping[str, Value],
+        *,
+        tab: str,
+        row: int,
+        fields: Collection[str] | None = None,
+        skip: Collection[str | None] = (),
+    ) -> list[DataIssue]:
+        """Required fields left empty in a row (`skip`: fields already reported as bad)."""
+        return [
+            DataIssue(tab, row, key, "required, but empty")
+            for key, field in self._fields(fields)
+            if field.required
+            and values.get(key) is None
+            and key not in skip
+            and self._expected(key, field, values)
+        ]
+
+    def _fields(self, keys: Collection[str] | None) -> list[tuple[str, BaseField]]:
+        return [(k, f) for k, f in self.fields.items() if keys is None or k in keys]
+
+    def _default(self, field: BaseField) -> Value:
+        if field.default is None:
+            return None
+        try:
+            return parse_cell(self.module, field, field.default)
+        except CellError:
+            return field.default  # type: ignore[no-any-return]
 
     def _expected(self, key: str, field: BaseField, values: Mapping[str, Value]) -> bool:
         """A required field is not expected while hidden (`visible_if`) or before its `since:`."""

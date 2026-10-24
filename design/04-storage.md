@@ -7,7 +7,10 @@
 - **One tab per entity / reference table**, plus two system tabs:
   - `_meta`: key/value: `module`, `module_version`, `schema_synced_at`, `app_version`.
   - `_settings`: key/value: module settings (thresholds, start date). Editing here by hand
-    works too.
+    works too. A missing, blank or unreadable value means the YAML default (an unreadable one
+    is also a data issue).
+  - Both have `key` and `value` headers in row 1 (any column order, other columns ignored)
+    and one pair per row from row 2.
 **Hand entry is a first-class path** (D-003, D-013): I sometimes log directly in Google
 Sheets without the app, so every tab must be comfortable to fill by hand.
 
@@ -43,7 +46,17 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
   per day and no natural key (e.g. individual falls) get an `id` column that **may be left
   blank** by hand; the app fills it on the next sync.
 - Hand-optional system columns at the right: `updated_at`, `deleted` (soft delete).
-  Left blank by hand; the app fills them.
+  Left blank by hand; the app fills them. A row with anything in `deleted` is not loaded.
+- **Reading rows** (`storage/load.py`, D-048):
+  - A blank cell of a field with a `default:` reads as the default (`session_no` blank = 1,
+    `completed` blank = Yes); the sheet stays blank.
+  - A row whose key is blank is ignored when it holds nothing else (the formula buffer) and
+    is a data issue ("no date: the row is left out") when it holds data. Without a natural
+    key, rows with no field values are ignored.
+  - Two rows with the same key: the upper one is used, each later one is a data issue.
+  - `auto:` columns, `updated_at` and columns the module doesn't know are ignored on read; a
+    missing tab or a missing field column is a data issue (schema sync adds them, #17).
+  - A child row without its parent row is a data issue; the record still loads.
 - The app writes **data validation** (dropdowns for choices, number ranges for scales,
   date format on date columns), so hand entry in Google/Excel/LibreOffice stays constrained.
   The dropdowns are rewritten on every schema sync, so they always match the YAML.
@@ -57,15 +70,18 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
 tabs on `(date, session_no)`, replacing today's fragile join by row position: tabs can be
 sorted or filtered independently, and rows can be in any order.
 - The `Session` tab is the anchor. A section row whose date has no `Session` row is reported
-  as a data issue ("Wellbeing row for 2026-11-03 has no session"), with a one-click fix that
-  creates the session row.
+  as a data issue ("no Session row for date 2026-11-03, session_no 1") and left out, with a
+  one-click fix that creates the session row. Required fields are checked once the tabs are
+  joined, on the section rows that exist (a section not filled in yet is not an issue).
 - In the app the session is still edited as one record; the backend splits the write
   across the tabs.
 - Constraint: within one journal there is at most one session per day unless `session_no`
   is used (decided in Q2; separate journals are separate workbooks, D-005).
 
 ## 2. Local `.xlsx` backend
-- Read: `openpyxl` (read-only mode for loading) into a DataFrame per tab.
+- Read: `openpyxl` in read-only mode with `data_only` (a cell is what the sheet shows: a
+  formula gives its last computed value), the whole workbook in one pass, kept until the
+  file's mtime changes; rows of `{column key: cell}` (D-048).
 - Write: load → modify → **atomic save** (write a temp file in the same dir, then `os.replace`).
 - **Lock detection**: refuse to write if `~$name.xlsx` (Excel) or `.~lock.name.xlsx#`
   (LibreOffice) exists. The UI shows "close the file in LibreOffice to save". Reads still work.
