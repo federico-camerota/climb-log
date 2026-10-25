@@ -11,7 +11,7 @@ import datetime as dt
 from collections.abc import Callable, Mapping
 
 from climblog.expr import Value
-from climblog.modules.schema import BaseField, Entity, Module
+from climblog.modules.schema import NEXT, BaseField, Entity, Module
 from climblog.storage.base import Append, Edit, Repository, StorageError, Update
 from climblog.storage.cells import CellError, RawCell, parse_cell
 from climblog.storage.load import DELETED, Key, ModuleData, describe_key, load_data
@@ -132,9 +132,10 @@ class RecordWriter:
         return key
 
     def _or_default(self, entity: Entity, name: str, value: Value) -> Value:
-        """The value, or the field's default when blank (as on read, D-048)."""
+        """The value, or the field's default when blank (as on read, D-048). A `next` number
+        is not filled in yet: it stays blank (D-050)."""
         field = _field(entity, name)
-        if value is None and field.default is not None:
+        if value is None and field.default not in (None, NEXT):
             return parse_cell(self.module, field, field.default)  # checked at load
         return value
 

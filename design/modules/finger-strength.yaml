@@ -62,7 +62,7 @@ entities:
     key: [date, set_no]
     fields:
       date:       {type: date, required: true}
-      set_no:     {type: integer, min: 1, help: "blank = next number"}
+      set_no:     {type: integer, min: 1, default: next, help: "blank = next number"}
       edge_mm:    {type: number, min: 5, max: 40, step: 1, unit: mm}
       grip:       {type: choice, choices: [Half crimp, Open hand, Full crimp, Three-finger drag], allow_other: true}
       arms:       {type: choice, choices: [Two arms, One arm], default: Two arms}
@@ -80,7 +80,7 @@ entities:
     key: [date, set_no]
     fields:
       date:          {type: date, required: true}
-      set_no:        {type: integer, min: 1, help: "blank = next number"}
+      set_no:        {type: integer, min: 1, default: next, help: "blank = next number"}
       # single-handed block, each hand logged separately in the same row (Q19)
       load_left_kg:  {type: number, min: 0, step: 0.5, unit: kg, label: Block left (kg)}
       reps_left:     {type: integer, min: 1, label: Reps left}

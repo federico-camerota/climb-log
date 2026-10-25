@@ -50,9 +50,10 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
 - **Writing records** (`storage/write.py`, D-049):
   - Values are checked as they would read back (`parse_cell`), so a write never makes a data
     issue; booleans are written `Yes`/`No`, text always as text cells (§3b).
-  - A new record needs a complete key (blank parts take their `default:`, as on read) that no
-    row of its tabs holds yet, orphan section rows included; a child needs its parent row. A
-    split record gets a row in its anchor tab and in each section tab it has values for.
+  - A new record needs a complete key (blank parts take their `default:`, as on read; a
+    `default: next` number must still be given, D-050) that no row of its tabs holds yet,
+    orphan section rows included; a child needs its parent row. A split record gets a row in
+    its anchor tab and in each section tab it has values for.
   - New rows go into the **first free row**: from row 3, the first whose columns other than
     `auto:` are all blank (a formula-buffer row), else below the last row. A blank-key row
     with data is never overwritten.
@@ -68,6 +69,11 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
   - A row whose key is blank is ignored when it holds nothing else (the formula buffer) and
     is a data issue ("no date: the row is left out") when it holds data. Without a natural
     key, rows with no field values are ignored.
+  - A blank key part with `default: next` (set numbers, D-050) is the row's position among the
+    rows with the same other key parts (the date), counted top-down; rows with a typed number
+    count too, deleted rows and rows without a date don't. This is what the sheet's
+    `auto:set_no` formula shows (`COUNTIFS`); the generated formula (#18) leaves deleted rows
+    out as well. A typed number equal to a computed one is a duplicate (next bullet).
   - Two rows with the same key: the upper one is used, each later one is a data issue.
   - `auto:` columns, `updated_at` and columns the module doesn't know are ignored on read; a
     missing tab or a missing field column is a data issue (schema sync adds them, #17).

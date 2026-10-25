@@ -114,6 +114,10 @@ class Setting(Strict):
 
 # ---- Fields (03-module-framework.md §2.1) ----
 
+# `default: next` on an integer key field: a blank cell is the row's position among the rows
+# with the same other key parts, in sheet order (set numbers, D-050).
+NEXT = "next"
+
 
 class BaseField(Strict):
     label: str | None = None

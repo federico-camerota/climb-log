@@ -59,5 +59,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   text, never as a formula; atomic save, refusal while the file is open in Excel or
   LibreOffice, rotating backups (D-049).
 
+### Fixed
+- Set rows typed by hand with a blank Set # load with the next number for that date
+  (`default: next`) instead of being left out with a data issue (D-050, #35).
+
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

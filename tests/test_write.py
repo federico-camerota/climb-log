@@ -54,7 +54,7 @@ entities:
     fields:
       date: {type: date}
       session_no: {type: integer, default: 1}
-      set_no: {type: integer}
+      set_no: {type: integer, default: next}  # not filled in by writes yet
       kg: {type: number}
   fall:
     label: Fall

@@ -116,6 +116,17 @@ def test_reference_templates_wait_for_reference_tables() -> None:
     assert isinstance(fear.entities["q20"].fields["q_"], ReferenceTemplateUse)
 
 
+SET_FIELDS = "    parent: {entity: session, key: [date], fixed: {session_type: Hangs}}\n" + (
+    "    fields:\n      date: {type: date}\n      "
+)
+SESSION_FIELDS = (
+    "    sections:\n      info: {label: Info, tab: Sessions}\n"
+    "      body: {label: Body, phase: pre, tab: Body}\n    fields:\n"
+    '      date: {type: date, section: "*"}\n'
+    "      session_type: {type: choice, choices: [Hangs, Curls]}\n      "
+)
+
+
 @pytest.mark.parametrize(
     ("old", "new", "expected"),
     [
@@ -183,6 +194,18 @@ def test_reference_templates_wait_for_reference_tables() -> None:
          "28:5 entities.set.parent: `key` and `fixed` must together be the key of 'session'"),
         ("    key: [date, set_no]\n", "    key: [set_no]\n",
          "28:37 entities.set.parent.key[0]: 'date' must be a field in this entity's key"),
+        # `default: next` (D-050)
+        ("set_no: {type: integer}", "set_no: {type: number, default: next}",
+         "31:30 entities.set.fields.set_no.default: `default: next` needs an integer key field"),
+        ("kg: {type: number}", "kg: {type: number, default: next}",
+         "32:26 entities.set.fields.kg.default: `default: next` needs an integer key field"),
+        ("key: [date, set_no]\n" + SET_FIELDS + "set_no: {type: integer}",
+         "key: [set_no]\n" + SET_FIELDS + "set_no: {type: integer, default: next}",
+         "31:31 entities.set.fields.set_no.default: `default: next` needs an integer key field"),
+        ("key: [date, session_type]\n" + SESSION_FIELDS,
+         "key: [date, session_type, n]\n" + SESSION_FIELDS
+         + "n: {type: integer, default: next, section: '*'}\n      ",
+         "21:26 entities.session.fields.n.default: `default: next` needs an integer key field"),
         # field evolution
         ("date: {type: date, section: \"*\"}", "date: {type: date, section: \"*\", retired: true}",
          "19:7 entities.session.fields.date: a key or required field cannot be retired"),

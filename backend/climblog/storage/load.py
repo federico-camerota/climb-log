@@ -2,8 +2,9 @@
 """Load a module's records from its workbook, with data issues (04-storage.md §1, §4, D-048).
 
 Every entity's tabs are read through a `Repository`, cells are parsed by field type, and rows
-become records: rows without a key are ignored when empty and reported when not, the first of
-duplicate keys wins, and the section tabs of a split entity join the anchor tab on the key.
+become records: rows without a key are ignored when empty and reported when not, a blank
+`default: next` key part is numbered in sheet order (D-050), the first of duplicate keys wins,
+and the section tabs of a split entity join the anchor tab on the key.
 Whatever doesn't fit is a data issue; the rest still loads. Derived values are computed
 afterwards (`modules/compute.py`).
 """
@@ -14,6 +15,7 @@ from dataclasses import dataclass, field
 
 from climblog.expr import Value
 from climblog.modules.schema import (
+    NEXT,
     BaseField,
     BoolField,
     DateField,
@@ -99,6 +101,11 @@ class _Loader:
         self.issues = issues
         self.parser = RowParser(module, name)
         self.key = self.entity.key or []
+        fields = self.entity.fields
+        self.next = next(  # a key part numbered when blank (D-050)
+            (k for k in self.key if isinstance(f := fields[k], BaseField) and f.default == NEXT),
+            None,
+        )
         tabs = self.entity.tab_fields()
         anchor = self.entity.main_tab
         self.tabs = {anchor: tabs[anchor], **{t: f for t, f in tabs.items() if t != anchor}}
@@ -114,8 +121,9 @@ class _Loader:
             for missing in (f for f in fields if f not in table.columns):
                 self.issues.append(DataIssue(tab, None, missing, "the column is missing"))
             first_row: dict[Key, int] = {}
+            counts: dict[Key, int] = {}
             for row in table.rows:
-                self._row(tab, present, row, first_row)
+                self._row(tab, present, row, first_row, counts)
         self._check_required()
         return self.data
 
@@ -126,12 +134,21 @@ class _Loader:
             self.issues.append(DataIssue(tab, None, None, "the tab is missing"))
             return None
 
-    def _row(self, tab: str, fields: list[str], row: SheetRow, first_row: dict[Key, int]) -> None:
+    def _row(
+        self,
+        tab: str,
+        fields: list[str],
+        row: SheetRow,
+        first_row: dict[Key, int],
+        counts: dict[Key, int],
+    ) -> None:
         if not _blank(row.cells.get(DELETED)):
             return
         values, issues = self.parser.parse(
             row.cells, tab=tab, row=row.number, fields=fields, required=False
         )
+        if self.next is not None:
+            self._number(values, issues, counts)
         has_data = any(not _blank(row.cells.get(f)) for f in fields if f not in self.key)
         if not self.key:
             if has_data:
@@ -176,6 +193,20 @@ class _Loader:
             return
         self.data.records[index].update(values)
         self.data.places[index][tab] = row.number
+
+    def _number(
+        self, values: dict[str, Value], issues: list[DataIssue], counts: dict[Key, int]
+    ) -> None:
+        """Count the row among those with the same other key parts; a blank `next` part is
+        that position (as the sheet's `COUNTIFS` formula; a bad cell stays bad)."""
+        assert self.next is not None
+        others = tuple(values.get(part) for part in self.key if part != self.next)
+        if None in others:
+            return
+        counts[others] = counts.get(others, 0) + 1
+        bad = any(issue.field == self.next for issue in issues)
+        if values.get(self.next) is None and not bad:
+            values[self.next] = counts[others]
 
     def _add(self, tab: str, number: int, values: dict[str, Value]) -> None:
         self.data.records.append(values)
