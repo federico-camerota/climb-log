@@ -59,9 +59,11 @@ forms and widgets from module schemas and view definitions served by the API.
    tabs joined), then compute derived fields (`modules/compute.py`). Analytics build pandas
    DataFrames from these records (M4). Kept in memory and persisted as a **local snapshot** on disk (`04-storage.md` §6), so the app starts instantly and works read-only offline.
 2. **Read** requests are served from the snapshot. Analytics run on its DataFrames.
-3. **Write** (create/update/delete a record): validate with pydantic, write through to the
-   backend (row append or row update by `id`), then update the cache and recompute that
-   module's derived fields.
+3. **Write** (create/update/delete a record): validate with pydantic, then `storage/write.py`
+   checks the values as they would read back, finds the record by its natural key, and writes
+   row edits (appends into free rows, updates checked against the row as read, soft deletes)
+   through the backend in one save (D-049); then update the cache and recompute that module's
+   derived fields.
 4. **External change detection**: local file `mtime` polling; Google via Drive
    `modifiedTime` polling (e.g. every 30–60 s while the UI is open) plus a manual
    "Reload" button. On change, reload the affected module.
@@ -85,12 +87,13 @@ backend/climblog/
     rules.py           # windows (counts over recent records), recommendations (M3)
   storage/
     cells.py           # read cells by field type, data issues (D-046)
-    base.py            # Repository protocol, Table, errors (D-048)
+    base.py            # Repository protocol, Table, row edits, errors (D-048, D-049)
     load.py            # tabs → records: keys, defaults, joins, data issues (D-048)
-    xlsx.py            # XlsxBackend
+    write.py           # records → row edits: add, update, soft delete (D-049)
+    xlsx.py            # XlsxBackend: read, atomic writes, lock check (D-048, D-049)
     gsheets.py         # GSheetsBackend
     sync.py            # header/schema sync, data validation, styling
-    backup.py
+    backup.py          # rotating copies before writes (D-049)
   analytics/
     timeseries.py  load.py  correlate.py  calendar.py  search.py
   plugins/
@@ -108,12 +111,14 @@ modules/               # module YAML definitions (user-editable)
 ## Key interfaces
 
 ```python
-class Repository(Protocol):                                        # storage/base.py (D-048)
+class Repository(Protocol):                               # storage/base.py (D-048, D-049)
     def list_tables(self) -> list[str]: ...
     def read_table(self, table: str) -> Table: ...    # row 2 keys; rows of {key: raw cell}
     def read_kv(self, table: str) -> dict[str, RawCell]: ...       # _meta, _settings
     def last_modified(self) -> datetime: ...
-    # to come: append_rows, update_row, delete_row (soft), write_kv (#15); ensure_table (#17)
+    def apply(self, edits: Sequence[Append | Update]) -> list[int]: ...  # one save, all or none
+    def write_kv(self, table: str, values: Mapping[str, RawCell]) -> None: ...
+    # to come: ensure_table (#17)
 ```
 
 Both backends implement it. Analytics and the engine never know which one is in use.

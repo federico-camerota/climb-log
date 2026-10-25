@@ -18,10 +18,12 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 - Meta-schema (pydantic) for module YAML; loader with good error messages; JSON Schema export. → done (D-041).
 - Expression evaluator (safe AST), `bands`, `when`, `worst_of`, `flip`, `prev`. → parser, load-time check and evaluator done (D-043); derived fields with `bands`/`when`/`worst_of`/`map_from`, checked at load and computed in dependency order, done (D-044); `prev`, `parent.x`, `children(e).x` and `last` computed over whole tables (D-045).
 - Natural keys, **split entities** (one tab per section), **child entities** (sets), templates (`soreness`), `visible_if`; orphan-row detection. → schema side done (D-042); `visible_if` checked (D-043); orphan rows in #14.
-- Text handling: raw-text writes, decimal commas, accent-insensitive search (D-024). → reading cells by type with data issues, decimal commas and accent-insensitive search done (D-046); raw-text writes in #15.
+- Text handling: raw-text writes, decimal commas, accent-insensitive search (D-024). → reading cells by type with data issues, decimal commas and accent-insensitive search done (D-046); raw-text writes done (D-049).
 - `Repository` interface + `XlsxBackend`: read/append/update/soft delete, atomic save,
   lock detection, backups. Two-row headers (labels + keys), data validation. → reading done
-  (Repository, XlsxBackend, loading with joins and data issues, D-048); writes in #15.
+  (Repository, XlsxBackend, loading with joins and data issues, D-048); writes done (record
+  add/update/soft delete with conflict check, free-row appends, raw text, atomic save, lock
+  check, rotating backups, D-049).
 - Schema sync (create tabs, headers, validation, additive changes) + `climblog check`.
 - **Formula compiler** (D-018): derived fields → per-row sheet formulas, `_settings`
   references, pre-filled formula buffer, conditional formatting, drift check.
