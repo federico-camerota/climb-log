@@ -53,6 +53,11 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
   - A row whose key is blank is ignored when it holds nothing else (the formula buffer) and
     is a data issue ("no date: the row is left out") when it holds data. Without a natural
     key, rows with no field values are ignored.
+  - A blank key part with `default: next` (set numbers, D-050) is the row's position among the
+    rows with the same other key parts (the date), counted top-down; rows with a typed number
+    count too, deleted rows and rows without a date don't. This is what the sheet's
+    `auto:set_no` formula shows (`COUNTIFS`); the generated formula (#18) leaves deleted rows
+    out as well. A typed number equal to a computed one is a duplicate (next bullet).
   - Two rows with the same key: the upper one is used, each later one is a data issue.
   - `auto:` columns, `updated_at` and columns the module doesn't know are ignored on read; a
     missing tab or a missing field column is a data issue (schema sync adds them, #17).

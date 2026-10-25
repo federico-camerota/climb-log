@@ -58,7 +58,7 @@ entities:
     fields:
       date: {type: date}
       session_no: {type: integer, default: 1}
-      set_no: {type: integer}
+      set_no: {type: integer, default: next}
       kg: {type: number}
       completed: {type: bool, default: true}
   fall:
@@ -176,6 +176,34 @@ def test_duplicate_keys_keep_the_upper_row(module: Module) -> None:
         "Session:4:None: same date, session_no as row 3: the row is left out"
     ]
     assert data.entities["session"].records[0]["kind"] == "Climb"
+
+
+def test_a_blank_set_number_is_the_rows_place_in_its_session(module: Module) -> None:
+    keys = [*SETS, "deleted"]
+    sets = tab(
+        keys,
+        [D20, None, 1, 10],
+        [D20, None, None, 11],  # 2nd row of the 20th → 2
+        [D21, 2, None, 5],  # another session: 1
+        [D20, None, None, 12, None, "x"],  # deleted: not counted
+        [None, None, None, 13],  # no date: left out, not counted
+        [D20, 1, None, 14],  # session_no blank = 1: same session, 3rd row → 3
+        [D20, None, 2, 15],  # typed 2 again: a duplicate, as in the sheet
+        [D20, None, "two", 16],  # a bad number stays bad
+    )
+    data = load_data(module, Memory(tabs(Sets=sets)))
+    numbered = [
+        (s["date"], s["session_no"], s["set_no"], s["kg"]) for s in data.entities["set"].records
+    ]
+    day20, day21 = D20.date(), D21.date()
+    assert numbered == [
+        (day20, 1, 1, 10), (day20, 1, 2, 11), (day21, 2, 1, 5), (day20, 1, 3, 14)
+    ]  # fmt: skip
+    assert [_line(i) for i in data.issues] == [
+        "Sets:7:date: no date: the row is left out",
+        "Sets:9:None: same date, session_no, set_no as row 4: the row is left out",
+        "Sets:10:set_no: 'two' is not a number",
+    ]
 
 
 def test_deleted_rows_are_skipped(module: Module) -> None:

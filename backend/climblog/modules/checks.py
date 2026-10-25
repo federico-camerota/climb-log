@@ -17,12 +17,14 @@ from climblog.expr.nodes import ValueType
 from climblog.grades import SUPPORTED
 from climblog.modules.derived import DerivedPlan, check_derived
 from climblog.modules.schema import (
+    NEXT,
     BaseField,
     ChoiceField,
     DateField,
     Entity,
     GradeField,
     Module,
+    NumberField,
     NumericScale,
     OrdinalScale,
     Problem,
@@ -140,6 +142,8 @@ def _check_entity(module: Module, e_name: str, entity: Entity) -> list[Problem]:
                 )
             renamed[field.renamed_from] = f_key
         problems += _check_section(entity, f_key, field, f_at)
+        if field.default == NEXT:
+            problems += _check_next(entity, f_key, field, f_at)
 
     for f_key, field in entity.fields.items():
         f_at = (*at, "fields", f_key)
@@ -323,6 +327,16 @@ def _check_section(entity: Entity, f_key: str, field: BaseField, at: YamlPath) -
         return [Problem(at, f"unknown section '{field.section}' (known: {known})")]
     if field.section is None and entity.is_split and not is_key:
         return [Problem(at, "the entity is split across tabs, so this field needs a `section`")]
+    return []
+
+
+def _check_next(entity: Entity, f_key: str, field: BaseField, at: YamlPath) -> list[Problem]:
+    """`default: next` numbers rows within the other key parts of one tab (D-050)."""
+    key = entity.key or []
+    is_integer = isinstance(field, NumberField) and field.type == "integer"
+    if not is_integer or f_key not in key or len(key) < 2 or entity.is_split:
+        message = "`default: next` needs an integer key field with other key parts, on one tab"
+        return [Problem((*at, "default"), message)]
     return []
 
 

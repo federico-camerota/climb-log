@@ -54,5 +54,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   missing tabs or columns (D-048). New dependency: `openpyxl` (MIT); `types-openpyxl`
   (Apache-2.0) for mypy.
 
+### Fixed
+- Set rows typed by hand with a blank Set # load with the next number for that date
+  (`default: next`) instead of being left out with a data issue (D-050, #35).
+
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

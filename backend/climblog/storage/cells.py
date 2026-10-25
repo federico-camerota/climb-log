@@ -16,6 +16,7 @@ from climblog.expr import Checked, Value, evaluate, prepare
 from climblog.grades import GradeError, parse_grade
 from climblog.modules.checks import expression_env
 from climblog.modules.schema import (
+    NEXT,
     BaseField,
     BoolField,
     ChoiceField,
@@ -182,7 +183,7 @@ class RowParser:
         return [(k, f) for k, f in self.fields.items() if keys is None or k in keys]
 
     def _default(self, field: BaseField) -> Value:
-        if field.default is None:
+        if field.default is None or field.default == NEXT:  # `next`: numbered by the loader
             return None
         try:
             return parse_cell(self.module, field, field.default)
