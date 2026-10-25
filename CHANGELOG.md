@@ -48,6 +48,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - Grade parser: French (`6b+`) and gym (plain numbers) grades with a numeric index, the
   system detected per value, slash grades (`6a/6a+`) halfway; bad grades are data issues and
   unsupported systems a load error (D-047).
+- Reading local workbooks: a `Repository` interface and the `.xlsx` backend (openpyxl), and
+  loading records with blank = default, ignored empty rows, duplicate keys, soft-deleted rows,
+  split tabs joined on the key, settings from `_settings`, and data issues for orphan rows and
+  missing tabs or columns (D-048). New dependency: `openpyxl` (MIT); `types-openpyxl`
+  (Apache-2.0) for mypy.
 
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

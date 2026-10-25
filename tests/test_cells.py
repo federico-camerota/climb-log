@@ -251,3 +251,15 @@ def test_note_contents_never_reach_an_issue(module: Module) -> None:
     _, issues = RowParser(module, "log").parse(raw, tab="Log", row=3)
     assert issues
     assert all("ginocchio" not in issue.message for issue in issues)
+
+
+def test_blank_cells_read_as_the_default(load: LoadYaml) -> None:
+    """D-048: blank = default; a default that is not valid for its field is used as written."""
+    text = MODULE.replace(
+        "      red_flag: {type: bool}",
+        "      red_flag: {type: bool, default: false}\n"
+        "      arms: {type: choice, choices: [One arm, Two arms], default: two arms}\n"
+        "      odd: {type: number, default: lots}",
+    )
+    values, _ = RowParser(load(text), "log").parse({"date": "2026-10-24"}, tab="Log", row=3)
+    assert (values["red_flag"], values["arms"], values["odd"]) == (False, "Two arms", "lots")

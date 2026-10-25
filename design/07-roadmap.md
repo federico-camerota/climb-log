@@ -20,7 +20,8 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 - Natural keys, **split entities** (one tab per section), **child entities** (sets), templates (`soreness`), `visible_if`; orphan-row detection. → schema side done (D-042); `visible_if` checked (D-043); orphan rows in #14.
 - Text handling: raw-text writes, decimal commas, accent-insensitive search (D-024). → reading cells by type with data issues, decimal commas and accent-insensitive search done (D-046); raw-text writes in #15.
 - `Repository` interface + `XlsxBackend`: read/append/update/soft delete, atomic save,
-  lock detection, backups. Two-row headers (labels + keys), data validation.
+  lock detection, backups. Two-row headers (labels + keys), data validation. → reading done
+  (Repository, XlsxBackend, loading with joins and data issues, D-048); writes in #15.
 - Schema sync (create tabs, headers, validation, additive changes) + `climblog check`.
 - **Formula compiler** (D-018): derived fields → per-row sheet formulas, `_settings`
   references, pre-filled formula buffer, conditional formatting, drift check.

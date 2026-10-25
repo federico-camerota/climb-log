@@ -54,9 +54,10 @@ forms and widgets from module schemas and view definitions served by the API.
   Google token path, the backup location and the LAN PIN hash. It contains no training data.
 
 ## Data flow
-1. **Startup**: load module YAMLs, then each module's data source, then read all tabs into
-   pandas DataFrames, then validate (invalid cells go to a *data issues* list), then compute
-   derived fields. Kept in memory and persisted as a **local snapshot** on disk (`04-storage.md` §6), so the app starts instantly and works read-only offline.
+1. **Startup**: load module YAMLs, then each module's data source, then read all tabs as rows
+   (`storage/load.py`: cells parsed by type, invalid cells go to a *data issues* list, split
+   tabs joined), then compute derived fields (`modules/compute.py`). Analytics build pandas
+   DataFrames from these records (M4). Kept in memory and persisted as a **local snapshot** on disk (`04-storage.md` §6), so the app starts instantly and works read-only offline.
 2. **Read** requests are served from the snapshot. Analytics run on its DataFrames.
 3. **Write** (create/update/delete a record): validate with pydantic, write through to the
    backend (row append or row update by `id`), then update the cache and recompute that
@@ -84,7 +85,8 @@ backend/climblog/
     rules.py           # windows (counts over recent records), recommendations (M3)
   storage/
     cells.py           # read cells by field type, data issues (D-046)
-    base.py            # Repository protocol, TableSchema, errors
+    base.py            # Repository protocol, Table, errors (D-048)
+    load.py            # tabs → records: keys, defaults, joins, data issues (D-048)
     xlsx.py            # XlsxBackend
     gsheets.py         # GSheetsBackend
     sync.py            # header/schema sync, data validation, styling
@@ -106,16 +108,12 @@ modules/               # module YAML definitions (user-editable)
 ## Key interfaces
 
 ```python
-class Repository(Protocol):
+class Repository(Protocol):                                        # storage/base.py (D-048)
     def list_tables(self) -> list[str]: ...
-    def read_table(self, table: str) -> pd.DataFrame: ...          # header row → columns
-    def append_rows(self, table: str, rows: list[dict]) -> None: ...
-    def update_row(self, table: str, id: str, values: dict) -> None: ...
-    def delete_row(self, table: str, id: str) -> None: ...         # soft delete (see storage)
-    def ensure_table(self, table: str, columns: list[ColumnSpec]) -> SyncReport: ...
-    def read_kv(self, table: str) -> dict[str, str]: ...           # _meta, _settings
-    def write_kv(self, table: str, values: dict[str, str]) -> None: ...
+    def read_table(self, table: str) -> Table: ...    # row 2 keys; rows of {key: raw cell}
+    def read_kv(self, table: str) -> dict[str, RawCell]: ...       # _meta, _settings
     def last_modified(self) -> datetime: ...
+    # to come: append_rows, update_row, delete_row (soft), write_kv (#15); ensure_table (#17)
 ```
 
 Both backends implement it. Analytics and the engine never know which one is in use.

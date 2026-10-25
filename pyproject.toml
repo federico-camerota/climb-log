@@ -9,6 +9,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.159.1",
+    "openpyxl>=3.1.5",
     "pydantic>=2.14.1",
     "ruamel-yaml>=0.19.1",
     "typer>=0.27.3",
@@ -33,6 +34,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.1",
+    "types-openpyxl>=3.1.5.20261017",
 ]
 
 [tool.ruff]
