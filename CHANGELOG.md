@@ -53,6 +53,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   split tabs joined on the key, settings from `_settings`, and data issues for orphan rows and
   missing tabs or columns (D-048). New dependency: `openpyxl` (MIT); `types-openpyxl`
   (Apache-2.0) for mypy.
+- Writing local workbooks: add, update and soft-delete records (`RecordWriter`), split over
+  their tabs, into the first free row of the formula buffer; updates refused when the row was
+  edited in the sheet meanwhile; deleting a session also deletes its sets; text written as
+  text, never as a formula; atomic save, refusal while the file is open in Excel or
+  LibreOffice, rotating backups (D-049).
 
 ### Fixed
 - Set rows typed by hand with a blank Set # load with the next number for that date

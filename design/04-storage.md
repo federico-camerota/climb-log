@@ -47,6 +47,22 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
   blank** by hand; the app fills it on the next sync.
 - Hand-optional system columns at the right: `updated_at`, `deleted` (soft delete).
   Left blank by hand; the app fills them. A row with anything in `deleted` is not loaded.
+- **Writing records** (`storage/write.py`, D-049):
+  - Values are checked as they would read back (`parse_cell`), so a write never makes a data
+    issue; booleans are written `Yes`/`No`, text always as text cells (§3b).
+  - A new record needs a complete key (blank parts take their `default:`, as on read; a
+    `default: next` number must still be given, D-050) that no row of its tabs holds yet,
+    orphan section rows included; a child needs its parent row. A split record gets a row in
+    its anchor tab and in each section tab it has values for.
+  - New rows go into the **first free row**: from row 3, the first whose columns other than
+    `auto:` are all blank (a formula-buffer row), else below the last row. A blank-key row
+    with data is never overwritten.
+  - An update changes the record's rows (a section tab without a row gets one) and is refused
+    if the row changed in the sheet since it was read (all columns but `auto:`, D-027). Key
+    fields can't change: delete and add instead.
+  - A soft delete puts the time in `deleted` on every row of the record (all its tabs need
+    the column) and on its children's rows (matched on the parent key and `fixed`).
+  - Every row written gets `updated_at` (local time) when its tab has that column.
 - **Reading rows** (`storage/load.py`, D-048):
   - A blank cell of a field with a `default:` reads as the default (`session_no` blank = 1,
     `completed` blank = Yes); the sheet stays blank.
@@ -87,11 +103,18 @@ sorted or filtered independently, and rows can be in any order.
 - Read: `openpyxl` in read-only mode with `data_only` (a cell is what the sheet shows: a
   formula gives its last computed value), the whole workbook in one pass, kept until the
   file's mtime changes; rows of `{column key: cell}` (D-048).
-- Write: load → modify → **atomic save** (write a temp file in the same dir, then `os.replace`).
+- Write: load with formulas (not `read_only`/`data_only`) → modify → **atomic save** (a temp
+  file in the same dir, `fsync`, then `os.replace`, keeping the file's permissions); all the
+  edits of one write in one save (D-049). Strings are text cells (format `@`), never formulas;
+  dates and times written into General cells get `DD/MM/YYYY` / `HH:MM`, and a format chosen
+  in the sheet is kept. openpyxl drops the cached formula results and marks the file to be
+  recalculated when opened (`fullCalcOnLoad`), so Excel and LibreOffice recompute the
+  `auto:` columns.
 - **Lock detection**: refuse to write if `~$name.xlsx` (Excel) or `.~lock.name.xlsx#`
   (LibreOffice) exists. The UI shows "close the file in LibreOffice to save". Reads still work.
-- **Backups**: before the first write of each app session and then at most every N minutes,
-  copy to `backups/<module>/<timestamp>.xlsx`, keeping the last 30 (configurable).
+- **Backups**: before the first write of each app session and then at most every 30 minutes,
+  copy to `backups/<module>/<YYYYMMDD-HHMMSS>.xlsx`, keeping the last 30 (both configurable;
+  the folder comes from the app config, #16). `storage/backup.py`, D-049.
 - Change detection: poll `mtime` and reload when it changes and we didn't cause it.
 - `.csv` folder backend: a possible cheap extra (one CSV per tab), not planned.
 
@@ -121,9 +144,9 @@ are picked up by change polling.
 ## 3b. Text and language (Italian notes, D-024)
 - UTF-8 end to end; accented letters (à è é ì ò ù), typographic quotes and emoji round-trip
   unchanged through both backends and the snapshot.
-- Text fields are written **as raw text** (Sheets `valueInputOption=RAW`; openpyxl
-  string cells with the `@` text format on text columns). A note starting with `'` (common
-  when typing *po'*, *giovedi'*), `=`, `+` or `-` is therefore stored literally. It is
+- Text fields are written **as raw text** (Sheets `valueInputOption=RAW`; openpyxl text
+  cells with the `@` format, for every string the app writes, D-049). A note starting with
+  `'` (common when typing *po'*, *giovedi'*), `=`, `+` or `-` is therefore stored literally. It is
   never turned into a formula or stripped by the spreadsheet (this also prevents formula injection).
 - On read, text cells are kept exactly as written: leading `'` or `=`, surrounding spaces and
   line breaks in multiline notes (`climblog/storage/cells.py`, D-046).

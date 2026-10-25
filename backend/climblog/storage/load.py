@@ -186,7 +186,7 @@ class _Loader:
             return
         index = self.by_key.get(key)
         if index is None:
-            what = _describe(self.key, key)
+            what = describe_key(self.key, key)
             self.issues.append(
                 DataIssue(tab, row.number, None, f"no {self.entity.main_tab} row for {what}")
             )
@@ -243,13 +243,13 @@ def _report_orphan_children(
             key = tuple(record.get(part) for part in link.key)
             if key not in keys:
                 tab = entity.main_tab
-                what = _describe(link.key, key)
+                what = describe_key(link.key, key)
                 issues.append(
                     DataIssue(tab, places[tab], None, f"no {parent.main_tab} row for {what}")
                 )
 
 
-def _describe(parts: list[str], key: Key) -> str:
+def describe_key(parts: list[str], key: Key) -> str:
     """`date 2026-11-03, session_no 1`."""
     return ", ".join(f"{part} {_text(value)}" for part, value in zip(parts, key, strict=True))
 

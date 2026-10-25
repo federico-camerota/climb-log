@@ -14,6 +14,7 @@ from climblog.modules import Module
 from climblog.modules.compute import compute_module
 from climblog.storage import (
     DataIssue,
+    Edit,
     RawCell,
     SheetRow,
     Table,
@@ -105,6 +106,12 @@ class Memory:
 
     def last_modified(self) -> dt.datetime:
         return dt.datetime(2026, 10, 24)
+
+    def apply(self, edits: Sequence[Edit]) -> list[int]:
+        raise NotImplementedError("read-only")
+
+    def write_kv(self, name: str, values: Mapping[str, RawCell]) -> None:
+        raise NotImplementedError("read-only")
 
 
 @pytest.fixture
