@@ -93,4 +93,6 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   items (D-056).
 
 ### Changed
+- CI no longer installs LibreOffice: the formula parity tests are skipped there and run
+  locally before changes to formulas, expressions or sync (D-057).
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

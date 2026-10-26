@@ -335,10 +335,12 @@ column** in the sheet:
   5.824999999999999 (5.825 on paper) rounds to 5.83 in both.
 - **Parity test** (`tests/test_formula_parity.py`): fictional workbooks with random rows from
   fixed seeds (blanks, second sessions, sets, missing section rows) are recalculated by
-  LibreOffice headless and every formula cell must equal the app's value. CI installs
-  LibreOffice; locally the test runs when a working `soffice` is found (`CLIMBLOG_SOFFICE`, e.g.
-  `snap run libreoffice`, with `CLIMBLOG_SOFFICE_TMP=build/lo-parity` for a snap) and is
-  skipped otherwise. Hand-written formulas are not compared.
+  LibreOffice headless and every formula cell must equal the app's value. It runs when a
+  working `soffice` is found (`CLIMBLOG_SOFFICE`, e.g. `snap run libreoffice`, with
+  `CLIMBLOG_SOFFICE_TMP=build/lo-parity` for a snap) and is skipped otherwise, CI included
+  (D-057): run it locally before a PR that changes formulas, expressions or sync.
+  `CLIMBLOG_REQUIRE_SOFFICE=1` turns the skip into a failure. Hand-written formulas are not
+  compared.
 
 ### 2.3 Cross-record rules
 - **Declarative** (covers most cases; D-045):

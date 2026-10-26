@@ -19,7 +19,7 @@ from climblog.modules import Module, load_module
 ROOT = Path(__file__).parent.parent
 DRAFTS = ROOT / "design" / "modules"
 
-# CI sets CLIMBLOG_REQUIRE_SOFFICE, so a broken LibreOffice there fails instead of skipping.
+# CLIMBLOG_REQUIRE_SOFFICE makes a missing or broken LibreOffice a failure instead of a skip.
 REQUIRED = bool(os.environ.get("CLIMBLOG_REQUIRE_SOFFICE"))
 pytestmark = pytest.mark.skipif(soffice() is None and not REQUIRED, reason="no working LibreOffice")
 
