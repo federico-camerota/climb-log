@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, ValidationIn
 from climblog.modules import Module, load_module
 from climblog.modules.schema import Key
 from climblog.storage import Backups, XlsxBackend
+from climblog.storage.snapshot import CachedRepository, Snapshots
 
 ENV_VAR = "CLIMBLOG_CONFIG"
 
@@ -58,6 +59,15 @@ class BackupConfig(_Strict):
         )
 
 
+class SnapshotConfig(_Strict):
+    folder: Path | None = None  # None: $XDG_DATA_HOME/climblog/snapshots
+
+    def snapshots(self) -> Snapshots:
+        return Snapshots(
+            self.folder or _xdg("XDG_DATA_HOME", ".local/share") / "climblog" / "snapshots"
+        )
+
+
 class ModuleConfig(_Strict):
     definition: Path  # the module YAML
     workbook: Path  # a local .xlsx; M2 adds `google_sheet`, one of the two
@@ -66,6 +76,7 @@ class ModuleConfig(_Strict):
 class AppConfig(_Strict):
     modules: dict[Key, ModuleConfig] = {}
     backups: BackupConfig = BackupConfig()
+    snapshots: SnapshotConfig = SnapshotConfig()
 
     def module(self, name: str) -> Module:
         """The module's YAML, loaded. Raises `ModuleError`, or `ValueError` if its id differs."""
@@ -78,6 +89,10 @@ class AppConfig(_Strict):
     def repository(self, name: str) -> XlsxBackend:
         """The module's workbook, with its backups (taken only on writes)."""
         return XlsxBackend(self.modules[name].workbook, backups=self.backups.for_module(name))
+
+    def cached(self, name: str) -> CachedRepository:
+        """The module's workbook through its local snapshot (D-020, D-055)."""
+        return CachedRepository(name, self.repository(name), self.snapshots.snapshots())
 
 
 def config_path(explicit: Path | None = None) -> Path:

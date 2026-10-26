@@ -65,6 +65,9 @@ forms and widgets from module schemas and view definitions served by the API.
   folder = "~/.local/share/climblog/backups"
   every_minutes = 30
   keep = 30
+
+  [snapshots]                        # optional (D-055)
+  folder = "~/.local/share/climblog/snapshots"
   ```
 
 ## Data flow
@@ -111,6 +114,7 @@ backend/climblog/
     sync.py            # schema sync: check first, then the backend applies the layout (D-052)
     xlsx_sync.py       # xlsx schema sync: tabs, headers, validation, colours, names (D-052)
     backup.py          # rotating copies before writes (D-049)
+    snapshot.py        # local snapshot: CachedRepository, offline read-only (D-055)
   analytics/
     timeseries.py  load.py  correlate.py  calendar.py  search.py
   plugins/
