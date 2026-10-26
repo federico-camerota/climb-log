@@ -19,6 +19,7 @@ from typing import Protocol
 from climblog.storage.cells import RawCell
 
 FIRST_DATA_ROW = 3
+AUTO = "auto:"  # app-managed formula columns: never written, ignored in conflict checks
 
 
 @dataclass(frozen=True)

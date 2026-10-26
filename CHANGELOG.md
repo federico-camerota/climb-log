@@ -58,6 +58,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   edited in the sheet meanwhile; deleting a session also deletes its sets; text written as
   text, never as a formula; atomic save, refusal while the file is open in Excel or
   LibreOffice, rotating backups (D-049).
+- App config `~/.config/climblog/config.toml` (or `--config` / `CLIMBLOG_CONFIG`): each
+  module's YAML and workbook, and the backups folder, interval and count (D-051).
+- `climblog check [MODULE...]`: lists where each workbook and its YAML disagree (missing tabs
+  and columns, pending renames, unknown columns, `_meta` version) without changing anything;
+  exit code 1 when something needs syncing or fixing (D-051).
 
 ### Fixed
 - Set rows typed by hand with a blank Set # load with the next number for that date

@@ -113,8 +113,9 @@ sorted or filtered independently, and rows can be in any order.
 - **Lock detection**: refuse to write if `~$name.xlsx` (Excel) or `.~lock.name.xlsx#`
   (LibreOffice) exists. The UI shows "close the file in LibreOffice to save". Reads still work.
 - **Backups**: before the first write of each app session and then at most every 30 minutes,
-  copy to `backups/<module>/<YYYYMMDD-HHMMSS>.xlsx`, keeping the last 30 (both configurable;
-  the folder comes from the app config, #16). `storage/backup.py`, D-049.
+  copy to `<backups folder>/<module>/<YYYYMMDD-HHMMSS>.xlsx`, keeping the last 30. The folder,
+  interval and count come from the app config (`[backups]`, default
+  `~/.local/share/climblog/backups`; 02-architecture, D-051). `storage/backup.py`, D-049.
 - Change detection: poll `mtime` and reload when it changes and we didn't cause it.
 - `.csv` folder backend: a possible cheap extra (one CSV per tab), not planned.
 

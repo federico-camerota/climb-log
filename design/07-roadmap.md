@@ -24,7 +24,8 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
   (Repository, XlsxBackend, loading with joins and data issues, D-048); writes done (record
   add/update/soft delete with conflict check, free-row appends, raw text, atomic save, lock
   check, rotating backups, D-049).
-- Schema sync (create tabs, headers, validation, additive changes) + `climblog check`.
+- Schema sync (create tabs, headers, validation, additive changes) + `climblog check`. → app
+  config and the read-only `climblog check` done (D-051).
 - **Formula compiler** (D-018): derived fields → per-row sheet formulas, `_settings`
   references, pre-filled formula buffer, conditional formatting, drift check.
 - Local snapshot (D-020).

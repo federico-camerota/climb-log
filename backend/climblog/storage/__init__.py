@@ -15,6 +15,7 @@ from climblog.storage.base import (
     WriteConflict,
 )
 from climblog.storage.cells import CellError, DataIssue, RawCell, RowParser, parse_cell
+from climblog.storage.check import Difference, check_schema
 from climblog.storage.load import EntityData, ModuleData, load_data
 from climblog.storage.write import RecordNotFound, RecordWriter, WriteError
 from climblog.storage.xlsx import XlsxBackend
@@ -24,6 +25,7 @@ __all__ = [
     "Backups",
     "CellError",
     "DataIssue",
+    "Difference",
     "Edit",
     "EntityData",
     "ModuleData",
@@ -41,6 +43,7 @@ __all__ = [
     "WriteConflict",
     "WriteError",
     "XlsxBackend",
+    "check_schema",
     "load_data",
     "parse_cell",
 ]
