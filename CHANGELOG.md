@@ -84,6 +84,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - The climbing journal module is complete in `modules/journal.yaml`, with a test for every rule
   of the legacy workbook; new functions `incomplete(...)` (the Log check) and `month(date)`
   (D-056).
+- Fictional journal workbooks for the tests, in the legacy layout (its formulas included) and
+  the new one with the hand-entry cases; `make fixtures` writes them to open (D-060).
 
 ### Fixed
 - Set rows typed by hand with a blank Set # load with the next number for that date

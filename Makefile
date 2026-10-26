@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Developer shortcuts. Python commands run through `uv run`, which keeps .venv in sync with uv.lock;
 # frontend commands run through pnpm in frontend/.
-.PHONY: help install dev build test lint fmt
+.PHONY: help install dev build test fixtures lint fmt
 
 PNPM := pnpm --dir frontend
 
@@ -22,6 +22,9 @@ build:  ## build the frontend into backend/climblog/static, served by `climblog 
 test:  ## run the Python and frontend tests
 	uv run pytest --cov=climblog --cov-report=term-missing
 	$(PNPM) test
+
+fixtures:  ## write the fictional journal workbooks to tests/fixtures/ (git-ignored), to open them
+	uv run python tests/fictional_journal.py tests/fixtures
 
 lint:  ## check formatting, lint rules and types (changes nothing)
 	uv run ruff format --check .
