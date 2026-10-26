@@ -9,10 +9,10 @@ give a blank when every value is blank; other functions give a blank for a blank
 
 import datetime as dt
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import ROUND_HALF_UP, Decimal
 
-from climblog.expr.nodes import Bounds, Call, ExprError, Kind, Literal, Value, ValueType
+from climblog.expr.nodes import Bounds, Call, ExprError, Fields, Kind, Literal, Value, ValueType
 
 Arg = Value | list[Value]
 CheckFn = Callable[[Call, Sequence[Kind], Mapping[str, Kind]], Kind]
@@ -69,6 +69,12 @@ def _common_scale(kinds: Sequence[Kind]) -> Bounds | None:
     return scales.pop() if len(scales) == 1 else None
 
 
+def _common_direction(kinds: Sequence[Kind]) -> bool | None:
+    """Whether all the values are on a lower-is-better scale (None: mixed or unknown)."""
+    directions = {kind.lower_better for kind in kinds}
+    return directions.pop() if len(directions) == 1 else None
+
+
 def _check_aggregate(keeps_scale: bool) -> CheckFn:
     def check(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]) -> Kind:
         _arity(call, 1)
@@ -79,7 +85,9 @@ def _check_aggregate(keeps_scale: bool) -> CheckFn:
         if fill is not None and (fill.many or fill.type != "number"):
             at = dict(call.kwargs)["missing_as"].at
             raise ExprError("missing_as must be a single number", at)
-        return Kind("number", scale=_common_scale(args) if keeps_scale else None)
+        if not keeps_scale:
+            return Kind("number")
+        return Kind("number", scale=_common_scale(args), lower_better=_common_direction(args))
 
     return check
 
@@ -108,7 +116,7 @@ def _check_coalesce(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]
     _keywords(call)
     for i, kind in enumerate(args):
         _expect(call, i, kind, (args[0].type,))
-    return Kind(args[0].type, scale=_common_scale(args))
+    return Kind(args[0].type, scale=_common_scale(args), lower_better=_common_direction(args))
 
 
 def _check_concat(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]) -> Kind:
@@ -127,7 +135,7 @@ def _check_round(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]) -
         digits = call.args[1]
         if not (isinstance(digits, Literal) and type(digits.value) is int and digits.value >= 0):
             raise ExprError("round() takes the number of decimals as a whole number", digits.at)
-    return Kind("number", scale=args[0].scale)
+    return Kind("number", scale=args[0].scale, lower_better=args[0].lower_better)
 
 
 def _check_flip(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]) -> Kind:
@@ -140,19 +148,24 @@ def _check_flip(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]) ->
             "on the same scale",
             call.args[0].at,
         )
-    return args[0]
+    if args[0].lower_better is None:
+        raise ExprError(
+            "flip() needs values on scales of one direction (all lower-is-better or not)",
+            call.args[0].at,
+        )
+    return replace(args[0], lower_better=False)  # now higher is better
 
 
 def _check_flip_all(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]) -> Kind:
     _arity(call, 1, 1)
     _keywords(call)
     _expect(call, 0, args[0], ("number",), many=True)
-    if not args[0].many or args[0].scale is None:
+    if not isinstance(call.args[0], Fields) or args[0].scale is None:
         raise ExprError(
             "flip_all() needs fields(...) on one scale; use flip() for a single value",
             call.args[0].at,
         )
-    return args[0]
+    return replace(args[0], lower_better=False)  # each value now higher-is-better
 
 
 def _check_worst_of(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]) -> Kind:
@@ -182,6 +195,26 @@ def _check_weekday(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind])
     _arity(call, 1, 1)
     _keywords(call)
     _expect(call, 0, args[0], ("date",))
+    return Kind("text")
+
+
+def _check_month(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]) -> Kind:
+    _arity(call, 1, 1)
+    _keywords(call)
+    _expect(call, 0, args[0], ("date",))
+    return Kind("text")
+
+
+def _check_incomplete(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]) -> Kind:
+    """`incomplete(Wellbeing=cond, Physical=cond, ...)`: each option a yes/no, named as shown."""
+    if call.args:
+        raise ExprError("incomplete() takes only named yes/no values: Name=condition", call.at)
+    if not call.kwargs:
+        raise ExprError("incomplete() needs at least one Name=condition", call.at)
+    for name, node in call.kwargs:
+        kind = kwargs[name]
+        if kind.many or kind.type != "bool":
+            raise ExprError(f"incomplete(): {name}= must be a yes/no, not {kind.type}", node.at)
     return Kind("text")
 
 
@@ -277,14 +310,21 @@ def _flip(value: Value, bounds: Bounds | None) -> Value:
 
 
 def _run_flip(args: Sequence[Arg], kwargs: Mapping[str, Value], call: Call) -> Value:
+    """The value turned to higher-is-better: flipped if its scale is lower-is-better."""
     value = args[0]
-    return None if isinstance(value, list) else _flip(value, call.bounds)
+    if isinstance(value, list):  # pragma: no cover - `check` allows a single value only
+        return None
+    if call.flips and not call.flips[0]:
+        return value if isinstance(value, int | float) else None
+    return _flip(value, call.bounds)
 
 
 def _run_flip_all(
     args: Sequence[Arg], kwargs: Mapping[str, Value], call: Call
 ) -> Value | list[Value]:
-    return [_flip(value, call.bounds) for value in _flat(args)]
+    """Each value turned to higher-is-better. The evaluator gives the values with their flags,
+    since `fields(...)` leaves some out per record (`since`, `retired`)."""
+    return list(_flat(args))  # pragma: no cover - `evaluate` handles flip_all(fields(...))
 
 
 def _run_worst_of(args: Sequence[Arg], kwargs: Mapping[str, Value], call: Call) -> Value:
@@ -303,6 +343,18 @@ def _day(value: Arg) -> dt.date | None:
 def _run_days_between(args: Sequence[Arg], kwargs: Mapping[str, Value], call: Call) -> Value:
     start, end = _day(args[0]), _day(args[1])
     return None if start is None or end is None else (end - start).days
+
+
+def _run_month(args: Sequence[Arg], kwargs: Mapping[str, Value], call: Call) -> Value:
+    """The date's month as `2026-10`."""
+    day = _day(args[0])
+    return None if day is None else f"{day.year:04d}-{day.month:02d}"
+
+
+def _run_incomplete(args: Sequence[Arg], kwargs: Mapping[str, Value], call: Call) -> Value:
+    """The names whose condition doesn't hold, `Physical, Reflect`; blank when all hold."""
+    missing = [name for name, value in kwargs.items() if value is not True]
+    return ", ".join(missing) or None
 
 
 def _run_weekday(args: Sequence[Arg], kwargs: Mapping[str, Value], call: Call) -> Value:
@@ -325,6 +377,8 @@ FUNCTIONS: dict[str, Function] = {
     "flip_all": Function(_check_flip_all, _run_flip_all, uses_scale=True),
     "days_between": Function(_check_days_between, _run_days_between),
     "weekday": Function(_check_weekday, _run_weekday),
+    "month": Function(_check_month, _run_month),
+    "incomplete": Function(_check_incomplete, _run_incomplete),
     "worst_of": Function(_check_worst_of, _run_worst_of, uses_levels=True),
 }
 """Functions by name. #11 adds `prev`, `children`, … here."""

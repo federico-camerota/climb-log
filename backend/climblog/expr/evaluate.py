@@ -150,6 +150,8 @@ class _Evaluator:
                 if not isinstance(day, dt.date):
                     return None
                 return self.related.last(entity, name, day)
+            case Call(func="flip_all", args=(Fields() as fields,)):
+                return self.fields(fields, flip=node)
             case Call():
                 args = [self.eval(arg) for arg in node.args]
                 kwargs = {key: self.one(value) for key, value in node.kwargs}
@@ -179,18 +181,22 @@ class _Evaluator:
             return False
         return _ORDER[node.op](left, right)
 
-    def fields(self, node: Fields) -> list[Value]:
-        """The values of the matched fields this record counts (`since`, `retired`)."""
+    def fields(self, node: Fields, flip: Call | None = None) -> list[Value]:
+        """The values of the matched fields this record counts (`since`, `retired`); with
+        `flip`, those on a lower-is-better scale turned around (`flip_all`)."""
         day = self.values.get(node.date_field)
         if isinstance(day, dt.datetime):
             day = day.date()
         values = []
-        for ref in node.refs:
+        for i, ref in enumerate(node.refs):
             if ref.since is not None and isinstance(day, dt.date) and day < ref.since:
                 continue
             value = self.values.get(ref.name)
             if ref.retired and value is None:
                 continue
+            if flip is not None and flip.flips[i] and flip.bounds is not None:
+                low, high = flip.bounds
+                value = low + high - value if isinstance(value, int | float) else None
             values.append(value)
         return values
 

@@ -81,6 +81,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - Local snapshot of each module (`~/.local/share/climblog/snapshots/`, gzipped JSON): reads
   come from it while the workbook is unchanged, it is refreshed when the workbook changes, and
   it is used read-only when the workbook can't be reached. Always safe to delete (D-055).
+- The climbing journal module is complete in `modules/journal.yaml`, with a test for every rule
+  of the legacy workbook; new functions `incomplete(...)` (the Log check) and `month(date)`
+  (D-056).
 
 ### Fixed
 - Set rows typed by hand with a blank Set # load with the next number for that date
@@ -88,6 +91,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - A retired field whose column is missing is no longer reported as a data issue (D-052).
 - `round()` works on 15 significant digits as the sheets do: a mean of 5.824999999999999
   (5.825 on paper) now rounds to 5.83, not 5.82 (D-053).
+- `flip` and `flip_all` turn only values on a lower-is-better scale, as documented: the journal's
+  wellbeing and mental scores no longer invert mood, energy and the other higher-is-better
+  items (D-056).
 
 ### Changed
 - CI no longer installs LibreOffice: the formula parity tests are skipped there and run

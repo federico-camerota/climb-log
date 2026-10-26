@@ -13,6 +13,7 @@ from climblog.modules.checks import derived_plan
 from climblog.modules.derived import compute
 
 DRAFTS = Path(__file__).parent.parent / "design" / "modules"
+JOURNAL = Path(__file__).parent.parent / "modules" / "journal.yaml"
 LEVELS = ("GOOD", "WATCH", "LOW")
 
 # A small fictional module with one entry of each shape.
@@ -92,7 +93,7 @@ def test_result_kinds(load: LoadYaml) -> None:
     assert kinds["overall"] == Kind("text", levels=LEVELS)
     assert kinds["alert"] == Kind("text", levels=("OK", "ALERT"))
     assert kinds["note"] == Kind("text")
-    assert kinds["score"] == Kind("number", scale=(1.0, 10.0))
+    assert kinds["score"] == Kind("number", scale=(1.0, 10.0), lower_better=False)
 
 
 @pytest.mark.parametrize(
@@ -239,9 +240,9 @@ def test_fields_selectors_are_not_dependencies(load: LoadYaml) -> None:
 
 
 def test_journal_session_plan() -> None:
-    journal = load_module(DRAFTS / "journal.yaml")
+    journal = load_module(JOURNAL)
     plan = derived_plan(journal, "session")
-    assert plan.deferred == ("log_check",)
+    assert plan.deferred == ()  # log_check is incomplete(...) now, not a plugin
     statuses = [step.key for step in plan.steps if step.kind.levels == LEVELS]
     assert statuses == [
         "wb_pre_status",
@@ -256,7 +257,7 @@ def test_journal_session_plan() -> None:
 
 def test_journal_session_follows_the_legacy_rules() -> None:
     """00-current-state.md §1 on a fictional session: worst soreness 7 → LOW, overall = worst."""
-    journal = load_module(DRAFTS / "journal.yaml")
+    journal = load_module(JOURNAL)
     plan = derived_plan(journal, "session")
     settings = {key: setting.default for key, setting in journal.settings.items()}
     parts = ["fingers", "forearms", "elbows", "shoulders", "neck_traps", "wrists", "skin"]

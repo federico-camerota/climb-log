@@ -823,9 +823,22 @@ class _Compiler:
                 d = self.node(args[0])
                 names = ",".join(f'"{w}"' for w in _WEEKDAYS)
                 return F(f"CHOOSE(WEEKDAY({d.core},2),{names})", d.test, "text")
+            case "month":  # 2026-10, without TEXT() (its format codes depend on the locale)
+                d = self.node(args[0])
+                core = f'YEAR({d.core})&"-"&RIGHT("0"&MONTH({d.core}),2)'
+                return F(core, d.test, "text")
+            case "incomplete":  # ", Physical, Reflect" without its first ", "
+                parts = "&".join(
+                    f'IF(NOT({self.truth(self.node(value))}),{_text(", " + name)},"")'
+                    for name, value in node.kwargs
+                )
+                return F(f"MID({parts},3,999)", None, "text")
         raise Unsupported(f"{func}() has no formula yet")  # pragma: no cover - all have a case
 
-    def flip(self, value: F, node: Call) -> F:
+    def flip(self, value: F, node: Call, turn: bool | None = None) -> F:
+        """The value turned to higher-is-better: only if its scale is lower-is-better."""
+        if not (node.flips[0] if turn is None else turn):
+            return value
         assert node.bounds is not None
         low, high = node.bounds
         return F(f"{_number(low + high)}-{_wrap(value.core)}", value.test, "number")
@@ -839,7 +852,10 @@ class _Compiler:
             elif isinstance(arg, Call) and arg.func == "flip_all":
                 inner = arg.args[0]
                 assert isinstance(inner, Fields)
-                items += [_Item(self.flip(i.value, arg), i.include) for i in self.fields(inner)]
+                items += [
+                    _Item(self.flip(i.value, arg, turn), i.include)
+                    for i, turn in zip(self.fields(inner), arg.flips, strict=True)
+                ]
             else:
                 items.append(_Item(self.node(arg)))
         return items

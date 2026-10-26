@@ -55,20 +55,32 @@ ENV = Env(
         "session_type": NameInfo(
             "text", choices=("Max hangs", "Finger curls"), field=FieldMeta("choice")
         ),
-        "mood": NameInfo("number", scale=S10, field=FieldMeta("scale", "pre")),
-        "energy": NameInfo("number", scale=S10, field=FieldMeta("scale", "pre")),
-        "fatigue": NameInfo("number", scale=S10, field=FieldMeta("scale", "post")),
-        "fun": NameInfo("number", scale=S5, field=FieldMeta("scale", "post")),
+        # higher is better: mood, energy, fun; lower is better (↓): fatigue and soreness
+        "mood": NameInfo("number", scale=S10, field=FieldMeta("scale", "pre"), lower_better=False),
+        "energy": NameInfo(
+            "number", scale=S10, field=FieldMeta("scale", "pre"), lower_better=False
+        ),
+        "fatigue": NameInfo(
+            "number", scale=S10, field=FieldMeta("scale", "post"), lower_better=True
+        ),
+        "fun": NameInfo("number", scale=S5, field=FieldMeta("scale", "post"), lower_better=False),
         "fingers": NameInfo(
-            "number", scale=S10, field=FieldMeta("scale", "body", tags=("soreness",))
+            "number",
+            scale=S10,
+            field=FieldMeta("scale", "body", tags=("soreness",)),
+            lower_better=True,
         ),
         "elbows": NameInfo(
             "number",
             scale=S10,
             field=FieldMeta("scale", "body", tags=("soreness",), since=dt.date(2026, 10, 20)),
+            lower_better=True,
         ),
         "old_skin": NameInfo(
-            "number", scale=S10, field=FieldMeta("scale", "body", ("soreness",), retired=True)
+            "number",
+            scale=S10,
+            field=FieldMeta("scale", "body", ("soreness",), retired=True),
+            lower_better=True,
         ),
         "minutes": NameInfo("number", field=FieldMeta("duration")),
         "notes": NameInfo("text", field=FieldMeta("text", "post")),
@@ -88,14 +100,14 @@ ENV = Env(
     children={
         "set": {
             "kg": NameInfo("number", field=FieldMeta("number")),
-            "rpe": NameInfo("number", scale=S10, field=FieldMeta("scale")),
+            "rpe": NameInfo("number", scale=S10, field=FieldMeta("scale"), lower_better=False),
             "volume": NameInfo("number"),  # a derived value of the set
         }
     },
     entities={
         "rest_day": {
             "date": NameInfo("date", field=FieldMeta("date")),
-            "sleep": NameInfo("number", scale=S10, field=FieldMeta("scale")),
+            "sleep": NameInfo("number", scale=S10, field=FieldMeta("scale"), lower_better=False),
         }
     },
 )

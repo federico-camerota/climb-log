@@ -12,6 +12,7 @@ from climblog.modules import Module, load_module
 from climblog.modules.compute import compute_module
 
 DRAFTS = Path(__file__).parent.parent / "design" / "modules"
+JOURNAL = Path(__file__).parent.parent / "modules" / "journal.yaml"
 
 # A fictional module: sessions keyed by date and type, sets of the hang sessions, rest days.
 BASE = """\
@@ -182,7 +183,7 @@ def test_finger_strength_session_aggregates() -> None:
     [(day(21), 1), (day(23), 1), (day(20), None)],
 )
 def test_journal_days_since(rest_date: dt.date, expected: int | None) -> None:
-    journal = load_module(DRAFTS / "journal.yaml")
+    journal = load_module(JOURNAL)
     tables: dict[str, list[dict[str, Value]]] = {
         "session": [{"date": day(20), "session_no": 1}, {"date": day(22), "session_no": 2}],
         "rest_day": [{"date": rest_date}],

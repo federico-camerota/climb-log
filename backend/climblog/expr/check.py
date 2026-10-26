@@ -62,6 +62,7 @@ class NameInfo:
     choices: tuple[str, ...] | None = None  # a closed choice list, checked in comparisons
     field: FieldMeta | None = None  # None for derived values
     levels: Levels | None = None  # a status (a derived `bands:` or `when:`), best first
+    lower_better: bool | None = None  # on a lower-is-better scale (None: not on a scale)
 
 
 @dataclass(frozen=True)
@@ -168,8 +169,11 @@ class _Checker:
                     )
                 scale = then_kind.scale if then_kind.scale == else_kind.scale else None
                 levels = then_kind.levels if then_kind.levels == else_kind.levels else None
+                lower = then_kind.lower_better
+                lower = lower if lower == else_kind.lower_better else None
                 resolved = replace(node, test=test_node, then=then_node, orelse=else_node)
-                return resolved, Kind(then_kind.type, scale=scale, levels=levels)
+                kind = Kind(then_kind.type, scale=scale, levels=levels, lower_better=lower)
+                return resolved, kind
             case Call(func="fields"):
                 return self.fields(node)
             case Call(func="prev"):
@@ -191,7 +195,7 @@ class _Checker:
                 f"unknown field '{name}'{_suggest(name, list(self.env.names))}", node.at
             )
         self.names.add(name)
-        return Kind(info.type, scale=info.scale, levels=info.levels)
+        return _kind(info)
 
     def setting(self, node: Node, name: str) -> Kind:
         value_type = self.env.settings.get(name)
@@ -246,7 +250,8 @@ class _Checker:
         resolved_call = replace(node, args=tuple(args), kwargs=tuple(kwargs))
         kind = function.check(resolved_call, arg_kinds, kw_kinds)
         if function.uses_scale:
-            resolved_call = replace(resolved_call, bounds=arg_kinds[0].scale)
+            flips = _flips(args[0], arg_kinds[0])
+            resolved_call = replace(resolved_call, bounds=arg_kinds[0].scale, flips=flips)
         if function.uses_levels:
             resolved_call = replace(resolved_call, levels=kind.levels)
         return resolved_call, kind
@@ -281,14 +286,19 @@ class _Checker:
         if not selected:
             raise ExprError("fields(...) matches no field", node.at)
 
-        refs = tuple(FieldRef(name, meta.since, meta.retired) for name, meta in selected.items())
+        refs = tuple(
+            FieldRef(name, meta.since, meta.retired, self.env.names[name].lower_better is True)
+            for name, meta in selected.items()
+        )
         self.names.update(selected)
         types = {self.env.names[name].type for name in selected}
         scales = {self.env.names[name].scale for name in selected}
+        directions = {self.env.names[name].lower_better for name in selected}
         kind = Kind(
             types.pop() if len(types) == 1 else "any",
             many=True,
             scale=scales.pop() if len(scales) == 1 else None,
+            lower_better=directions.pop() if len(directions) == 1 else None,
         )
         return Fields(node.at, refs, self.env.date_field), kind
 
@@ -320,7 +330,7 @@ class _Checker:
         if info is None:
             hint = _suggest(name, list(self.env.parent))
             raise ExprError(f"the parent has no field '{name}'{hint}", node.at)
-        return Kind(info.type, scale=info.scale, levels=info.levels)
+        return _kind(info)
 
     def children(self, node: Call, name: str | None) -> tuple[Node, Kind]:
         """`children(e)`: one item per child row (for count); `children(e).x`: their x values."""
@@ -339,7 +349,7 @@ class _Checker:
             raise ExprError(
                 f"'{entity}' has no field '{name}'{_suggest(name, list(fields))}", node.at
             )
-        kind = Kind(info.type, many=True, scale=info.scale, levels=info.levels)
+        kind = replace(_kind(info), many=True)
         return Children(node.at, entity, name), kind
 
     def last(self, node: Call) -> tuple[Node, Kind]:
@@ -362,7 +372,7 @@ class _Checker:
         if set(options) != {"before"}:
             raise ExprError(usage, node.at)
         before, _ = self.single(options["before"], ("date",), "`before`")
-        kind = Kind(info.type, scale=info.scale, levels=info.levels)
+        kind = _kind(info)
         return Last(node.at, entity, name, before), kind
 
 
@@ -384,3 +394,15 @@ def _matches(meta: FieldMeta, selector: str, name: str) -> bool:
     if selector == "tag":
         return name in meta.tags
     return meta.type == name
+
+
+def _kind(info: NameInfo) -> Kind:
+    return Kind(info.type, scale=info.scale, levels=info.levels, lower_better=info.lower_better)
+
+
+def _flips(arg: Node, kind: Kind) -> tuple[bool, ...]:
+    """Which values `flip`/`flip_all` turn around: those on a lower-is-better scale. A value on
+    a higher-is-better (or neutral) scale already has the orientation flip gives (03 §2.2)."""
+    if isinstance(arg, Fields):
+        return tuple(ref.lower_better for ref in arg.refs)
+    return (kind.lower_better is True,)

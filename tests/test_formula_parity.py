@@ -16,7 +16,8 @@ from parity import generate, mismatches, soffice, work_dir
 
 from climblog.modules import Module, load_module
 
-DRAFTS = Path(__file__).parent.parent / "design" / "modules"
+ROOT = Path(__file__).parent.parent
+DRAFTS = ROOT / "design" / "modules"
 
 # CLIMBLOG_REQUIRE_SOFFICE makes a missing or broken LibreOffice a failure instead of a skip.
 REQUIRED = bool(os.environ.get("CLIMBLOG_REQUIRE_SOFFICE"))
@@ -35,7 +36,9 @@ def test_every_construct_matches_the_app(load: LoadYaml, seed: int) -> None:
     assert check(load(MODULE), seed) == []
 
 
-@pytest.mark.parametrize("draft", ["finger-strength", "journal"])
+@pytest.mark.parametrize(
+    "file", [DRAFTS / "finger-strength.yaml", ROOT / "modules" / "journal.yaml"], ids=str
+)
 @pytest.mark.parametrize("seed", [1, 2])
-def test_drafts_match_the_app(draft: str, seed: int) -> None:
-    assert check(load_module(DRAFTS / f"{draft}.yaml"), seed) == []
+def test_modules_match_the_app(file: Path, seed: int) -> None:
+    assert check(load_module(file), seed) == []
