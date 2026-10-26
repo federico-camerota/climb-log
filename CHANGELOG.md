@@ -67,11 +67,19 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   styled header rows, coloured by group), `_settings` rows with defaults and named cells, and
   `_meta`; applies `renamed_from` renames; rewrites dropdowns, number ranges and scale colours
   on every sync. Additive only: columns, data and hand-reworded labels are kept (D-052).
+- Formula compiler: derived fields become per-row sheet formulas with the app's blank rules,
+  for `.xlsx` (`_xlfn.` names) and Google Sheets, reading other tabs, parent and child rows,
+  `prev` and `last` through a hidden `auto:_key` column; `sheet_formula: false` or a
+  hand-written `"=..."` per entry. `climblog module validate` lists the entries that stay app
+  only. A parity test recalculates the formulas in LibreOffice and compares every cell with
+  the app; CI installs LibreOffice for it (D-053).
 
 ### Fixed
 - Set rows typed by hand with a blank Set # load with the next number for that date
   (`default: next`) instead of being left out with a data issue (D-050, #35).
 - A retired field whose column is missing is no longer reported as a data issue (D-052).
+- `round()` works on 15 significant digits as the sheets do: a mean of 5.824999999999999
+  (5.825 on paper) now rounds to 5.83, not 5.82 (D-053).
 
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).
