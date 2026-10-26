@@ -27,7 +27,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from climblog.expr import Value
 from climblog.modules import Module
 from climblog.modules.compute import compute_module
-from climblog.modules.formulas import XLSX, compile_formulas, formula_columns
+from climblog.modules.formulas import formula_columns
 from climblog.modules.schema import (
     BaseField,
     BoolField,
@@ -40,7 +40,8 @@ from climblog.modules.schema import (
     ScaleField,
     TextField,
 )
-from climblog.storage import XlsxBackend, load_data, sync_module
+from climblog.storage import XlsxBackend, find_drift, load_data, sync_module
+from climblog.storage.drift import same
 
 WORDS = ["[ESEMPIO]", "bene", "stanco", "forte", "presa", "giù", "così così"]
 
@@ -103,17 +104,18 @@ class Generated:
 
 
 def generate(module: Module, folder: Path, seed: int, records: int = 40) -> Generated:
-    """A workbook made by schema sync, with formula columns and random fictional rows."""
+    """A workbook made by schema sync (formula columns and buffer included), then random
+    fictional rows typed into it, as by hand."""
     path = folder / "parity.xlsx"
     sync_module(module, XlsxBackend(path))
     rng = random.Random(seed)
     rows = _records(module, rng, records)
     book = openpyxl.load_workbook(path)
-    columns = _add_formula_columns(module, book)
     for name, entity in module.entities.items():
         for tab, names in entity.tab_fields().items():
             sheet = book[tab]
             assert isinstance(sheet, Worksheet)
+            columns = {str(c.value): c.column for c in sheet[2] if c.value}
             keys = set(entity.key or [])
             row = 3
             for record in rows[name]:
@@ -123,34 +125,11 @@ def generate(module: Module, folder: Path, seed: int, records: int = 40) -> Gene
                 if section and (rng.random() < 0.2 or empty):
                     continue  # a section not filled in
                 for key, value in values.items():
-                    if key in columns[tab]:
-                        sheet.cell(row, columns[tab][key]).value = _cell(value)
+                    if key in columns:
+                        sheet.cell(row, columns[key]).value = _cell(value)
                 row += 1
-    formulas = compile_formulas(module, columns, XLSX)
-    for (tab, key), template in formulas.items():
-        sheet = book[tab]
-        assert isinstance(sheet, Worksheet)
-        for row in range(3, records + 3):
-            sheet.cell(row, columns[tab][key]).value = template.at(row)
     book.save(path)
     return Generated(path, rows)
-
-
-def _add_formula_columns(module: Module, book: Any) -> dict[str, dict[str, int]]:
-    """Append the `auto:` columns at the right of each tab (schema sync does it from #19)."""
-    columns: dict[str, dict[str, int]] = {}
-    for sheet in book.worksheets:
-        columns[sheet.title] = {
-            str(c.value): c.column for c in sheet[2] if isinstance(c.value, str) and c.value
-        }
-    placed, _ = formula_columns(module)
-    for column in placed:
-        sheet = book[column.tab]
-        index = sheet.max_column + 1
-        sheet.cell(1, index).value = column.label
-        sheet.cell(2, index).value = column.key
-        columns[column.tab][column.key] = index
-    return columns
 
 
 def _records(module: Module, rng: random.Random, count: int) -> dict[str, list[dict[str, Value]]]:
@@ -274,6 +253,9 @@ def mismatches(module: Module, generated: Generated, command: list[str]) -> list
     tables = {name: e.records for name, e in data.entities.items()}
     derived = compute_module(module, tables, data.settings)
     sheets = recalculate(command, generated.path)
+    # Saved by LibreOffice, the workbook must show no drift (its formulas rewritten on save).
+    saved = XlsxBackend(generated.path.parent / "recalculated" / generated.path.name)
+    drift = [str(d) for d in find_drift(module, saved)]
     placed, _ = formula_columns(module)
     found = []
     for name, entity_data in data.entities.items():
@@ -295,23 +277,7 @@ def mismatches(module: Module, generated: Generated, command: list[str]) -> list
                         f"{column.tab}!{column.key} row {place[column.tab]}: "
                         f"app {want!r}, sheet {got!r} ({_short(record)})"
                     )
-    return found
-
-
-def same(app: Value, sheet: Any) -> bool:
-    if app is None or app == "":
-        return sheet is None or sheet == ""
-    if isinstance(app, bool) or isinstance(sheet, bool):
-        return bool(app) == bool(sheet) and isinstance(sheet, bool)
-    if isinstance(app, int | float) and isinstance(sheet, int | float):
-        return abs(app - sheet) < 1e-9
-    if isinstance(app, dt.date) and isinstance(sheet, dt.datetime):  # a day is its midnight
-        return dt.datetime.combine(app, dt.time()) == sheet
-    if isinstance(app, dt.time) and isinstance(sheet, dt.datetime | dt.timedelta):
-        sheet = (
-            (dt.datetime.min + sheet).time() if isinstance(sheet, dt.timedelta) else sheet.time()
-        )
-    return bool(app == sheet)
+    return [*drift, *found]
 
 
 def _short(record: Mapping[str, Value]) -> str:

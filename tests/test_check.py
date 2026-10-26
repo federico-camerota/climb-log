@@ -50,8 +50,8 @@ def module(load: LoadYaml) -> Module:
 
 def in_sync() -> dict[str, list[Sequence[Any]]]:
     return {
-        "Pre": tab(["date", "sleep", "mood", "auto:readiness", *SYSTEM]),
-        "Post": tab(["date", "rpe", "old_note", *SYSTEM]),
+        "Pre": tab(["date", "sleep", "mood", "auto:readiness", "auto:_key", *SYSTEM]),
+        "Post": tab(["date", "rpe", "old_note", "auto:_key", *SYSTEM]),
         "_settings": [*SETTINGS],
         "_meta": [*META],
     }
@@ -69,7 +69,7 @@ def test_a_workbook_in_sync_has_no_differences(module: Module, tmp_path: Path) -
 
 
 def test_a_retired_field_needs_no_column(module: Module, tmp_path: Path) -> None:
-    tabs = in_sync() | {"Post": tab(["date", "rpe", *SYSTEM])}
+    tabs = in_sync() | {"Post": tab(["date", "rpe", "auto:_key", *SYSTEM])}
     assert check(module, tmp_path, tabs) == []
 
 
@@ -86,8 +86,8 @@ def test_missing_tabs(module: Module, tmp_path: Path) -> None:
 
 def test_missing_and_unknown_columns(module: Module, tmp_path: Path) -> None:
     tabs = in_sync() | {
-        "Pre": tab(["date", "mood", "auto:other", "weather", "deleted"]),
-        "Post": tab(["rpe", "old_note", "a_note", *SYSTEM]),
+        "Pre": tab(["date", "mood", "auto:other", "weather", "auto:_key", "deleted"]),
+        "Post": tab(["rpe", "old_note", "a_note", "auto:_key", *SYSTEM]),
     }
     differences = [
         ("sync", "Pre: column 'sleep' is missing"),
@@ -100,9 +100,9 @@ def test_missing_and_unknown_columns(module: Module, tmp_path: Path) -> None:
 
 
 def test_a_renamed_column_is_reported_once(module: Module, tmp_path: Path) -> None:
-    tabs = in_sync() | {"Pre": tab(["date", "sleep", "feel", *SYSTEM])}
+    tabs = in_sync() | {"Pre": tab(["date", "sleep", "feel", "auto:_key", *SYSTEM])}
     assert check(module, tmp_path, tabs) == [("sync", "Pre: column 'feel' is to be renamed 'mood'")]
-    tabs = in_sync() | {"Pre": tab(["date", "sleep", "feel", "mood", *SYSTEM])}
+    tabs = in_sync() | {"Pre": tab(["date", "sleep", "feel", "mood", "auto:_key", *SYSTEM])}
     assert check(module, tmp_path, tabs) == [
         ("error", "Pre: columns 'feel' and 'mood' (renamed): keep one")
     ]
@@ -185,7 +185,11 @@ def test_difference_without_a_tab() -> None:
     assert str(Difference("error", None, None, "broken")) == "broken"
 
 
-def test_the_finger_strength_mockup_is_in_sync(tmp_path: Path) -> None:
+def test_the_finger_strength_mockup_lacks_two_formula_columns(tmp_path: Path) -> None:
+    # The YAML gained two derived fields after the mock-up was made (D-054 checks formulas).
     module = load_module(Path("design/modules/finger-strength.yaml"))
     path = shutil.copy("design/mockups/mockup-finger-strength.xlsx", tmp_path)
-    assert check_schema(module, XlsxBackend(Path(path))) == []
+    assert [str(d) for d in check_schema(module, XlsxBackend(Path(path)))] == [
+        "Sessions: column 'auto:curl_volume' is missing",
+        "Curl sets: column 'auto:lr_imbalance_pct' is missing",
+    ]

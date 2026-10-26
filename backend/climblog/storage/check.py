@@ -4,7 +4,8 @@
 Read-only: this only lists differences. Schema sync (`sync.py`, D-052) applies the ones marked
 `sync` (missing tabs and columns, pending renames, `_meta`); `info` is worth knowing but needs no
 change (a column the YAML doesn't know keeps its data); an `error` needs a person (a workbook of
-another module, a header row the app can't read). Formula columns are checked with #19.
+another module, a header row the app can't read). Formula columns are checked like the others;
+formulas changed by hand are `drift.py`.
 """
 
 from collections.abc import Iterator

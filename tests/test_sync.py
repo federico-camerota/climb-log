@@ -11,6 +11,7 @@ import pytest
 from conftest import LoadYaml
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import PatternFill
+from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.worksheet import Worksheet
 from workbooks import write_workbook
@@ -127,12 +128,14 @@ def test_new_tabs_have_both_header_rows_styled(created: Path) -> None:
         ("Date", "date"),
         ("Pain\n(1\u201310 ↓)", "pain"),
         ("Kind", "kind"),
+        ("key (auto, hidden)", "auto:_key"),
         ("updated_at\n(app fills)", "updated_at"),
         ("deleted\n(app fills)", "deleted"),
     ]
-    assert [pre.cell(1, c).fill.fgColor.rgb for c in (1, 2, 4)] == [
-        *("00BDD7EE", "00C6E0B4", "00E7E6E6"),  # key blue, pre green, system grey
+    assert [pre.cell(1, c).fill.fgColor.rgb for c in (1, 2, 4, 5)] == [
+        *("00BDD7EE", "00C6E0B4", "00BFBFBF", "00E7E6E6"),  # key, pre, AUTOMATIC, system
     ]
+    assert pre.column_dimensions["D"].hidden  # the key column
     assert pre.cell(2, 2).fill.fgColor.rgb == "00E2EFDA"
     assert pre.cell(1, 1).font.b
     assert (pre.cell(2, 1).font.name, pre.cell(2, 1).font.sz) == ("Roboto Mono", 9)
@@ -141,7 +144,9 @@ def test_new_tabs_have_both_header_rows_styled(created: Path) -> None:
     assert pre["A2"].comment is not None and "Do not edit" in pre["A2"].comment.text
     assert pre.column_dimensions["A"].width == 11
     post = open_sheet(created, "Post")
-    assert [h[1] for h in headers(post)] == ["date", "mood", "note", "updated_at", "deleted"]
+    assert [h[1] for h in headers(post)] == [
+        *("date", "mood", "note", "auto:_key", "updated_at", "deleted"),
+    ]
     assert post.cell(1, 2).fill.fgColor.rgb == "00F8CBAD"  # post amber
 
 
@@ -254,9 +259,11 @@ def test_missing_columns_are_added_at_the_right(module: Module, existing: Path) 
     done = sync_module(module, XlsxBackend(existing))
     assert done == [
         "Pre: added column 'kind'",
+        "Pre: added column 'auto:_key'",
         "Pre: added column 'updated_at'",
         "Pre: added column 'deleted'",
         "Post: renamed column 'feel' to 'mood'",
+        "Post: added column 'auto:_key'",
         "_settings: added 'strict'",
         "_settings: added 'motto'",
     ]
@@ -267,9 +274,11 @@ def test_missing_columns_are_added_at_the_right(module: Module, existing: Path) 
         ("Status", "auto:status"),
         ("Weather", "weather"),
         ("Kind", "kind"),
+        ("key (auto, hidden)", "auto:_key"),
         ("updated_at\n(app fills)", "updated_at"),
         ("deleted\n(app fills)", "deleted"),
     ]
+    # Data and the formula of a column the module doesn't know are kept.
     assert [pre.cell(3, c).value for c in range(1, 5)] == [D20, 3, '=IF(B3="","",B3*2)', "sunny"]
 
 
@@ -359,14 +368,26 @@ def test_the_finger_strength_mockup_keeps_its_data(tmp_path: Path) -> None:
     before = openpyxl.load_workbook(path)
     repo = XlsxBackend(path)
     records = load_data(module, repo).entities
-    assert sync_module(module, repo) == []
+    done = sync_module(module, repo)
+    assert done[:2] == [
+        "Sessions: added column 'auto:curl_volume'",
+        "Curl sets: added column 'auto:lr_imbalance_pct'",
+    ]
+    # The mock-up's hand-made formulas are replaced by the compiled ones, all of a column.
+    assert "Sessions: new formula in 'auto:readiness'" in done
+    assert not any("changed cells" in line for line in done)
     after = openpyxl.load_workbook(path)
-    for name in ("Sessions", "Hang sets", "Curl sets", "_settings"):
-        assert list(before[name].values) == list(after[name].values)  # formulas included
-        # The status colours on the formula columns (#19) are not the sync's: kept as they were.
-        assert _status_rules(after[name]) == _status_rules(before[name])
+    for name in ("Sessions", "Hang sets", "Curl sets"):
+        old, new = before[name], after[name]
+        for column in range(1, old.max_column + 1):
+            key = old.cell(2, column).value
+            if isinstance(key, str) and not key.startswith("auto:"):
+                assert [c.value for c in old[get_column_letter(column)]] == [
+                    c.value for c in new[get_column_letter(column)]
+                ][: old.max_row], key
     assert load_data(module, repo).entities == records
     assert check_schema(module, repo) == []
+    assert sync_module(module, repo) == []  # a second sync has nothing to do
 
 
 def _status_rules(sheet: Worksheet) -> list[str]:

@@ -3,14 +3,23 @@
 
 Pure data, the same for every backend: `check.py` compares a workbook with it and a backend's
 schema sync applies it. The look follows the mock-ups (D-014, D-029, D-033): row 1 a label
-coloured by group, row 2 the field key, then data. Formula columns are #19.
+coloured by group, row 2 the field key, then data. Formula columns come from the compiler (D-054).
 """
 
 import datetime as dt
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
 from climblog.modules import Module
+from climblog.modules.formulas import (
+    ColumnMap,
+    Dialect,
+    FormulaColumn,
+    Template,
+    compile_formulas,
+    formula_columns,
+)
 from climblog.modules.schema import (
     BaseField,
     BoolField,
@@ -36,12 +45,13 @@ RANGE_DASH = "\u2013"  # en dash between a scale's min and max in labels
 EARLIEST_DATE = dt.date(1990, 1, 1)  # date validation: anything typed as a real date passes
 
 # Header colours by group (row 1 fill, row 2 pale tint), as in the mock-ups.
-Group = Literal["key", "pre", "post", "any", "system"]
+Group = Literal["key", "pre", "post", "any", "auto", "system"]
 GROUP_COLOURS: dict[Group, tuple[str, str]] = {
     "key": ("BDD7EE", "DDEBF7"),  # blue
     "pre": ("C6E0B4", "E2EFDA"),  # green: before the session
     "post": ("F8CBAD", "FCE4D6"),  # amber: after
     "any": ("FFE699", "FFF2CC"),  # yellow: common fields
+    "auto": ("BFBFBF", "E7E6E6"),  # grey: AUTOMATIC, formulas (D-018)
     "system": ("E7E6E6", "F2F2F2"),  # light grey: filled by the app
 }
 _PHASE_GROUP: dict[Phase, Group] = {"pre": "pre", "post": "post", "next_day": "post", "any": "any"}
@@ -90,6 +100,9 @@ class ColumnSpec:
     renamed_from: str | None = None
     old_label: str | None = None  # the label generated for `renamed_from`, to replace it
     retired: bool = False  # kept if there, never created
+    formula: bool = False  # an `auto:` column: its cells hold formulas (D-053)
+    levels: tuple[str, ...] | None = None  # a status: its levels, best first (colours)
+    hidden: bool = False  # `auto:_key`
 
 
 @dataclass(frozen=True)
@@ -106,25 +119,39 @@ class SettingRow:
     label: str
 
 
+Formulas = Callable[[ColumnMap, Dialect], dict[tuple[str, str], Template]]
+"""The `auto:` formulas, once the backend knows where every column is (D-053)."""
+
+
 @dataclass(frozen=True)
 class WorkbookLayout:
     module: str
     version: int
     tabs: tuple[TabLayout, ...]
     settings: tuple[SettingRow, ...]
+    formulas: Formulas = lambda columns, dialect: {}
 
 
 def workbook_layout(module: Module) -> WorkbookLayout:
     """The tabs of every entity, in YAML order, and the `_settings` rows."""
-    tabs = [tab for entity in module.entities.values() for tab in _entity_tabs(module, entity)]
+    placed, _ = formula_columns(module)
+    tabs = [
+        tab for entity in module.entities.values() for tab in _entity_tabs(module, entity, placed)
+    ]
     settings = tuple(
         SettingRow(key, setting.default, setting.label or "")
         for key, setting in module.settings.items()
     )
-    return WorkbookLayout(module.module, module.version, tuple(tabs), settings)
+
+    def formulas(columns: ColumnMap, dialect: Dialect) -> dict[tuple[str, str], Template]:
+        return compile_formulas(module, columns, dialect)
+
+    return WorkbookLayout(module.module, module.version, tuple(tabs), settings, formulas)
 
 
-def _entity_tabs(module: Module, entity: Entity) -> list[TabLayout]:
+def _entity_tabs(
+    module: Module, entity: Entity, placed: Sequence[FormulaColumn]
+) -> list[TabLayout]:
     unknown_ok = any(isinstance(f, ReferenceTemplateUse) for f in entity.fields.values())
     key = entity.key or (["id"] if "id" in entity.fields else [])
     tabs = []
@@ -134,6 +161,10 @@ def _entity_tabs(module: Module, entity: Entity) -> list[TabLayout]:
             for name in names
             if isinstance(field := entity.fields[name], BaseField)
         ]
+        # The AUTOMATIC block (its hidden key last), then the system columns, as in the mock-ups.
+        autos = [c for c in placed if c.tab == tab]
+        autos = [c for c in autos if not c.hidden] + [c for c in autos if c.hidden]
+        columns += [_formula(c) for c in autos]
         columns += [_system(name) for name in SYSTEM_COLUMNS]
         tabs.append(TabLayout(tab, tuple(columns), unknown_ok))
     return tabs
@@ -157,6 +188,19 @@ def _column(
         renamed_from=old,
         old_label=label(module, old, field) if old else None,
         retired=field.retired,
+    )
+
+
+def _formula(column: FormulaColumn) -> ColumnSpec:
+    return ColumnSpec(
+        column.key,
+        column.label,
+        "auto",
+        number_format=column.number_format,
+        width=12,
+        formula=True,
+        levels=column.levels,
+        hidden=column.hidden,
     )
 
 

@@ -86,11 +86,11 @@ def test_tabs_and_column_order(module: Module) -> None:
     assert [t.name for t in layout.tabs] == ["Session", "After", "Falls"]
     assert list(columns(module, "Session")) == [
         *("date", "session_no", "start", "kind", "pain"),
-        *("updated_at", "deleted"),
+        *("auto:_key", "updated_at", "deleted"),  # a split entity's tabs are matched on the key
     ]
     assert list(columns(module, "After")) == [
         *("date", "session_no", "mood", "rpe", "tired", "effort", "note", "old"),
-        *("updated_at", "deleted"),
+        *("auto:_key", "updated_at", "deleted"),
     ]
 
 

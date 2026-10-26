@@ -14,7 +14,8 @@ from collections.abc import Mapping
 from openpyxl.cell.cell import Cell, MergedCell
 from openpyxl.comments import Comment
 from openpyxl.formatting.formatting import ConditionalFormattingList
-from openpyxl.formatting.rule import ColorScaleRule
+from openpyxl.formatting.rule import CellIsRule, ColorScaleRule
+from openpyxl.formula.translate import Translator
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter, quote_sheetname
 from openpyxl.workbook.defined_name import DefinedName
@@ -23,7 +24,8 @@ from openpyxl.worksheet.cell_range import CellRange, MultiCellRange
 from openpyxl.worksheet.datavalidation import DataValidation, DataValidationList
 from openpyxl.worksheet.worksheet import Worksheet
 
-from climblog.storage.base import FIRST_DATA_ROW, StorageError
+from climblog.modules.formulas import XLSX
+from climblog.storage.base import AUTO, FIRST_DATA_ROW, StorageError
 from climblog.storage.cells import RawCell
 from climblog.storage.layout import (
     EARLIEST_DATE,
@@ -47,6 +49,9 @@ ERROR_TITLE = "climblog"
 ERROR_TEXT = "Value outside the allowed range/choices"
 # Scale cells from red (worst) through yellow to green (best), as in the mock-ups.
 RED, YELLOW, GREEN = "F8696B", "FFEB84", "63BE7B"
+_GOOD, _WATCH, _LOW = "C6EFCE", "FFE699", "F8CBAD"  # status cells (mock-ups)
+BUFFER = 200  # rows that already hold the formulas, for hand entry (04 §1)
+TOP_UP = 50  # fewer free buffer rows than this: 200 more
 
 _LABEL_FONT = Font(bold=True, color="1F1F1F")
 _KEY_FONT = Font(name="Roboto Mono", size=9, color="404040")
@@ -67,6 +72,7 @@ def apply_layout(
             done.append(f"created tab '{tab.name}'")
         _rewrite_rules(_sheet(workbook, tab.name), tab)
     done += _settings(workbook, layout)
+    done += _write_formulas(workbook, layout)
     if META_TAB not in workbook.sheetnames:
         done.append(f"created tab '{META_TAB}'")
     _key_values(workbook, META_TAB, meta, overwrite=True)
@@ -120,7 +126,9 @@ def _header(sheet: Worksheet, column: int, spec: ColumnSpec) -> None:
     label.alignment = key.alignment = _CENTRED
     key.border = _SEPARATOR
     sheet.column_dimensions[get_column_letter(column)].width = spec.width
-    if spec.number_format:
+    if spec.hidden:
+        sheet.column_dimensions[get_column_letter(column)].hidden = True
+    if spec.number_format and not spec.formula:  # formula cells get theirs when written
         # Rows typed later take the column's format; the cells already there get it too.
         sheet.column_dimensions[get_column_letter(column)].number_format = spec.number_format
         for row in range(FIRST_DATA_ROW, sheet.max_row + 1):
@@ -157,6 +165,14 @@ def _rewrite_rules(sheet: Worksheet, tab: TabLayout) -> None:
         if validation is not None:
             validation.add(cells)
             sheet.add_data_validation(validation)
+        if spec.levels:
+            for level, fill in zip(spec.levels, _level_fills(len(spec.levels)), strict=True):
+                rule = CellIsRule(  # type: ignore[no-untyped-call]
+                    operator="equal",
+                    formula=[_quoted(level)],
+                    fill=PatternFill("solid", fgColor=fill),
+                )
+                sheet.conditional_formatting.add(cells, rule)
         if (scale := spec.colour_scale) is not None:
             low, high = (GREEN, RED) if scale.lower_better else (RED, GREEN)
             sheet.conditional_formatting.add(
@@ -232,6 +248,111 @@ def _outside(ranges: MultiCellRange, letters: set[str]) -> MultiCellRange:
                     CellRange(min_col=c, min_row=cells.min_row, max_col=c, max_row=cells.max_row)
                 )
     return kept
+
+
+# ---- Formula columns (D-053) ----
+
+
+def _write_formulas(workbook: Workbook, layout: WorkbookLayout) -> list[str]:
+    """Write every `auto:` column's formula into each row of the tab's formula buffer.
+
+    Rewritten on every sync: a formula changed by hand is put back (D-053), and only those
+    cells are reported. The buffer runs from row 3 to at least row 202, and to 200 rows past
+    the last data row when fewer than 50 are left.
+    """
+    columns = {sheet.title: _keys(sheet) for sheet in workbook.worksheets}
+    templates = layout.formulas(columns, XLSX)
+    done = []
+    for tab in layout.tabs:
+        sheet = _sheet(workbook, tab.name)
+        keys = columns[tab.name]
+        specs = {spec.key: spec for spec in tab.columns if spec.formula and spec.key in keys}
+        if not specs:
+            continue
+        end = buffer_end(sheet, keys)
+        data = [i for k, i in keys.items() if not k.startswith(AUTO)]
+        with_data = {
+            row
+            for row in range(FIRST_DATA_ROW, end + 1)
+            if any(sheet.cell(row, i).value not in (None, "") for i in data)
+        }
+        for key, spec in specs.items():
+            template = templates.get((tab.name, key))
+            if template is None:
+                continue  # pragma: no cover - sync has just made every column it needs
+            filled = differs = deleted = 0
+            for row in range(FIRST_DATA_ROW, end + 1):
+                cell = sheet.cell(row, keys[key])
+                formula = template.at(row)
+                if cell.value is not None:
+                    filled += 1
+                    differs += cell.value != formula
+                elif row in with_data:  # deleted where it is needed
+                    deleted += 1
+                cell.value = formula
+                cell.number_format = spec.number_format or "General"
+            if not filled:
+                continue  # a new column: reported as added
+            if differs == filled:  # every cell: the YAML or the compiler changed the formula
+                done.append(f"{tab.name}: new formula in '{key}'")
+            elif differs + deleted:  # cells changed by hand (drift): put back
+                done.append(f"{tab.name}: rewrote {differs + deleted} changed cells of '{key}'")
+    return done
+
+
+def buffer_end(sheet: Worksheet, keys: Mapping[str, int]) -> int:
+    """The last row of the formula buffer: at least BUFFER rows, topped up below TOP_UP free."""
+    data = [i for key, i in keys.items() if not key.startswith(AUTO)]
+    autos = [i for key, i in keys.items() if key.startswith(AUTO)]
+    last_data = FIRST_DATA_ROW - 1
+    last_formula = FIRST_DATA_ROW - 1
+    for row in range(FIRST_DATA_ROW, sheet.max_row + 1):
+        if any(sheet.cell(row, i).value not in (None, "") for i in data):
+            last_data = row
+        if any(str(sheet.cell(row, i).value or "").startswith("=") for i in autos):
+            last_formula = row
+    end = max(last_formula, FIRST_DATA_ROW + BUFFER - 1)
+    if end - last_data < TOP_UP:
+        end = last_data + BUFFER
+    return end
+
+
+def top_up(sheet: Worksheet, keys: Mapping[str, int]) -> None:
+    """Extend the formula buffer after the app wrote rows, by copying the last formula row
+    (relative references follow the row; whole-column ones stay)."""
+    autos = [i for key, i in keys.items() if key.startswith(AUTO)]
+    if not autos:
+        return
+    last = max(
+        (
+            r
+            for r in range(FIRST_DATA_ROW, sheet.max_row + 1)
+            if any(str(sheet.cell(r, i).value or "").startswith("=") for i in autos)
+        ),
+        default=None,
+    )
+    if last is None:
+        return
+    end = buffer_end(sheet, keys)
+    for i in autos:
+        source = sheet.cell(last, i)
+        if not str(source.value or "").startswith("="):
+            continue
+        for row in range(last + 1, end + 1):
+            target = sheet.cell(row, i)
+            target.value = Translator(
+                str(source.value), origin=source.coordinate
+            ).translate_formula(target.coordinate)
+            target.number_format = source.number_format
+
+
+def _level_fills(n: int) -> list[str]:
+    """Status colours, best first: green … amber … red (the mock-ups' GOOD/WATCH/LOW)."""
+    return [_GOOD if i == 0 else _LOW if i == n - 1 else _WATCH for i in range(n)]
+
+
+def _quoted(text: str) -> str:
+    return '"' + text.replace('"', '""') + '"'
 
 
 # ---- _settings and _meta ----
