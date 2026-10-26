@@ -9,6 +9,8 @@ from conftest import WriteYaml
 from typer.testing import CliRunner
 
 from climblog import cli
+from climblog.modules import load_module
+from climblog.storage import XlsxBackend, sync_module
 
 runner = CliRunner()
 
@@ -67,8 +69,9 @@ MOCKUP = Path("design/mockups/mockup-finger-strength.xlsx")
 
 @pytest.fixture
 def config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A config with the fictional finger-strength mock-up, named by CLIMBLOG_CONFIG."""
+    """A config with the fictional finger-strength mock-up, synced, named by CLIMBLOG_CONFIG."""
     shutil.copy(MOCKUP, tmp_path / "fingers.xlsx")
+    sync_module(load_module(FINGERS), XlsxBackend(tmp_path / "fingers.xlsx"))
     file = tmp_path / "config.toml"
     file.write_text(
         f'[modules.finger_strength]\ndefinition = "{FINGERS}"\nworkbook = "fingers.xlsx"\n',

@@ -12,6 +12,7 @@ from climblog.config import AppConfig, ConfigError, config_path, load_config
 from climblog.modules import Module, ModuleError, load_module
 from climblog.modules.formulas import formula_columns
 from climblog.storage import StorageError, check_schema, sync_module
+from climblog.storage.drift import drift_differences, find_drift
 
 # Localhost only: LAN access needs the PIN (D-010), which does not exist yet.
 HOST = "127.0.0.1"
@@ -83,6 +84,8 @@ def _check_module(app_config: AppConfig, name: str, apply: bool) -> tuple[list[s
                 "synced: nothing to add (dropdowns and _meta refreshed)"
             ]
         differences = check_schema(module, repo)
+        if not any(d.level == "error" for d in differences):
+            differences += drift_differences(find_drift(module, repo))  # D-054
     except ModuleError as error:
         return error.lines(), False
     except (ValueError, StorageError) as error:

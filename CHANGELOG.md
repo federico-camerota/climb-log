@@ -73,6 +73,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   hand-written `"=..."` per entry. `climblog module validate` lists the entries that stay app
   only. A parity test recalculates the formulas in LibreOffice and compares every cell with
   the app; CI installs LibreOffice for it (D-053).
+- Formula columns in local workbooks: schema sync adds the AUTOMATIC columns (hidden key
+  column, number formats, coloured statuses) and writes their formulas into a 200-row buffer,
+  rewriting formulas changed by hand; app writes keep 50 buffer rows free. `climblog check`
+  reports formulas changed by hand and values the sheet computed differently from the app
+  (D-054).
 
 ### Fixed
 - Set rows typed by hand with a blank Set # load with the next number for that date

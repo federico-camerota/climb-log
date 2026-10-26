@@ -27,16 +27,22 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
   group (as in the legacy sheets), one column per derived field, with key `auto:<field>` in
   row 2. Formulas are generated from the YAML (`03-module-framework.md` §2.2b) and return `""`
   while the row's key is empty. Statuses get conditional formatting (GOOD/WATCH/LOW,
-  GREEN/YELLOW/RED colours). The columns are protected with a *warning only*, so hand edits
-  remain possible but deliberate.
+  GREEN/YELLOW/RED colours: the first level green, the last red, the others amber). Every
+  column gets the number format of its result type (D-054). On Google Sheets the columns
+  will be protected with a *warning only* (M2); `.xlsx` has no warning-only protection, so
+  there the drift check is the guard.
 - **Hidden key column** (D-031): tabs with a composite key get a hidden computed column
   `auto:_key` = date serial × 10 + session # (blank = 1), so cross-tab formulas (session
-  checks, child counts, maxima) need a single, locale-proof criterion.
+  checks, child counts, maxima) need a single, locale-proof criterion. Placed last in the
+  AUTOMATIC block, before the system columns (D-053, D-054).
 - **Pre-filled formula rows**: tabs keep a buffer of empty rows that already contain the
   formulas (default 200), so a row typed by hand in Google Sheets gets its statuses
   immediately. The app writes new records into the **first row with an empty key**
   (not `append`, which would land after the buffer) and tops the buffer up when fewer than 50
-  rows are left. Rows with an empty key are ignored on read.
+  rows are left. Rows with an empty key are ignored on read. (D-054) Schema sync writes every
+  formula into rows 3 to at least 202, and to 200 rows past the last data row when fewer than
+  50 are free; an app write tops the buffer up the same way by copying each column's last
+  formula down (relative references follow the row, whole-column ones stay).
 - **`Summary` tab** (generated, formulas only): latest status per class, days since the last
   session, LOW count in 14 days, and the suggested next session, i.e. the small part of the
   legacy "Summary – Recent" that is useful in the sheet. Rich dashboards stay in the app.
@@ -108,8 +114,13 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
     (`low_max`), used by the generated formulas; the names are re-pointed on every sync.
   - `_meta`: `module`, `module_version`, `schema_synced_at` (local time), `app_version`.
   - A missing workbook is created with every tab (file mode 0600). A module whose check has an
-    `error` difference is not synced. Formula columns, the formula buffer and status colours
-    come with #19.
+    `error` difference is not synced.
+  - **Formula columns** (D-054): each tab gets its `auto:` columns (from the formula compiler,
+    D-053) as the grey AUTOMATIC block between the fields and the system columns, new ones at
+    the right as for any column. Every sync writes all their formulas again into the buffer,
+    so a formula changed by hand is put back ("rewrote 2 changed cells of 'auto:score'"); a
+    column whose every formula differs gets "new formula" (the YAML or the compiler changed
+    it). Formulas of columns the module doesn't know are kept.
 - An optional `README` tab (generated) explains each tab and its scales, mirroring the
   current "Start Here".
 
