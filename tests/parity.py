@@ -72,6 +72,7 @@ def work_dir() -> str | None:
 
 def recalculate(command: list[str], path: Path) -> dict[str, list[tuple[Any, ...]]]:
     """Open the workbook in LibreOffice, recalculate, and read back every cell's value."""
+    path = path.resolve()  # LibreOffice needs an absolute profile URL
     out = path.parent / "recalculated"
     profile = path.parent / "profile"  # a fresh profile: no dialogs, no locks with a running one
     subprocess.run(

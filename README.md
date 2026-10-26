@@ -57,6 +57,15 @@ check --apply` creates what is missing (the workbook too), puts changed formulas
 never deletes columns or data. All options are in
 [`design/02-architecture.md`](design/02-architecture.md#runtime).
 
+## Import your legacy journal
+
+```sh
+uv run climblog import-legacy --journal Climbing_Journal.xlsx --dry-run   # read and compare only
+uv run climblog import-legacy --journal Climbing_Journal.xlsx             # into a new journal workbook
+```
+The legacy file is only read. The report lists what was imported or skipped and compares the
+values your legacy sheets computed with the app's.
+
 ## Documentation
 
 The design lives in [`design/`](design/README.md): goals, architecture, the module framework,

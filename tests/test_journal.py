@@ -283,3 +283,4 @@ def test_days_since_the_last_climb(journal: Module) -> None:
     rests = [rest_day(), rest_day(date=dt.date(2026, 10, 21)), rest_day(date=dt.date(2026, 10, 1))]
     result = computed(journal, sessions, rests)["rest_day"]
     assert [r["days_since_climb"] for r in result] == [3, 3, None]  # strictly before the day
+    assert [r["weekday"] for r in result] == ["Sat", "Wed", "Thu"]
