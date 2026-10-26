@@ -184,7 +184,11 @@ an allow-list; no `eval`; code in `climblog/expr/`, D-043):
 - functions: `mean(...)`, `min(...)`, `max(...)`, `sum(...)`, `count(...)` (aggregates; the
   first four take `missing_as=`), `round(x, n)` (halves away from zero, like the sheets),
   `concat(...)`, `flip(x)` (maps a scale value to its "higher is better" orientation:
-  `scale.max + scale.min − x`, i.e. `11 − x` on 1–10), `flip_all(fields(...))`,
+  `scale.max + scale.min − x`, i.e. `11 − x` on 1–10, for a value on a lower-is-better scale;
+  a value on a higher-is-better or neutral scale is left as it is, and values of mixed
+  directions are an error), `flip_all(fields(...))` (each field turned by its own scale, D-056),
+  `month(date)` (`2026-10`), `incomplete(Name=condition, ...)` (the names whose condition does
+  not hold, `"Physical, Reflect"`, blank when all hold; the journal's Log check),
   `coalesce(...)`, `notnull(x)`, `all_present(...)`, `days_between(a, b)`,
   `weekday(date)` (`Mon` … `Sun`), `worst_of(a, b, ...)` (statuses, below)
 - group helpers: `fields(section=pre, tag=soreness, type=scale)` returns the list of matching
@@ -315,6 +319,8 @@ column** in the sheet:
   name), keys of more than a date and one part, a second key part that is not an integer or a
   closed choice of at most 9 values, settings named like a cell (`a1`), `missing_as` or other
   values mixed with `children(...)`, and every entry reading one of these.
+- `month(d)` is `YEAR(d)&"-"&RIGHT("0"&MONTH(d),2)` (no `TEXT()`, whose codes depend on the
+  locale); `incomplete(...)` is `MID(IF(NOT(c1),", Wellbeing","")&…,3,999)`.
 - Known limits: a key part of 10 or more collides in `auto:_key`; legacy values mapped by
   `choice_map` are not mapped in formulas; `concat` writes decimals as the sheet's locale does.
 - `round` in the app works on 15 significant digits as the sheets do, so a mean of

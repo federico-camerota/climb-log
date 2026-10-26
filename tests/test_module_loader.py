@@ -187,7 +187,11 @@ def test_unreadable_files(problems: Problems, text: str, expected: str) -> None:
     assert found[0].startswith(expected), found
 
 
-@pytest.mark.parametrize("file", sorted((ROOT / "design" / "modules").glob("*.yaml")), ids=str)
+@pytest.mark.parametrize(
+    "file",
+    sorted([*(ROOT / "design" / "modules").glob("*.yaml"), *(ROOT / "modules").glob("*.yaml")]),
+    ids=str,
+)
 def test_design_drafts_load(file: Path) -> None:
     load_module(file)
 

@@ -73,6 +73,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   hand-written `"=..."` per entry. `climblog module validate` lists the entries that stay app
   only. A parity test recalculates the formulas in LibreOffice and compares every cell with
   the app; CI installs LibreOffice for it (D-053).
+- The climbing journal module is complete in `modules/journal.yaml`, with a test for every rule
+  of the legacy workbook; new functions `incomplete(...)` (the Log check) and `month(date)`
+  (D-056).
 
 ### Fixed
 - Set rows typed by hand with a blank Set # load with the next number for that date
@@ -80,6 +83,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - A retired field whose column is missing is no longer reported as a data issue (D-052).
 - `round()` works on 15 significant digits as the sheets do: a mean of 5.824999999999999
   (5.825 on paper) now rounds to 5.83, not 5.82 (D-053).
+- `flip` and `flip_all` turn only values on a lower-is-better scale, as documented: the journal's
+  wellbeing and mental scores no longer invert mood, energy and the other higher-is-better
+  items (D-056).
 
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

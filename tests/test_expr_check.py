@@ -18,24 +18,24 @@ def kind(source: str) -> Kind:
     ("source", "expected"),
     [
         ("mood + 1", Kind("number")),
-        ("mood", Kind("number", scale=S10)),
-        ("mean(mood, energy)", Kind("number", scale=S10)),
-        ("round(mean(mood, energy), 1)", Kind("number", scale=S10)),
+        ("mood", Kind("number", scale=S10, lower_better=False)),
+        ("mean(mood, energy)", Kind("number", scale=S10, lower_better=False)),
+        ("round(mean(mood, energy), 1)", Kind("number", scale=S10, lower_better=False)),
         ("sum(mood, energy)", Kind("number")),
-        ("mean(mood, fun)", Kind("number")),  # different scales: none
+        ("mean(mood, fun)", Kind("number", lower_better=False)),  # different scales: none
         ("11 - mean(mood)", Kind("number")),
         ("mood >= settings.low_max", Kind("bool")),
         ("red_flag and not notnull(notes)", Kind("bool")),
         ("concat('W', minutes, ' ', session_type)", Kind("text")),
-        ("coalesce(mood, energy)", Kind("number", scale=S10)),
+        ("coalesce(mood, energy)", Kind("number", scale=S10, lower_better=False)),
         ("days_between(settings.start, date)", Kind("number")),
         ("weekday(date)", Kind("text")),
         ("count(fields(section=post))", Kind("number")),
         ("fields(section=post)", Kind("any", many=True)),
-        ("fields(tag=soreness)", Kind("number", many=True, scale=S10)),
-        ("flip_all(fields(section=pre))", Kind("number", many=True, scale=S10)),
-        ("flip(max(fields(tag=soreness)))", Kind("number", scale=S10)),
-        ("mood if red_flag else energy", Kind("number", scale=S10)),
+        ("fields(tag=soreness)", Kind("number", many=True, scale=S10, lower_better=True)),
+        ("flip_all(fields(section=pre))", Kind("number", many=True, scale=S10, lower_better=False)),
+        ("flip(max(fields(tag=soreness)))", Kind("number", scale=S10, lower_better=False)),
+        ("mood if red_flag else energy", Kind("number", scale=S10, lower_better=False)),
         ("mood if red_flag else minutes", Kind("number")),
         ("status == 'LOW'", Kind("bool")),
         ("red_flag == True", Kind("bool")),
@@ -44,14 +44,14 @@ def kind(source: str) -> Kind:
         ("pre_status if red_flag else post_status", Kind("text", levels=LEVELS)),
         ("pre_status if red_flag else 'LOW'", Kind("text")),
         # other records (D-045)
-        ("prev(mood)", Kind("number", scale=S10)),
+        ("prev(mood)", Kind("number", scale=S10, lower_better=False)),
         ("prev(pre_status, 2)", Kind("text", levels=LEVELS)),
         ("days_between(prev(date), date)", Kind("number")),
         ("parent.goal == 'Power'", Kind("bool")),
         ("count(children(set))", Kind("number")),
-        ("children(set).rpe", Kind("number", many=True, scale=S10)),
+        ("children(set).rpe", Kind("number", many=True, scale=S10, lower_better=False)),
         ("max(children(set).volume)", Kind("number")),
-        ("last(rest_day.sleep, before=date)", Kind("number", scale=S10)),
+        ("last(rest_day.sleep, before=date)", Kind("number", scale=S10, lower_better=False)),
     ],
 )
 def test_kinds(source: str, expected: Kind) -> None:
@@ -73,9 +73,9 @@ def test_settings_and_fields_are_resolved() -> None:
         Fields(
             4,
             (
-                FieldRef("fingers"),
-                FieldRef("elbows", since=dt.date(2026, 10, 20)),
-                FieldRef("old_skin", retired=True),
+                FieldRef("fingers", lower_better=True),
+                FieldRef("elbows", since=dt.date(2026, 10, 20), lower_better=True),
+                FieldRef("old_skin", retired=True, lower_better=True),
             ),
             "date",
         ),
@@ -200,3 +200,35 @@ def test_prev_is_a_name_the_expression_reads() -> None:
     """It orders derived entries; children(...), last(...) and parent.x read other records."""
     checked = prepare("prev(mood) + count(children(set)) + last(rest_day.sleep, before=date)", ENV)
     assert checked.names == {"mood", "date"}
+
+
+def test_flip_needs_one_direction() -> None:
+    with pytest.raises(ExprError, match="scales of one direction"):
+        prepare("flip(max(mood, fatigue))", ENV)  # one higher-, one lower-is-better
+
+
+def test_flip_all_needs_fields() -> None:
+    with pytest.raises(ExprError, match=r"flip_all\(\) needs fields"):
+        prepare("flip_all(children(set).rpe)", ENV)
+
+
+def test_flip_records_which_values_to_turn() -> None:
+    call = prepare("flip_all(fields(section=[pre, body]))", ENV).tree
+    assert isinstance(call, Call)
+    assert call.flips == (False, False, True, True, True)  # mood, energy as they are
+    single = prepare("flip(mood)", ENV).tree
+    assert isinstance(single, Call) and single.flips == (False,)
+
+
+@pytest.mark.parametrize(
+    ("source", "message"),
+    [
+        ("incomplete(red_flag)", "only named yes/no values"),
+        ("incomplete()", "at least one Name=condition"),
+        ("incomplete(Notes=notes)", "Notes= must be a yes/no, not text"),
+        ("month(mood)", "needs date values"),
+    ],
+)
+def test_incomplete_and_month_check_their_arguments(source: str, message: str) -> None:
+    with pytest.raises(ExprError, match=message):
+        prepare(source, ENV)

@@ -545,3 +545,36 @@ def test_small_cases(load: LoadYaml) -> None:
     ]
     placed = {f"{c.tab}!{c.key}" for c in formula_columns(module)[0]}
     assert "Slot items!auto:_key" not in placed  # its fixed key part is no whole number
+
+
+def test_month_and_incomplete_formulas(load: LoadYaml) -> None:
+    module = load(
+        """\
+        module: test_formulas
+        name: Test formulas
+        version: 1
+        kind: journal
+        scales:
+          up: {min: 1, max: 10, direction: higher_better}
+        entities:
+          rest:
+            label: Rest day
+            tab: Rest
+            key: [date]
+            fields:
+              date: {type: date}
+              a: {type: number}
+              b: {type: text}
+              c: {type: scale, scale: up}
+            derived:
+              m: "month(date)"
+              same: "flip(c)"
+              todo: "incomplete(Numbers=notnull(a), Notes=notnull(b))"
+        """
+    )
+    f = formulas(module)
+    assert f["Rest!auto:same"] == '=IF(A3="","",D3)'  # higher-is-better: not flipped
+    assert f["Rest!auto:m"] == '=IF(A3="","",YEAR(A3)&"-"&RIGHT("0"&MONTH(A3),2))'
+    assert f["Rest!auto:todo"] == (
+        '=IF(A3="","",MID(IF(NOT(B3<>""),", Numbers","")&IF(NOT(C3<>""),", Notes",""),3,999))'
+    )

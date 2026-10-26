@@ -222,7 +222,13 @@ def _check_entry(
         source, expr_at = (entry, at) if isinstance(entry, str) else (entry.expr, (*at, "expr"))
         expr = _single(source, scope, expr_at, "any", "a derived field")
         kind = expr.kind
-        info = NameInfo(kind.type, scale=kind.scale, choices=kind.levels, levels=kind.levels)
+        info = NameInfo(
+            kind.type,
+            scale=kind.scale,
+            choices=kind.levels,
+            levels=kind.levels,
+            lower_better=kind.lower_better,
+        )
         return ExprStep(key, kind, require, expr), info
 
     if isinstance(entry, BandsDerived):

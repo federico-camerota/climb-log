@@ -10,6 +10,7 @@ from climblog.modules import load_module
 from climblog.modules.schema import ReferenceTemplateUse, ScaleField
 
 DRAFTS = Path(__file__).parent.parent / "design" / "modules"
+JOURNAL = Path(__file__).parent.parent / "modules" / "journal.yaml"
 
 # A small fictional module: a session split over two tabs, with a soreness template,
 # and a child entity of sets.
@@ -95,7 +96,7 @@ def test_sections_without_tabs_only_group_fields(load: LoadYaml) -> None:
 
 
 def test_journal_draft_matches_the_legacy_tabs() -> None:
-    journal = load_module(DRAFTS / "journal.yaml")
+    journal = load_module(JOURNAL)
     session = journal.entities["session"]
     tabs = session.tab_fields()
     assert list(tabs) == [

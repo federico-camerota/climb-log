@@ -67,7 +67,7 @@ def run(source: str, **changes: Value) -> Value | list[Value]:
         ("notnull(mood)", True),
         ("all_present(mood, energy)", True),
         ("flip(fatigue)", 3),
-        ("flip_all(fields(section=pre))", [4, 7]),
+        ("flip_all(fields(section=pre))", [7, 4]),  # mood, energy: already higher-better
         ("min(mood, flip(fatigue))", 3),
         ("round(11 - mean(fields(tag=soreness)), 1)", 6.5),
         ("worst_of(pre_status, post_status)", "LOW"),
@@ -243,3 +243,32 @@ def test_last_takes_datetimes_as_days() -> None:
     expr = prepare("last(rest_day.sleep, before=date)", ENV)
     record = RECORD | {"date": dt.datetime(2026, 10, 22, 18, 30)}
     assert evaluate(expr, record, SETTINGS, FakeRelated()) == 6
+
+
+# ---- flip turns values to higher-is-better (03 §2.2, D-056) ----
+
+
+def test_flip_leaves_a_higher_is_better_value_as_it_is() -> None:
+    assert run("flip(mood)") == 7
+    assert run("flip(fatigue)") == 3
+    assert run("flip(flip(fatigue))") == 3  # already turned
+
+
+def test_flip_all_turns_each_field_by_its_scale() -> None:
+    # mood 7, energy 4 as they are; fatigue 8 → 3, fingers 3 → 8, elbows 6 → 5 (old_skin blank)
+    assert run("flip_all(fields(section=[pre, body]))") == [7, 4, 8, 5]
+
+
+def test_flip_all_stays_aligned_when_fields_are_left_out() -> None:
+    # elbows (since 2026-10-20) is left out before that date, old_skin when blank.
+    early = run("flip_all(fields(tag=soreness))", date=dt.date(2026, 10, 1))
+    assert early == [8]  # fingers 3 → 8
+    late = run("flip_all(fields(tag=soreness))", old_skin=2)
+    assert late == [8, 5, 9]
+
+
+def test_incomplete_and_month() -> None:
+    assert run("incomplete(Pre=notnull(mood), Fun=notnull(fun), Sore=notnull(fingers))") == "Fun"
+    assert run("incomplete(Pre=notnull(mood))") is None
+    assert run("month(date)") == "2026-10"
+    assert run("month(date)", date=None) is None

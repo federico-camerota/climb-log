@@ -41,6 +41,7 @@ class Kind:
     many: bool = False  # a list of values: the result of fields(...) or flip_all(...)
     scale: Bounds | None = None  # the scale the value lies on, if any (for flip)
     levels: Levels | None = None  # a status: its level list, best first (for worst_of)
+    lower_better: bool | None = None  # its scale's direction; None: unknown or mixed (flip)
 
 
 @dataclass(frozen=True)
@@ -117,6 +118,7 @@ class Call(Node):
     kwargs: tuple[tuple[str, Node], ...] = ()
     bounds: Bounds | None = None  # set by `check` for functions that use the scale (flip)
     levels: Levels | None = None  # set by `check` for functions that use the levels (worst_of)
+    flips: tuple[bool, ...] = ()  # set by `check` for flip/flip_all: which values to flip
 
 
 # ---- Nodes made by `check` ----
@@ -134,6 +136,7 @@ class FieldRef:
     name: str
     since: dt.date | None = None  # records dated before this leave the field out
     retired: bool = False  # counted only in records that have a value for it
+    lower_better: bool = False  # on a lower-is-better scale: `flip_all` flips it
 
 
 @dataclass(frozen=True)

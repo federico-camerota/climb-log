@@ -1,7 +1,6 @@
-# yaml-language-server: $schema=../../modules/module.schema.json
-# DRAFT module definition: Climbing Journal
-# Mirrors Climbing_Journal.xlsx (see design/00-current-state.md §1).
-# Validates the vocabulary in design/03-module-framework.md; will move to /modules at M1.
+# yaml-language-server: $schema=module.schema.json
+# Climbing journal: the module that replaces Climbing_Journal.xlsx (design/00-current-state.md §1).
+# Every rule of the legacy workbook is here; tests/test_journal.py checks each one (D-056).
 
 module: journal
 name: Climbing journal
@@ -115,6 +114,7 @@ entities:
 
     derived:
       weekday: "weekday(date)"
+      month: "month(date)"                                # 2026-10, as the legacy Month column
       days_since_prev: "days_between(prev(date), date)"
       session_load: "duration_min * feel_effort"          # session-RPE load (new)
 
@@ -163,7 +163,14 @@ entities:
           - {if: "max(rf_off_severity, rf_change_priority) >= settings.note_min", then: WORTH NOTING}
           - {if: "notnull(max(rf_off_severity, rf_change_priority))", then: GOOD}
 
-      log_check: {plugin: journal.log_check}   # lists incomplete sections
+      # Which classes are not filled in yet, as the legacy Log check: "Physical, Reflect".
+      log_check: >-
+        incomplete(
+          Wellbeing=all_present(fields(section=[wb_pre, wb_post], type=scale)),
+          Physical=all_present(fields(section=[ph_pre, ph_post], tag=soreness)),
+          Mental=all_present(fields(section=[mn_pre, mn_post], type=scale)),
+          Feel=all_present(fields(section=feel, type=scale)),
+          Reflect=all_present(fields(section=reflect, type=scale)))
 
   rest_day:
     label: Rest day

@@ -23,6 +23,7 @@ from climblog.expr.nodes import (
 )
 
 DRAFTS = Path(__file__).parent.parent / "design" / "modules"
+MODULES = Path(__file__).parent.parent / "modules"
 
 
 def test_precedence_and_positions() -> None:
@@ -123,7 +124,9 @@ def _expressions(node: Any) -> Iterator[str]:
             yield from _expressions(item)
 
 
-@pytest.mark.parametrize("file", sorted(DRAFTS.glob("*.yaml")), ids=lambda f: f.name)
+@pytest.mark.parametrize(
+    "file", sorted([*DRAFTS.glob("*.yaml"), *MODULES.glob("*.yaml")]), ids=lambda f: f.name
+)
 def test_draft_expressions_parse(file: Path) -> None:
     """Every expression in the drafts is valid syntax (names are checked per issue, #10, #11)."""
     found = [e for e in _expressions(YAML(typ="safe").load(file)) if e not in _LATER]

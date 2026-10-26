@@ -207,6 +207,9 @@ def expression_env(module: Module, fields: Mapping[str, Any], date_field: str) -
         names[key] = NameInfo(
             _VALUE_TYPES.get(field.type, "text"),
             scale=(scale.min, scale.max) if isinstance(scale, NumericScale) else None,
+            lower_better=scale.direction == "lower_better"
+            if isinstance(scale, NumericScale)
+            else None,
             choices=tuple(choices) if choices else None,
             field=FieldMeta(
                 field.type, field.section, tuple(field.tags), field.since, field.retired
