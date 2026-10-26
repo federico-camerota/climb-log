@@ -231,13 +231,25 @@ results to detect damaged formulas (drift check) and repairs them on sync.
 
 ## 6. Local snapshot (app-side copy of the data)
 The app works on a **local snapshot** of each module: the last data read from its source,
-stored on disk (`~/.local/share/climblog/snapshots/<module>.parquet`, plus metadata:
-source modifiedTime, read time).
+stored on disk (`~/.local/share/climblog/snapshots/<module>.json.gz`, folder set by
+`[snapshots]` in the app config; `storage/snapshot.py`, D-055).
+- **Content**: the rows of every tab as the backend gave them (`{column key: cell}` with the
+  sheet row number), the `_settings` and `_meta` pairs, when the source last changed and when
+  it was read. Records load from it exactly as from the workbook (`load_data` takes any
+  `Repository`). Gzipped JSON, dates and times tagged (`{"d": "2026-10-20"}`); a `format`
+  number makes older files ignored. Parquet can replace it when analytics bring pandas (M4).
+- **`CachedRepository`** (`AppConfig.cached(module)`): reads come from the snapshot while the
+  source hasn't changed since it was taken (its modified time); when it has, the source is
+  read again and a new snapshot saved. Writes and schema sync go to the source; the next read
+  takes a new snapshot. When the source can't be reached, the snapshot is used **read-only**
+  (`offline`; a write raises `SnapshotReadOnly`), and `as_of` gives "data as of HH:MM".
 - On startup the app loads the snapshot immediately, then refreshes it from the source in the
-  background (and on change polling, the Reload button, and after every write).
+  background (and on change polling, the Reload button, and after every write) (#25).
 - All analysis runs on the snapshot, so the app is fast and still usable (read-only) when
   Google is unreachable. The UI shows "data as of HH:MM".
-- The snapshot is a cache: deleting it is always safe, and the sheets remain the source of truth.
+- The snapshot is a cache: a missing, damaged, older-format or other module's file is ignored,
+  deleting it is always safe, and the sheets remain the source of truth. It holds personal
+  data: the file is the owner's only (0600, folder 0700), saved atomically, never committed.
 
 ## 7. Modules and locations (initial setup)
 | Module | Location | Purpose |

@@ -78,6 +78,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   rewriting formulas changed by hand; app writes keep 50 buffer rows free. `climblog check`
   reports formulas changed by hand and values the sheet computed differently from the app
   (D-054).
+- Local snapshot of each module (`~/.local/share/climblog/snapshots/`, gzipped JSON): reads
+  come from it while the workbook is unchanged, it is refreshed when the workbook changes, and
+  it is used read-only when the workbook can't be reached. Always safe to delete (D-055).
 
 ### Fixed
 - Set rows typed by hand with a blank Set # load with the next number for that date
