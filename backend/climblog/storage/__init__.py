@@ -16,6 +16,7 @@ from climblog.storage.base import (
 )
 from climblog.storage.cells import CellError, DataIssue, RawCell, RowParser, parse_cell
 from climblog.storage.check import Difference, check_schema
+from climblog.storage.drift import Drift, find_drift
 from climblog.storage.layout import WorkbookLayout, workbook_layout
 from climblog.storage.load import EntityData, ModuleData, load_data
 from climblog.storage.sync import SyncRefused, sync_module
@@ -28,6 +29,7 @@ __all__ = [
     "CellError",
     "DataIssue",
     "Difference",
+    "Drift",
     "Edit",
     "EntityData",
     "ModuleData",
@@ -48,6 +50,7 @@ __all__ = [
     "WriteError",
     "XlsxBackend",
     "check_schema",
+    "find_drift",
     "load_data",
     "parse_cell",
     "sync_module",

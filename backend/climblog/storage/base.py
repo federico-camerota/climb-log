@@ -13,7 +13,7 @@ Turning records into edits is `write.py`'s job.
 
 import datetime as dt
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
 
 from climblog.storage.cells import RawCell
@@ -36,6 +36,7 @@ class Table:
     name: str
     columns: tuple[str, ...]  # the keys of row 2, in sheet order
     rows: tuple[SheetRow, ...]  # data rows with at least one non-blank cell
+    numbers: Mapping[str, int] = field(default_factory=dict)  # key → 1-based column (formulas)
 
 
 @dataclass(frozen=True)
@@ -104,6 +105,10 @@ class Repository(Protocol):
 
     def write_kv(self, name: str, values: Mapping[str, RawCell]) -> None:
         """Set values in a key/value tab; a key not there yet gets a new row."""
+        ...
+
+    def read_formulas(self, name: str) -> Table:
+        """A data tab with its formulas as text (`=IF(...)`), not their values (drift check)."""
         ...
 
     def exists(self) -> bool:

@@ -29,7 +29,8 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
   (D-052).
 - **Formula compiler** (D-018): derived fields → per-row sheet formulas, `_settings`
   references, pre-filled formula buffer, conditional formatting, drift check. → compiler and
-  LibreOffice parity test done (D-053); writing the columns into the sheets with #19.
+  LibreOffice parity test done (D-053); formula columns, buffer, status colours and drift
+  check in xlsx done (D-054).
 - Local snapshot (D-020).
 - `modules/journal.yaml` complete; legacy journal importer + parity report; grade parser (French + gym). → grade parser done (D-047); journal complete, every legacy rule tested (D-056).
 - **Synthetic fixture generator** (D-034): fictional workbooks in the legacy layouts (with their

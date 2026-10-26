@@ -87,8 +87,8 @@ def test_app_only_entries_are_listed(module: Module) -> None:
 def test_default_columns_follow_schema_sync(module: Module) -> None:
     rest = default_columns(module)["Rest"]
     assert list(rest) == [
-        *("date", "sleep", "start", "updated_at", "deleted"),
-        *("auto:first_start", "auto:since_climb", "auto:last_effort"),
+        *("date", "sleep", "start"),
+        *("auto:first_start", "auto:since_climb", "auto:last_effort", "updated_at", "deleted"),
     ]
 
 
@@ -174,13 +174,13 @@ def test_statuses(module: Module) -> None:
         'G3=TRUE,G3=1),"LOW",IF(AND(E3<>"",E3>=8),"WATCH","GOOD")),""))'
     )
     assert '<=low_max,"LOW"' in f["Body!auto:status"]
-    body = "INDEX('Body'!$Q:$Q,IFERROR(MATCH(K3,'Body'!$H:$H,0),2))"
+    body = "INDEX(Body!$N:$N,IFERROR(MATCH(AN3,Body!$O:$O,0),2))"
     assert f["Session!auto:overall"] == (
-        f'=IF(A3="","",IF(OR({body}="LOW",Z3="LOW"),"LOW",IF(OR({body}="WATCH",Z3="WATCH"),'
-        f'"WATCH",IF(OR({body}="GOOD",Z3="GOOD"),"GOOD",""))))'
+        f'=IF(A3="","",IF(OR({body}="LOW",W3="LOW"),"LOW",IF(OR({body}="WATCH",W3="WATCH"),'
+        f'"WATCH",IF(OR({body}="GOOD",W3="GOOD"),"GOOD",""))))'
     )
     assert f["Session!auto:advice"] == (
-        '=IF(A3="","",IF(AA3="LOW","Rest",IF(AA3="WATCH","Easy",IF(AA3="GOOD","Train",""))))'
+        '=IF(A3="","",IF(X3="LOW","Rest",IF(X3="WATCH","Easy",IF(X3="GOOD","Train",""))))'
     )
 
 
@@ -192,13 +192,12 @@ def test_keys(module: Module) -> None:
 
 def test_children_are_counted_on_the_key(module: Module) -> None:
     f = formulas(module)
-    assert f["Session!auto:sets"] == '=IF(A3="","",COUNTIFS(\'Sets\'!$H:$H,K3,\'Sets\'!$G:$G,""))'
-    numbers = "COUNTIFS('Sets'!$H:$H,K3,'Sets'!$G:$G,\"\",'Sets'!$D:$D,\">-1E+307\")"
+    assert f["Session!auto:sets"] == '=IF(A3="","",COUNTIFS(Sets!$H:$H,AN3,Sets!$J:$J,""))'
+    numbers = 'COUNTIFS(Sets!$H:$H,AN3,Sets!$J:$J,"",Sets!$D:$D,">-1E+307")'
     assert f["Session!auto:top"] == (
-        f'=IF(A3="","",IF({numbers}=0,"",'
-        "_xlfn.MAXIFS('Sets'!$D:$D,'Sets'!$H:$H,K3,'Sets'!$G:$G,\"\")))"
+        f'=IF(A3="","",IF({numbers}=0,"",_xlfn.MAXIFS(Sets!$D:$D,Sets!$H:$H,AN3,Sets!$J:$J,"")))'
     )
-    assert "SUMIFS('Sets'!$I:$I" in f["Session!auto:total"]  # the children's derived volume
+    assert "SUMIFS(Sets!$F:$F" in f["Session!auto:total"]  # the children's derived volume
     assert "AVERAGEIFS(" in f["Session!auto:avg_kg"]
     assert "_xlfn.MINIFS(" in f["Session!auto:low_kg"]
     assert f["Session!auto:n_kg"] == f'=IF(A3="","",{numbers})'
@@ -206,18 +205,19 @@ def test_children_are_counted_on_the_key(module: Module) -> None:
 
 def test_prev_parent_and_last_look_rows_up(module: Module) -> None:
     f = formulas(module)
-    latest = "_xlfn.MAXIFS('Session'!$K:$K,'Session'!$K:$K,\"<\"&K3,'Session'!$J:$J,\"\")"
-    assert f"MATCH({latest},'Session'!$K:$K,0)" in f["Session!auto:prev_load"]
-    assert "INDEX('Session'!$D:$D,MATCH(H3,'Session'!$K:$K,0))" in f["Sets!auto:long"]
-    last = "_xlfn.MAXIFS('Session'!$K:$K,'Session'!$A:$A,\"<\"&INT(A3),'Session'!$J:$J,\"\")"
-    assert f"INDEX('Session'!$E:$E,MATCH({last},'Session'!$K:$K,0))" in f["Rest!auto:last_effort"]
+    keys, deleted = "Session!$AN:$AN", "Session!$AP:$AP"
+    latest = f'_xlfn.MAXIFS({keys},{keys},"<"&AN3,{deleted},"")'
+    assert f"MATCH({latest},{keys},0)" in f["Session!auto:prev_load"]
+    assert f"INDEX(Session!$D:$D,MATCH(H3,{keys},0))" in f["Sets!auto:long"]
+    last = f'_xlfn.MAXIFS({keys},Session!$A:$A,"<"&INT(A3),{deleted},"")'
+    assert f"INDEX(Session!$E:$E,MATCH({last},{keys},0))" in f["Rest!auto:last_effort"]
 
 
 def test_hand_written_formulas(module: Module) -> None:
     f = formulas(module)
     assert f["Session!auto:plus_one"] == "=E3+1"
-    body = "INDEX('Body'!$C:$C,MATCH(K3,'Body'!$H:$H,0))"
-    assert f["Session!auto:plus_two"] == f'=L3+IFERROR(IF({body}="","",{body}),"")'
+    body = "INDEX(Body!$C:$C,MATCH(AN3,Body!$O:$O,0))"
+    assert f["Session!auto:plus_two"] == f'=I3+IFERROR(IF({body}="","",{body}),"")'
 
 
 def test_more_value_kinds(module: Module) -> None:
@@ -225,7 +225,7 @@ def test_more_value_kinds(module: Module) -> None:
     yes = ",".join(
         f"strict={t}" for t in ('"yes"', '"y"', '"true"', '"si"', '"sì"', '"1"', "TRUE", "1")
     )
-    assert f["Session!auto:strict_hard"] == f'=IF(A3="","",AND((S3=TRUE),OR({yes})))'
+    assert f["Session!auto:strict_hard"] == f'=IF(A3="","",AND((P3=TRUE),OR({yes})))'
     assert f["Session!auto:flagged"].endswith(",FALSE))")
     assert f["Session!auto:half"] == '=IF(A3="","",IF(E3="","",E3/2))'  # no test for /2
     assert f["Session!auto:five"] == '=IF(A3="","",AND(E3<>"",E3=5))'
@@ -272,7 +272,7 @@ def test_a_bad_placeholder_makes_the_entry_app_only(load: LoadYaml) -> None:
 def test_google_sheets_takes_plain_function_names(module: Module) -> None:
     f = formulas(module, GOOGLE)
     assert "_xlfn." not in "".join(f.values())
-    assert "MAXIFS('Sets'!$D:$D" in f["Session!auto:top"]
+    assert "MAXIFS(Sets!$D:$D" in f["Session!auto:top"]
 
 
 def test_a_column_missing_from_the_workbook_leaves_its_formula_out(module: Module) -> None:
@@ -438,7 +438,7 @@ def test_a_child_with_a_non_integer_fixed_number(load: LoadYaml) -> None:
     )
     f = formulas(module)
     assert f["Sets!auto:_key"] == '=IF(A3="","",INT(A3)*10+2)'
-    assert f["Sessions!auto:n"].startswith('=IF(A3="","",COUNTIFS(\'Sets\'!')
+    assert f["Sessions!auto:n"].startswith('=IF(A3="","",COUNTIFS(Sets!')
 
 
 # ---- The CLI ----
@@ -457,7 +457,7 @@ def test_module_validate_lists_app_only_entries(write: object, tmp_path: Path) -
 
 def test_counting_children_values_by_type(load: LoadYaml) -> None:
     f = formulas(load(APP_ONLY))
-    assert f["Sessions!auto:notes"].endswith("'Sets'!$D:$D,\"<>\"))")  # stored text: not empty
+    assert f["Sessions!auto:notes"].endswith('Sets!$D:$D,"<>"))')  # stored text: not empty
     assert f["Sessions!auto:labels"].endswith(',"?*"))')  # a text formula: some text
 
 

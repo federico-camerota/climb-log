@@ -67,8 +67,24 @@ def test_appends_fill_the_formula_buffer_then_go_below(book: XlsxBackend, path: 
     cells = sheet(path)
     assert cells[4][:2] == (None, 15)  # the hand row is kept
     assert cells[5] == (D20, 11, None, formula(6), None)  # the formula is kept
-    assert cells[7][:4] == (D20, 11, None, None)
+    assert cells[7][:4] == (D20, 11, None, formula(8))  # the buffer was topped up (D-054)
     assert book.read_table("Sets").rows[-1] == SheetRow(8, {"date": D20, "kg": 11})
+
+
+def test_appends_keep_fifty_free_formula_rows(book: XlsxBackend, path: Path) -> None:
+    book.apply([Append("Sets", {"date": D21, "kg": 9})])
+    cells = sheet(path)
+    assert len(cells) == 202  # a buffer of at least 200 rows, from row 3
+    assert cells[-1][3] == formula(202)
+    assert cells[-1][:3] == (None, None, None)
+    rows = book.apply([Append("Sets", {"date": D21, "kg": 9}) for _ in range(160)])
+    assert rows[-1] == 166
+    assert len(sheet(path)) == 366  # under 50 free rows left: 200 past the last data row
+
+
+def test_an_update_takes_no_buffer_row(book: XlsxBackend, path: Path) -> None:
+    book.apply([Update("Sets", 3, {"kg": 11}, {"date": D20, "kg": 10})])
+    assert len(sheet(path)) == 7
 
 
 def test_strings_are_written_as_text(book: XlsxBackend, path: Path) -> None:

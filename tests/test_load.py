@@ -114,6 +114,9 @@ class Memory:
     def write_kv(self, name: str, values: Mapping[str, RawCell]) -> None:
         raise NotImplementedError("read-only")
 
+    def read_formulas(self, name: str) -> Table:
+        return self.read_table(name)
+
     def exists(self) -> bool:
         return True
 

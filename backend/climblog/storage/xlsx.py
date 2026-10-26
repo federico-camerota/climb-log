@@ -43,7 +43,7 @@ from climblog.storage.base import (
 )
 from climblog.storage.cells import RawCell
 from climblog.storage.layout import WorkbookLayout
-from climblog.storage.xlsx_sync import apply_layout
+from climblog.storage.xlsx_sync import apply_layout, top_up
 
 Sheet = list[tuple[RawCell, ...]]
 
@@ -68,18 +68,18 @@ class XlsxBackend:
         return list(self._sheets())
 
     def read_table(self, name: str) -> Table:
-        rows = self._sheet(name)
-        columns = _columns(
-            name, rows[FIRST_DATA_ROW - 2] if len(rows) >= FIRST_DATA_ROW - 1 else ()
-        )
-        data = []
-        for number, row in enumerate(rows[FIRST_DATA_ROW - 1 :], start=FIRST_DATA_ROW):
-            cells = {
-                k: row[i] for k, i in columns.items() if i < len(row) and row[i] not in (None, "")
-            }
-            if any(not _blank(value) for value in cells.values()):  # kept as written (04 §3b)
-                data.append(SheetRow(number, cells))
-        return Table(name, tuple(columns), tuple(data))
+        return _table(name, self._sheet(name))
+
+    def read_formulas(self, name: str) -> Table:
+        workbook = self._load(read_only=True, data_only=False)
+        try:
+            if name not in workbook.sheetnames:
+                raise TableNotFound(f"no tab '{name}' in {self.path.name}")
+            sheet = workbook[name]
+            rows = [tuple(_raw(v) for v in row) for row in sheet.iter_rows(values_only=True)]
+        finally:
+            workbook.close()
+        return _table(name, rows)
 
     def read_kv(self, name: str) -> dict[str, RawCell]:
         rows = self._sheet(name)
@@ -112,6 +112,10 @@ class XlsxBackend:
                 for key, value in edit.cells.items():
                     _write(sheet.cell(number, columns[key] + 1), value)
                 numbers.append(number)
+            for tab in free:  # rows were taken from the formula buffer: keep 50 free (D-054)
+                sheet = _worksheet(workbook, tab)
+                columns = _columns(tab, _row_values(sheet, FIRST_DATA_ROW - 1))
+                top_up(sheet, {key: i + 1 for key, i in columns.items()})
             return numbers
 
         return self._write(write)
@@ -246,6 +250,18 @@ class _FreeRows:
 
     def _free(self, number: int) -> bool:
         return all(self.sheet.cell(number, i + 1).value in (None, "") for i in self.data)
+
+
+def _table(name: str, rows: Sheet) -> Table:
+    """Keys from row 2, rows from row 3 (those with a non-blank cell)."""
+    columns = _columns(name, rows[FIRST_DATA_ROW - 2] if len(rows) >= FIRST_DATA_ROW - 1 else ())
+    data = []
+    for number, row in enumerate(rows[FIRST_DATA_ROW - 1 :], start=FIRST_DATA_ROW):
+        cells = {k: row[i] for k, i in columns.items() if i < len(row) and row[i] not in (None, "")}
+        if any(not _blank(value) for value in cells.values()):  # kept as written (04 §3b)
+            data.append(SheetRow(number, cells))
+    numbers = {key: i + 1 for key, i in columns.items()}
+    return Table(name, tuple(columns), tuple(data), numbers)
 
 
 def _columns(tab: str, keys: Sequence[object]) -> dict[str, int]:
