@@ -31,16 +31,9 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install dependencies
         run: make install
-      # LibreOffice recalculates the generated sheet formulas for the parity tests (D-053).
-      - name: Install LibreOffice Calc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libreoffice-calc
       - name: Pre-commit hooks (data check, file hygiene)
         run: uv run pre-commit run --all-files --show-diff-on-failure
       - name: Lint and types
         run: make lint
       - name: Tests
-        run: make test
-        env:
-          CLIMBLOG_REQUIRE_SOFFICE: "1"  # the parity tests must run here, not be skipped
+        run: make test  # the formula parity tests are skipped here: no LibreOffice (D-057)

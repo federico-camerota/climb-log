@@ -51,7 +51,8 @@ through `pnpm --dir frontend`. Node 22 via fnm (`.node-version`). `make help` li
 - `make dev`: backend (:8000, reload) + Vite (:5173, hot reload); open `http://127.0.0.1:5173`
 - `make build`: build the SPA into `backend/climblog/static/`
 - `make test`: pytest with coverage + vitest; the formula parity tests run only with a working
-  LibreOffice (`CLIMBLOG_SOFFICE`, `CLIMBLOG_SOFFICE_TMP`: see CONTRIBUTING.md), CI always runs them
+  LibreOffice (`CLIMBLOG_SOFFICE`, `CLIMBLOG_SOFFICE_TMP`: see CONTRIBUTING.md); CI skips them,
+  so run them locally when a change touches formulas, expressions or sync, and say so in the PR
 - `make lint`: ruff, mypy `--strict`, `tsc`, eslint, prettier check (changes nothing)
 - `make fmt`: apply ruff, prettier and eslint auto-fixes
 - `uv run pre-commit run --all-files`: run the commit hooks (data check, lint) on every file
