@@ -19,6 +19,7 @@ from climblog.storage import (
     SheetRow,
     Table,
     TableNotFound,
+    WorkbookLayout,
     XlsxBackend,
     load_data,
 )
@@ -111,6 +112,12 @@ class Memory:
         raise NotImplementedError("read-only")
 
     def write_kv(self, name: str, values: Mapping[str, RawCell]) -> None:
+        raise NotImplementedError("read-only")
+
+    def exists(self) -> bool:
+        return True
+
+    def sync_schema(self, layout: WorkbookLayout, meta: Mapping[str, RawCell]) -> list[str]:
         raise NotImplementedError("read-only")
 
 
@@ -294,3 +301,26 @@ def test_an_xlsx_workbook_end_to_end(module: Module, tmp_path: Path) -> None:
     derived = compute_module(module, tables, data.settings)
     assert [d["low_mood"] for d in derived["session"]] == [False, False]  # 8 and 7 > 5
     assert data.entities["session"].records[0]["route"] == "Via Lattea"
+
+
+def test_a_retired_field_needs_no_column(load: LoadYaml, tmp_path: Path) -> None:
+    module = load(
+        """\
+        module: test_load
+        name: Test load
+        version: 1
+        kind: journal
+        entities:
+          rest:
+            label: Rest day
+            tab: Rest
+            key: [date]
+            fields:
+              date: {type: date}
+              old: {type: integer, retired: true}
+              new: {type: integer}
+        """
+    )
+    path = write_workbook(tmp_path / "test.xlsx", {"Rest": tab(["date"], [D20])})
+    issues = load_data(module, XlsxBackend(path)).issues
+    assert issues == [DataIssue("Rest", None, "new", "the column is missing")]

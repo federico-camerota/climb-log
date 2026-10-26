@@ -142,8 +142,8 @@ class RowParser:
         """The row's values (a bad cell is None) and its data issues.
 
         `fields`: the fields on this tab (default: all). Unknown columns are left out: schema
-        sync deals with them (#17). `required=False` leaves the required check to `missing`,
-        for rows joined with other tabs first.
+        sync keeps them and `climblog check` lists them (D-051, D-052). `required=False` leaves
+        the required check to `missing`, for rows joined with other tabs first.
         """
         values: dict[str, Value] = {}
         issues: list[DataIssue] = []

@@ -76,11 +76,40 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
     out as well. A typed number equal to a computed one is a duplicate (next bullet).
   - Two rows with the same key: the upper one is used, each later one is a data issue.
   - `auto:` columns, `updated_at` and columns the module doesn't know are ignored on read; a
-    missing tab or a missing field column is a data issue (schema sync adds them, #17).
+    missing tab or a missing field column is a data issue (schema sync adds them, D-052), except
+    for a retired field.
   - A child row without its parent row is a data issue; the record still loads.
-- The app writes **data validation** (dropdowns for choices, number ranges for scales,
-  date format on date columns), so hand entry in Google/Excel/LibreOffice stays constrained.
-  The dropdowns are rewritten on every schema sync, so they always match the YAML.
+- **Schema sync** (`climblog check --apply`; `storage/layout.py`, `sync.py`, `xlsx_sync.py`,
+  D-052) makes the workbook match the YAML, **additively**, in one save (lock check and backup
+  as for writes). The expected layout is computed once from the module and also used by
+  `climblog check`, so a synced workbook checks clean.
+  - Columns per tab: the tab's fields in YAML order (key fields first; retired fields are not
+    created), then `updated_at`, `deleted`. A column added to an existing tab goes **at the
+    right**, after every existing column: openpyxl doesn't shift formula references when it
+    inserts columns, so inserting would break the `auto:` formulas.
+  - Row 1 label: the field's `label` (or its key in words) with its unit or scale range on a
+    second line, `(1–10 ↓)` for a lower-is-better scale, unless the label has a parenthesis.
+    Colours by group: key fields **blue**, `pre` **green**, `post` (and `next_day`)
+    **amber**, `any` **yellow**, system columns light grey; a section's phase counts for its
+    fields. Row 2 as D-029; freeze at C3; a note on A2. Existing columns keep their labels,
+    widths and colours (labels may be reworded by hand).
+  - A rename (`renamed_from` key in row 2, the new key absent) changes the key in row 2, and
+    the label only if it is still the generated one (or the old key).
+  - **Data validation** (whole column from row 3): dropdowns for choices (`allow_other`: a
+    warning, other values accepted) and for 1–10 scales, `Yes`/`No` for booleans, number
+    ranges from `min`/`max`, dates from 1990, times. Text columns are text-formatted (§3b),
+    dates `DD/MM/YYYY`, times `HH:MM`. Scale columns get a red→green colour scale with fixed ends on
+    the scale's range (1, 5.5, 10 as in the mock-ups, so a single value already has its colour;
+    reversed for lower-is-better, none for neutral). Validation and scale colours are **rewritten on every
+    sync** on the module's columns, so the dropdowns always match the YAML; rules on other
+    columns (unknown, `auto:`) are kept, and a rule spanning both is split.
+  - `_settings` (`key`, `value`, `label`): a row per missing setting with its default; values
+    already there are kept. Each setting gets a workbook **defined name** on its value cell
+    (`low_max`), used by the generated formulas; the names are re-pointed on every sync.
+  - `_meta`: `module`, `module_version`, `schema_synced_at` (local time), `app_version`.
+  - A missing workbook is created with every tab (file mode 0600). A module whose check has an
+    `error` difference is not synced. Formula columns, the formula buffer and status colours
+    come with #19.
 - An optional `README` tab (generated) explains each tab and its scales, mirroring the
   current "Start Here".
 

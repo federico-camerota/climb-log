@@ -42,6 +42,8 @@ from climblog.storage.base import (
     WriteConflict,
 )
 from climblog.storage.cells import RawCell
+from climblog.storage.layout import WorkbookLayout
+from climblog.storage.xlsx_sync import apply_layout
 
 Sheet = list[tuple[RawCell, ...]]
 
@@ -131,6 +133,21 @@ class XlsxBackend:
 
         self._write(write)
 
+    def exists(self) -> bool:
+        return self.path.exists()
+
+    def sync_schema(self, layout: WorkbookLayout, meta: Mapping[str, RawCell]) -> list[str]:
+        if self.exists():
+            return self._write(lambda workbook: apply_layout(workbook, layout, meta))
+        self._check_unlocked()
+        workbook = openpyxl.Workbook()
+        workbook.remove(workbook.active)  # type: ignore[arg-type]
+        done = apply_layout(workbook, layout, meta)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._save(workbook)
+        self._cache = None
+        return ["created the workbook", *done]
+
     # ---- Writing ----
 
     def _write[T](self, change: "_Change[T]") -> T:
@@ -162,7 +179,8 @@ class XlsxBackend:
             workbook.save(temp)
             with open(temp, "rb+") as file:
                 os.fsync(file.fileno())
-            shutil.copymode(self.path, temp)
+            if self.path.exists():
+                shutil.copymode(self.path, temp)  # a new workbook keeps mkstemp's 0600
             os.replace(temp, self.path)
         except BaseException:
             Path(temp).unlink(missing_ok=True)

@@ -14,9 +14,12 @@ Turning records into edits is `write.py`'s job.
 import datetime as dt
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from climblog.storage.cells import RawCell
+
+if TYPE_CHECKING:
+    from climblog.storage.layout import WorkbookLayout
 
 FIRST_DATA_ROW = 3
 AUTO = "auto:"  # app-managed formula columns: never written, ignored in conflict checks
@@ -73,7 +76,7 @@ class WriteConflict(StorageError):
 
 
 class Repository(Protocol):
-    """One module's workbook. Schema sync comes with #17."""
+    """One module's workbook."""
 
     def list_tables(self) -> list[str]:
         """The workbook's tab names."""
@@ -101,4 +104,15 @@ class Repository(Protocol):
 
     def write_kv(self, name: str, values: Mapping[str, RawCell]) -> None:
         """Set values in a key/value tab; a key not there yet gets a new row."""
+        ...
+
+    def exists(self) -> bool:
+        """Whether the workbook exists (schema sync creates it)."""
+        ...
+
+    def sync_schema(self, layout: "WorkbookLayout", meta: Mapping[str, RawCell]) -> list[str]:
+        """Make the workbook match the layout, additively, in one save; one line per change.
+
+        Creates the workbook if it doesn't exist. Raises `WorkbookLocked` or `StorageError`.
+        """
         ...

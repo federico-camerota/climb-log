@@ -63,10 +63,15 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - `climblog check [MODULE...]`: lists where each workbook and its YAML disagree (missing tabs
   and columns, pending renames, unknown columns, `_meta` version) without changing anything;
   exit code 1 when something needs syncing or fixing (D-051).
+- Schema sync, `climblog check --apply`: creates the workbook, missing tabs and columns (with
+  styled header rows, coloured by group), `_settings` rows with defaults and named cells, and
+  `_meta`; applies `renamed_from` renames; rewrites dropdowns, number ranges and scale colours
+  on every sync. Additive only: columns, data and hand-reworded labels are kept (D-052).
 
 ### Fixed
 - Set rows typed by hand with a blank Set # load with the next number for that date
   (`default: next`) instead of being left out with a data issue (D-050, #35).
+- A retired field whose column is missing is no longer reported as a data issue (D-052).
 
 ### Changed
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

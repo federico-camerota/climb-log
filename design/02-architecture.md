@@ -107,7 +107,9 @@ backend/climblog/
     check.py           # workbook vs YAML differences for `climblog check` (D-051)
     xlsx.py            # XlsxBackend: read, atomic writes, lock check (D-048, D-049)
     gsheets.py         # GSheetsBackend
-    sync.py            # header/schema sync, data validation, styling
+    layout.py          # the tabs and columns a module expects (D-052)
+    sync.py            # schema sync: check first, then the backend applies the layout (D-052)
+    xlsx_sync.py       # xlsx schema sync: tabs, headers, validation, colours, names (D-052)
     backup.py          # rotating copies before writes (D-049)
   analytics/
     timeseries.py  load.py  correlate.py  calendar.py  search.py
@@ -133,7 +135,9 @@ class Repository(Protocol):                               # storage/base.py (D-0
     def last_modified(self) -> datetime: ...
     def apply(self, edits: Sequence[Append | Update]) -> list[int]: ...  # one save, all or none
     def write_kv(self, table: str, values: Mapping[str, RawCell]) -> None: ...
-    # to come: ensure_table (#17)
+    def exists(self) -> bool: ...
+    def sync_schema(self, layout: WorkbookLayout, meta: Mapping[str, RawCell]) -> list[str]: ...
+    # additive schema sync in one save; creates the workbook if missing (D-052)
 ```
 
 Both backends implement it. Analytics and the engine never know which one is in use.
