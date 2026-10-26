@@ -177,3 +177,25 @@ def test_an_unreadable_file_is_a_problem(tmp_path: Path) -> None:
     file.write_bytes(b"\xff\xfe")
     (problem,) = problems(file)
     assert problem.startswith("cannot read:")
+
+
+def test_snapshots_default_to_the_xdg_data_folder(tmp_path: Path) -> None:
+    config = load_config(write(tmp_path, ""))
+    assert config.snapshots.snapshots().folder == tmp_path / "home/.local/share/climblog/snapshots"
+    config = load_config(write(tmp_path, '[snapshots]\nfolder = "cache"\n'))
+    assert config.snapshots.snapshots().folder == tmp_path / "cache"
+
+
+def test_cached_is_the_workbook_through_its_snapshot(tmp_path: Path) -> None:
+    file = write(
+        tmp_path,
+        f"""\
+        [modules.finger_strength]
+        definition = "{FINGERS}"
+        workbook = "fingers.xlsx"
+        """,
+    )
+    cached = load_config(file).cached("finger_strength")
+    assert cached.module == "finger_strength"
+    assert cached.source.path == tmp_path / "fingers.xlsx"  # type: ignore[attr-defined]
+    assert cached.snapshots.folder.name == "snapshots"

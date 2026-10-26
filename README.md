@@ -46,6 +46,9 @@ workbook = "~/climbing/finger-strength.xlsx"
 
 [backups]          # optional
 folder = "~/climbing/backups"
+
+[snapshots]        # optional: the app's local copy of the data, safe to delete
+folder = "~/climbing/snapshots"
 ```
 
 `uv run climblog check` then lists, for every module, where the workbook and the YAML

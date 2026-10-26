@@ -67,6 +67,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   styled header rows, coloured by group), `_settings` rows with defaults and named cells, and
   `_meta`; applies `renamed_from` renames; rewrites dropdowns, number ranges and scale colours
   on every sync. Additive only: columns, data and hand-reworded labels are kept (D-052).
+- Local snapshot of each module (`~/.local/share/climblog/snapshots/`, gzipped JSON): reads
+  come from it while the workbook is unchanged, it is refreshed when the workbook changes, and
+  it is used read-only when the workbook can't be reached. Always safe to delete (D-055).
 
 ### Fixed
 - Set rows typed by hand with a blank Set # load with the next number for that date
