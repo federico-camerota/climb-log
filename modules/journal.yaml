@@ -163,14 +163,16 @@ entities:
           - {if: "max(rf_off_severity, rf_change_priority) >= settings.note_min", then: WORTH NOTING}
           - {if: "notnull(max(rf_off_severity, rf_change_priority))", then: GOOD}
 
-      # Which classes are not filled in yet, as the legacy Log check: "Physical, Reflect".
-      log_check: >-
+      # The legacy Log check: a class is complete when its score (or the reflection status)
+      # exists, Physical when every pre and post soreness value is filled.
+      log_missing: >-
         incomplete(
-          Wellbeing=all_present(fields(section=[wb_pre, wb_post], type=scale)),
+          Wellbeing=notnull(wb_score),
           Physical=all_present(fields(section=[ph_pre, ph_post], tag=soreness)),
-          Mental=all_present(fields(section=[mn_pre, mn_post], type=scale)),
-          Feel=all_present(fields(section=feel, type=scale)),
-          Reflect=all_present(fields(section=reflect, type=scale)))
+          Mental=notnull(mn_score),
+          Feel=notnull(feel_score),
+          Reflect=notnull(reflect_status))
+      log_check: "concat('Missing: ', log_missing) if notnull(log_missing) else 'Complete'"
 
   rest_day:
     label: Rest day

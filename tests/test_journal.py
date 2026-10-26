@@ -243,20 +243,21 @@ def test_weekday_month_and_days_since_the_previous_session(journal: Module) -> N
 
 
 def test_log_check_lists_the_incomplete_classes(journal: Module) -> None:
+    # As the legacy formula: Wellbeing, Mental, Feel need their score, Reflect its status
+    # (severity or priority), Physical every pre and post soreness value.
     full = (
         wellbeing((7, 8, 9), (3, 6, 7))
         | soreness("pre", dict.fromkeys(PARTS, 2))
         | soreness("post", dict.fromkeys(PARTS, 3))
         | mental()
-        | {"feel_enjoyment": 9, "feel_satisfaction": 6, "feel_effort": 7}
-        | {f"rf_{k}": 5 for k in ("good_score", "off_severity", "surprise_impact")}
-        | {"rf_change_priority": 4, "rf_session_score": 8}
+        | {"feel_enjoyment": 9, "feel_satisfaction": 6}  # effort is informational
+        | {"rf_change_priority": 4}  # enough for the reflection status
     )
-    assert session(journal, **full)["log_check"] is None
+    assert session(journal, **full)["log_check"] == "Complete"
     missing = dict(full)
-    del missing["ph_post_elbows"], missing["rf_session_score"]
-    assert session(journal, **missing)["log_check"] == "Physical, Reflect"
-    assert session(journal)["log_check"] == "Wellbeing, Physical, Mental, Feel, Reflect"
+    del missing["ph_post_elbows"], missing["rf_change_priority"]
+    assert session(journal, **missing)["log_check"] == "Missing: Physical, Reflect"
+    assert session(journal)["log_check"] == "Missing: Wellbeing, Physical, Mental, Feel, Reflect"
 
 
 # ---- Rest days ----
