@@ -88,6 +88,11 @@ def test_round_halves_away_from_zero_like_the_sheets(
     assert run(f"round({value}, {digits})") == expected
 
 
+def test_round_works_on_15_significant_digits_like_the_sheets() -> None:
+    # (5.0 + 5.0 + 5.1 + 8.2) / 4 is 5.824999999999999 in binary; the sheets see 5.825 (D-053).
+    assert run("round((5.0 + 5.0 + 5.1 + 8.2) / 4, 2)") == 5.83
+
+
 # ---- Blank cells (D-043) ----
 
 

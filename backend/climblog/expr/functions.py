@@ -264,8 +264,9 @@ def _run_round(args: Sequence[Arg], kwargs: Mapping[str, Value], call: Call) -> 
     value, digits = args[0], args[1] if len(args) > 1 else 0
     if not isinstance(value, int | float) or not isinstance(digits, int):
         return None
-    # str() gives the shortest decimal form, so 2.675 rounds to 2.68 as in the sheets.
-    exact = Decimal(str(value)).quantize(Decimal(1).scaleb(-digits), rounding=ROUND_HALF_UP)
+    # The sheets round the value as shown with 15 significant digits: 2.675 → 2.68, and a mean
+    # of 5.824999999999999 (5.825 on paper) → 5.83. str() alone would keep the 9s (D-053).
+    exact = Decimal(f"{value:.15g}").quantize(Decimal(1).scaleb(-digits), rounding=ROUND_HALF_UP)
     return float(exact)
 
 

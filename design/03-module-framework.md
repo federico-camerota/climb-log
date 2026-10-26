@@ -291,6 +291,41 @@ column** in the sheet:
 - Parity testing becomes stronger: the compiled formulas are evaluated by LibreOffice
   (headless) or read back from Google, and compared with the Python results on the same fixtures.
 
+**How it compiles** (`climblog/modules/formulas.py`, D-053):
+- Each value is compiled to its formula and the condition under which it is blank, kept apart,
+  so the blank rules of D-043 cost one test at the top (`IF(COUNT(D3,E3,F3)=0,"",ROUND(11-
+  AVERAGE(D3,E3,F3),1))`) instead of a wrapper around every part. Aggregates of plain cells use
+  the native functions (they skip blanks and text); others add up `IF(x<>"",x,0)` terms.
+  Every formula is blank until the row has a date, so the buffer rows show nothing.
+- A stored field reads as the app reads it: a blank cell takes its `default:`, a Yes/No cell is
+  yes for `Yes`, `Y`, `true`, `Sì`, `Si`, `1` or TRUE (any case), as are Yes/No settings.
+- **Placement**: a derived field goes on the tab of what it reads on its record, or on the
+  anchor tab when that is several tabs; a derived value is read from its own `auto:` column.
+- **`auto:_key`** (hidden) = `INT(date)*10` + the code of the second key part: an integer (blank
+  = its default) or a closed choice's position, 1-based (as in the mock-ups). A child's is its
+  parent's (the key columns it repeats, plus `fixed`). Every tab of a split entity, a parent or a
+  child gets one, and so does an entity using `prev`. Rows are looked up on it with
+  `INDEX/MATCH`: fields on another section tab, `parent.x`; `prev(x)` takes the largest key below
+  the row's; `children(e)` are `COUNTIFS`/`SUMIFS`/`MAXIFS`/… on the child's key column; soft-
+  deleted rows are left out (`deleted` blank). `last(e.x, before=d)` takes the latest row dated
+  before `d`, ordered by `auto:_key` when the entity has one.
+- **App only** (no column, listed by `climblog module validate` as notes): plugins and entries
+  of later milestones (unless they have a hand-written `sheet_formula`), `sheet_formula: false`,
+  `prev(x, n)` with n > 1, `prev` on a child or with a choice in the key (the app orders it by
+  name), keys of more than a date and one part, a second key part that is not an integer or a
+  closed choice of at most 9 values, settings named like a cell (`a1`), `missing_as` or other
+  values mixed with `children(...)`, and every entry reading one of these.
+- Known limits: a key part of 10 or more collides in `auto:_key`; legacy values mapped by
+  `choice_map` are not mapped in formulas; `concat` writes decimals as the sheet's locale does.
+- `round` in the app works on 15 significant digits as the sheets do, so a mean of
+  5.824999999999999 (5.825 on paper) rounds to 5.83 in both.
+- **Parity test** (`tests/test_formula_parity.py`): fictional workbooks with random rows from
+  fixed seeds (blanks, second sessions, sets, missing section rows) are recalculated by
+  LibreOffice headless and every formula cell must equal the app's value. CI installs
+  LibreOffice; locally the test runs when a working `soffice` is found (`CLIMBLOG_SOFFICE`, e.g.
+  `snap run libreoffice`, with `CLIMBLOG_SOFFICE_TMP=build/lo-parity` for a snap) and is
+  skipped otherwise. Hand-written formulas are not compared.
+
 ### 2.3 Cross-record rules
 - **Declarative** (covers most cases; D-045):
   - `prev(x)`, `prev(x, n)`: `x` in the *n*-th previous record of the same entity, ordered by
