@@ -147,3 +147,36 @@ def test_check_unknown_or_no_modules(config: Path) -> None:
     config.write_text("", encoding="utf-8")
     result = runner.invoke(cli.app, ["check"])
     assert (result.exit_code, result.output) == (1, f"{config}: no modules configured\n")
+
+
+def test_check_apply_creates_the_workbook(config: Path) -> None:
+    workbook = config.parent / "fingers.xlsx"
+    workbook.unlink()
+    with config.open("a", encoding="utf-8") as file:
+        file.write('[backups]\nfolder = "backups"\n')
+    result = runner.invoke(cli.app, ["check", "--apply"])
+    assert result.exit_code == 0
+    assert result.output.splitlines()[1:] == [
+        "  synced: created the workbook",
+        "  synced: created tab 'Sessions'",
+        "  synced: created tab 'Hang sets'",
+        "  synced: created tab 'Curl sets'",
+        "  synced: created tab '_settings'",
+        "  synced: created tab '_meta'",
+        "  ok",
+    ]
+    result = runner.invoke(cli.app, ["check", "--apply"])
+    assert result.output.splitlines()[1:] == [
+        "  synced: nothing to add (dropdowns and _meta refreshed)",
+        "  ok",
+    ]
+    assert len(list((config.parent / "backups" / "finger_strength").iterdir())) == 1
+
+
+def test_check_apply_refuses_errors(config: Path) -> None:
+    workbook = openpyxl.load_workbook(config.parent / "fingers.xlsx")
+    workbook["_meta"]["B2"] = "journal"
+    workbook.save(config.parent / "fingers.xlsx")
+    result = runner.invoke(cli.app, ["check", "--apply"])
+    assert result.exit_code == 1
+    assert result.output.splitlines()[1].startswith("  error: not synced, fix these first: _meta")

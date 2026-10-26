@@ -10,7 +10,7 @@ import uvicorn
 
 from climblog.config import AppConfig, ConfigError, config_path, load_config
 from climblog.modules import Module, ModuleError, load_module
-from climblog.storage import StorageError, check_schema
+from climblog.storage import StorageError, check_schema, sync_module
 
 # Localhost only: LAN access needs the PIN (D-010), which does not exist yet.
 HOST = "127.0.0.1"
@@ -43,8 +43,15 @@ def check(
             help="Config file (default: $CLIMBLOG_CONFIG, ~/.config/climblog/config.toml)."
         ),
     ] = None,
+    apply: Annotated[
+        bool, typer.Option("--apply", help="Create what is missing (schema sync, additive only).")
+    ] = False,
 ) -> None:
-    """Compare each module's workbook with its YAML and list the differences (changes nothing)."""
+    """Compare each module's workbook with its YAML and list the differences.
+
+    Changes nothing unless --apply: then missing tabs and columns are created (the workbook too),
+    renames applied, dropdowns rewritten and _meta updated. Columns and data are never deleted.
+    """
     try:
         app_config = load_config(config_path(config))
     except ConfigError as error:
@@ -58,24 +65,31 @@ def check(
     failed = False
     for name in names:
         typer.echo(f"{name} ({app_config.modules[name].workbook})")
-        lines, ok = _check_module(app_config, name)
+        lines, ok = _check_module(app_config, name, apply)
         typer.echo("\n".join(f"  {line}" for line in lines))
         failed |= not ok
     if failed:
         raise typer.Exit(1)
 
 
-def _check_module(app_config: AppConfig, name: str) -> tuple[list[str], bool]:
+def _check_module(app_config: AppConfig, name: str, apply: bool) -> tuple[list[str], bool]:
     """The lines to print for one module, and whether it is in sync (`info` lines aside)."""
+    done: list[str] = []
     try:
-        differences = check_schema(app_config.module(name), app_config.repository(name))
+        module, repo = app_config.module(name), app_config.repository(name)
+        if apply:
+            done = [f"synced: {line}" for line in sync_module(module, repo)] or [
+                "synced: nothing to add (dropdowns and _meta refreshed)"
+            ]
+        differences = check_schema(module, repo)
     except ModuleError as error:
         return error.lines(), False
     except (ValueError, StorageError) as error:
-        return [f"error: {error}"], False
+        return [*done, f"error: {error}"], False
     if not differences:
-        return ["ok"], True
-    return [f"{d.level}: {d}" for d in differences], all(d.level == "info" for d in differences)
+        return [*done, "ok"], True
+    lines = [f"{d.level}: {d}" for d in differences]
+    return [*done, *lines], all(d.level == "info" for d in differences)
 
 
 def _fail(lines: list[str]) -> NoReturn:

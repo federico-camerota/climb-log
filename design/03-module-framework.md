@@ -390,13 +390,17 @@ analysis explorer (see `05-analytics.md`). No view config is needed for that.
 `climblog check [MODULE...]` (D-051) diffs each configured YAML against its workbook and
 lists the differences, changing nothing: `sync` ones (a missing tab, column or system column,
 a pending `renamed_from` rename, `_meta` missing or behind the YAML version) are what schema
-sync applies (`climblog check --apply`, #17), `info` ones need no change (a column the YAML
+sync applies (`climblog check --apply`, D-052), `info` ones need no change (a column the YAML
 doesn't know, a setting without a `_settings` row), `error` ones need a person (a workbook of
 another module, `_meta` newer than the YAML, unreadable header rows, both the old and the new
 column of a rename). It exits with 1 unless only `info` is left. Retired fields need no column;
 formula columns are checked with #19. It will also run on startup (#25).
-Sync applies only **additive** changes. It never deletes columns or data.
-Destructive operations (dropping a column) are a separate explicit command.
+`climblog check --apply` syncs each module, then checks again: it creates the workbook if the
+configured file doesn't exist, missing tabs and columns, `_settings` rows (with the defaults)
+and `_meta`, applies renames, and rewrites the dropdowns. A module with an `error` difference
+is not synced. Sync applies only **additive** changes. It never deletes columns or data.
+Destructive operations (dropping a column) are a separate explicit command. For a local
+module, `--apply` replaces `climblog module init` (in the table above).
 
 The `version` of the module and the schema it was synced with are stored in `_meta`, so
 the app can tell that the sheet was last synced with v2 while the YAML is now v3.

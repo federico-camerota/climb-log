@@ -16,7 +16,9 @@ from climblog.storage.base import (
 )
 from climblog.storage.cells import CellError, DataIssue, RawCell, RowParser, parse_cell
 from climblog.storage.check import Difference, check_schema
+from climblog.storage.layout import WorkbookLayout, workbook_layout
 from climblog.storage.load import EntityData, ModuleData, load_data
+from climblog.storage.sync import SyncRefused, sync_module
 from climblog.storage.write import RecordNotFound, RecordWriter, WriteError
 from climblog.storage.xlsx import XlsxBackend
 
@@ -36,9 +38,11 @@ __all__ = [
     "RowParser",
     "SheetRow",
     "StorageError",
+    "SyncRefused",
     "Table",
     "TableNotFound",
     "Update",
+    "WorkbookLayout",
     "WorkbookLocked",
     "WriteConflict",
     "WriteError",
@@ -46,4 +50,6 @@ __all__ = [
     "check_schema",
     "load_data",
     "parse_cell",
+    "sync_module",
+    "workbook_layout",
 ]

@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Where a workbook and its module YAML disagree (03-module-framework.md §3, D-051).
 
-Read-only: this only lists differences. Schema sync (#17) applies the ones marked `sync`
-(missing tabs and columns, pending renames, `_meta`); `info` is worth knowing but needs no
+Read-only: this only lists differences. Schema sync (`sync.py`, D-052) applies the ones marked
+`sync` (missing tabs and columns, pending renames, `_meta`); `info` is worth knowing but needs no
 change (a column the YAML doesn't know keeps its data); an `error` needs a person (a workbook of
 another module, a header row the app can't read). Formula columns are checked with #19.
 """
@@ -12,14 +12,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 from climblog.modules import Module
-from climblog.modules.schema import BaseField, Entity, ReferenceTemplateUse
 from climblog.storage.base import AUTO, Repository, StorageError
 from climblog.storage.cells import RawCell
-from climblog.storage.load import DELETED, SETTINGS_TAB
-from climblog.storage.write import UPDATED_AT
-
-META_TAB = "_meta"
-SYSTEM_COLUMNS = (UPDATED_AT, DELETED)  # hand-optional, at the right of every data tab (04 §1)
+from climblog.storage.layout import META_TAB, SETTINGS_TAB, TabLayout, workbook_layout
 
 Level = Literal["error", "sync", "info"]
 
@@ -42,8 +37,8 @@ def check_schema(module: Module, repo: Repository) -> list[Difference]:
     """
     tables = set(repo.list_tables())
     differences = list(_meta(module, repo, tables))
-    for entity in module.entities.values():
-        differences += _entity(entity, repo, tables)
+    for tab in workbook_layout(module).tabs:
+        differences += _tab(tab, repo, tables)
     differences += _settings(module, repo, tables)
     return differences
 
@@ -82,42 +77,32 @@ def _meta(module: Module, repo: Repository, tables: set[str]) -> Iterator[Differ
         )
 
 
-def _entity(entity: Entity, repo: Repository, tables: set[str]) -> Iterator[Difference]:
-    fields = {k: f for k, f in entity.fields.items() if isinstance(f, BaseField)}
-    # q1..q20 come from a reference table (M5): their columns can't be told from unknown ones yet.
-    unknown_ok = any(isinstance(f, ReferenceTemplateUse) for f in entity.fields.values())
-    for tab, keys in entity.tab_fields().items():
-        if tab not in tables:
-            yield Difference("sync", tab, None, "the tab is missing")
-            continue
-        try:
-            columns = set(repo.read_table(tab).columns)
-        except StorageError as error:
-            yield Difference("error", tab, None, str(error))
-            continue
-        known = set(SYSTEM_COLUMNS)
-        for key in keys:
-            if key not in fields:
-                continue  # a reference template use
-            field = fields[key]
-            old = field.renamed_from
-            known |= {key} if old is None else {key, old}
-            if key in columns:
-                if old is not None and old in columns:
-                    yield Difference(
-                        "error", tab, key, f"columns '{old}' and '{key}' (renamed): keep one"
-                    )
-            elif old is not None and old in columns:
-                yield Difference("sync", tab, key, f"column '{old}' is to be renamed '{key}'")
-            elif not field.retired:  # a retired field needs no column
-                yield Difference("sync", tab, key, f"column '{key}' is missing")
-        for key in SYSTEM_COLUMNS:
-            if key not in columns:
-                yield Difference("sync", tab, key, f"column '{key}' is missing")
-        if not unknown_ok:
-            for key in sorted(columns - known):
-                if not key.startswith(AUTO):
-                    yield Difference("info", tab, key, f"column '{key}' is not in the module")
+def _tab(tab: TabLayout, repo: Repository, tables: set[str]) -> Iterator[Difference]:
+    if tab.name not in tables:
+        yield Difference("sync", tab.name, None, "the tab is missing")
+        return
+    try:
+        columns = set(repo.read_table(tab.name).columns)
+    except StorageError as error:
+        yield Difference("error", tab.name, None, str(error))
+        return
+    known = set()
+    for spec in tab.columns:
+        key, old = spec.key, spec.renamed_from
+        known |= {key} if old is None else {key, old}
+        if key in columns:
+            if old is not None and old in columns:
+                yield Difference(
+                    "error", tab.name, key, f"columns '{old}' and '{key}' (renamed): keep one"
+                )
+        elif old is not None and old in columns:
+            yield Difference("sync", tab.name, key, f"column '{old}' is to be renamed '{key}'")
+        elif not spec.retired:  # a retired field needs no column
+            yield Difference("sync", tab.name, key, f"column '{key}' is missing")
+    if not tab.unknown_ok:
+        for key in sorted(columns - known):
+            if not key.startswith(AUTO):
+                yield Difference("info", tab.name, key, f"column '{key}' is not in the module")
 
 
 def _settings(module: Module, repo: Repository, tables: set[str]) -> Iterator[Difference]:

@@ -19,6 +19,7 @@ from climblog.modules.schema import (
     BaseField,
     BoolField,
     DateField,
+    Entity,
     Module,
     NumberField,
     Setting,
@@ -71,7 +72,7 @@ def _settings(module: Module, repo: Repository, issues: list[DataIssue]) -> dict
     try:
         cells = repo.read_kv(SETTINGS_TAB)
     except TableNotFound:
-        cells = {}  # schema sync creates the tab (#17)
+        cells = {}  # schema sync creates the tab (D-052)
     values: dict[str, Value] = {}
     for key, setting in module.settings.items():
         values[key] = _setting(module, setting, key, cells.get(key), issues)
@@ -119,7 +120,8 @@ class _Loader:
                 continue
             present = [f for f in fields if f in table.columns]
             for missing in (f for f in fields if f not in table.columns):
-                self.issues.append(DataIssue(tab, None, missing, "the column is missing"))
+                if not _retired(self.entity, missing):  # a retired field needs no column (03 §3)
+                    self.issues.append(DataIssue(tab, None, missing, "the column is missing"))
             first_row: dict[Key, int] = {}
             counts: dict[Key, int] = {}
             for row in table.rows:
@@ -256,6 +258,11 @@ def describe_key(parts: list[str], key: Key) -> str:
 
 def _text(value: Value) -> str:
     return value.isoformat() if isinstance(value, dt.date | dt.time) else str(value)
+
+
+def _retired(entity: Entity, name: str) -> bool:
+    field = entity.fields[name]
+    return isinstance(field, BaseField) and field.retired
 
 
 def _blank(value: object) -> bool:
