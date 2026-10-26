@@ -1,8 +1,8 @@
-# yaml-language-server: $schema=../../modules/module.schema.json
-# DRAFT module definition: Finger strength journal (the 4th, LOCAL journal; D-019, D-025, D-030, D-032)
+# yaml-language-server: $schema=module.schema.json
+# Finger strength journal: the 4th, LOCAL journal (D-019, D-025, D-030, D-032, D-059).
 # New tracker, no legacy workbook. Lives in a local .xlsx and is the end-to-end test of the
-# local backend. It also exercises a framework feature the other journals don't:
-# child entities (many set rows per session), here split over two tabs.
+# local backend (tests/test_finger_strength.py). It also exercises a framework feature the other
+# journals don't: child entities (many set rows per session), here split over two tabs.
 
 module: finger_strength
 name: Finger strength

@@ -9,7 +9,7 @@ import pytest
 
 from climblog.config import ConfigError, config_path, load_config
 
-FINGERS = Path("design/modules/finger-strength.yaml").absolute()
+FINGERS = Path("modules/finger-strength.yaml").absolute()
 
 
 def write(folder: Path, text: str) -> Path:

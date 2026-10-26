@@ -58,7 +58,7 @@ forms and widgets from module schemas and view definitions served by the API.
   the LAN PIN hash (D-010) are added when they are needed.
   ```toml
   [modules.finger_strength]          # the YAML's `module:` id
-  definition = "~/climb-log/design/modules/finger-strength.yaml"
+  definition = "~/climb-log/modules/finger-strength.yaml"
   workbook = "~/climbing/finger-strength.xlsx"   # M2: `google_sheet = "…"` instead
 
   [backups]                          # optional, these are the defaults

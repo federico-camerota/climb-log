@@ -37,7 +37,7 @@ def test_every_construct_matches_the_app(load: LoadYaml, seed: int) -> None:
 
 
 @pytest.mark.parametrize(
-    "file", [DRAFTS / "finger-strength.yaml", ROOT / "modules" / "journal.yaml"], ids=str
+    "file", [ROOT / "modules" / "finger-strength.yaml", ROOT / "modules" / "journal.yaml"], ids=str
 )
 @pytest.mark.parametrize("seed", [1, 2])
 def test_modules_match_the_app(file: Path, seed: int) -> None:

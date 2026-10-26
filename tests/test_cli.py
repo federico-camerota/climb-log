@@ -64,7 +64,7 @@ def test_serve_has_no_host_option(uvicorn_calls: list[dict[str, Any]]) -> None:
 
 # ---- climblog check ----
 
-FINGERS = Path("design/modules/finger-strength.yaml").absolute()
+FINGERS = Path("modules/finger-strength.yaml").absolute()
 MOCKUP = Path("design/mockups/mockup-finger-strength.xlsx")
 
 

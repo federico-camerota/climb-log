@@ -41,7 +41,7 @@ with `--config FILE` or `CLIMBLOG_CONFIG`). It holds paths only and stays out of
 
 ```toml
 [modules.finger_strength]
-definition = "~/climb-log/design/modules/finger-strength.yaml"
+definition = "~/climb-log/modules/finger-strength.yaml"
 workbook = "~/climbing/finger-strength.xlsx"
 
 [backups]          # optional
