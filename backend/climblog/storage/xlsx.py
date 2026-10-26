@@ -29,6 +29,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from climblog.storage.backup import Backups
 from climblog.storage.base import (
+    AUTO,
     FIRST_DATA_ROW,
     Append,
     Edit,
@@ -43,7 +44,6 @@ from climblog.storage.base import (
 from climblog.storage.cells import RawCell
 
 Sheet = list[tuple[RawCell, ...]]
-AUTO = "auto:"  # app-managed formula columns: never written, ignored in conflict checks
 
 # Formats for cells written into General (or text-formatted) cells, as in the mock-ups.
 _FORMATS: list[tuple[type, str]] = [

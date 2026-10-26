@@ -34,6 +34,24 @@ uv run climblog serve   # http://127.0.0.1:8000
 `make test` runs the tests, `make lint` the format, lint and type checks, and `make help`
 lists every target.
 
+## Configure
+
+The app finds each module's workbook through `~/.config/climblog/config.toml` (another file
+with `--config FILE` or `CLIMBLOG_CONFIG`). It holds paths only and stays out of the repo:
+
+```toml
+[modules.finger_strength]
+definition = "~/climb-log/design/modules/finger-strength.yaml"
+workbook = "~/climbing/finger-strength.xlsx"
+
+[backups]          # optional
+folder = "~/climbing/backups"
+```
+
+`uv run climblog check` then lists, for every module, where the workbook and the YAML
+disagree, without changing anything. All options are in
+[`design/02-architecture.md`](design/02-architecture.md#runtime).
+
 ## Documentation
 
 The design lives in [`design/`](design/README.md): goals, architecture, the module framework,

@@ -50,8 +50,22 @@ forms and widgets from module schemas and view definitions served by the API.
   (set on first run) because the API can write data.
 - Dev mode (`make dev`): Vite dev server on `127.0.0.1:5173` (hot reload) proxying `/api` to
   `climblog serve --reload` on `:8000`; Ctrl-C stops both.
-- App config: `~/.config/climblog/config.toml` holds the data sources per module, the
-  Google token path, the backup location and the LAN PIN hash. It contains no training data.
+- App config (D-051): `~/.config/climblog/config.toml` (`$XDG_CONFIG_HOME` honoured; another
+  file with `--config` or `CLIMBLOG_CONFIG`) holds paths only, no training data, and is not part
+  of the repo. Each module names its YAML and its workbook; backups default to
+  `~/.local/share/climblog/backups/<module>/` (`$XDG_DATA_HOME`). `~` is expanded and relative
+  paths are relative to the config file. Unknown keys are errors. The Google token path (M2) and
+  the LAN PIN hash (D-010) are added when they are needed.
+  ```toml
+  [modules.finger_strength]          # the YAML's `module:` id
+  definition = "~/climb-log/design/modules/finger-strength.yaml"
+  workbook = "~/climbing/finger-strength.xlsx"   # M2: `google_sheet = "…"` instead
+
+  [backups]                          # optional, these are the defaults
+  folder = "~/.local/share/climblog/backups"
+  every_minutes = 30
+  keep = 30
+  ```
 
 ## Data flow
 1. **Startup**: load module YAMLs, then each module's data source, then read all tabs as rows
@@ -73,7 +87,7 @@ forms and widgets from module schemas and view definitions served by the API.
 backend/climblog/
   main.py              # FastAPI app factory, static SPA mount
   cli.py               # climblog serve | import-legacy | check | backup
-  config.py            # app config (TOML)
+  config.py            # app config (TOML): module sources, backups (D-051)
   text.py              # accent-insensitive matching for search (D-024)
   grades.py            # French and gym grades with a numeric index (D-047)
   expr/                # expression language: parse, check, evaluate, functions (D-043)
@@ -90,6 +104,7 @@ backend/climblog/
     base.py            # Repository protocol, Table, row edits, errors (D-048, D-049)
     load.py            # tabs → records: keys, defaults, joins, data issues (D-048)
     write.py           # records → row edits: add, update, soft delete (D-049)
+    check.py           # workbook vs YAML differences for `climblog check` (D-051)
     xlsx.py            # XlsxBackend: read, atomic writes, lock check (D-048, D-049)
     gsheets.py         # GSheetsBackend
     sync.py            # header/schema sync, data validation, styling

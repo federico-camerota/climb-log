@@ -387,8 +387,15 @@ analysis explorer (see `05-analytics.md`). No view config is needed for that.
 | Change a formula | edit `derived:` | recomputed for all history in the app; formula columns regenerated in the sheet on sync |
 | New program | new YAML file + `climblog module init` | creates the workbook/tabs locally or in Google |
 
-On startup, `climblog check` (also run automatically) diffs each YAML against its sheet
-and reports or applies **additive** changes. It never deletes columns or data.
+`climblog check [MODULE...]` (D-051) diffs each configured YAML against its workbook and
+lists the differences, changing nothing: `sync` ones (a missing tab, column or system column,
+a pending `renamed_from` rename, `_meta` missing or behind the YAML version) are what schema
+sync applies (`climblog check --apply`, #17), `info` ones need no change (a column the YAML
+doesn't know, a setting without a `_settings` row), `error` ones need a person (a workbook of
+another module, `_meta` newer than the YAML, unreadable header rows, both the old and the new
+column of a rename). It exits with 1 unless only `info` is left. Retired fields need no column;
+formula columns are checked with #19. It will also run on startup (#25).
+Sync applies only **additive** changes. It never deletes columns or data.
 Destructive operations (dropping a column) are a separate explicit command.
 
 The `version` of the module and the schema it was synced with are stored in `_meta`, so
