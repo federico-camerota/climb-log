@@ -315,9 +315,15 @@ CaseItem = Annotated[
 ]
 
 
+# `sheet_formula` (03 §2.2b, D-053): true = compiled to a formula column, false = app only,
+# "=..." = this formula instead, `{field}` standing for that field's cell in the row.
+SheetFormula = bool | Annotated[str, StringConstraints(pattern=r"^=")]
+
+
 class ExprDerived(Strict):
     expr: str
     require: str | None = None  # the result is blank unless this holds
+    sheet_formula: SheetFormula = True
 
 
 class _Labelled(Strict):
@@ -325,6 +331,7 @@ class _Labelled(Strict):
 
     require: str | None = None
     levels: Key | None = None  # a level list of the module (`reflect_levels`)
+    sheet_formula: SheetFormula = True
     type: Literal["text"] | None = None  # a message, not a status
 
     def items(self) -> list[Band | Case | Otherwise]:
@@ -378,10 +385,12 @@ class MapDerived(Strict):
 
     map_from: Key
     map: dict[str, str] = Field(min_length=1)
+    sheet_formula: SheetFormula = True
 
 
 class PluginDerived(Strict):
     plugin: str  # app-only Python code (§2.3); not checked or computed yet
+    sheet_formula: SheetFormula = True  # only a hand-written formula gives it a column
 
 
 class ReferenceGroupDerived(Strict):

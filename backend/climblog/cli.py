@@ -10,6 +10,7 @@ import uvicorn
 
 from climblog.config import AppConfig, ConfigError, config_path, load_config
 from climblog.modules import Module, ModuleError, load_module
+from climblog.modules.formulas import formula_columns
 from climblog.storage import StorageError, check_schema, sync_module
 
 # Localhost only: LAN access needs the PIN (D-010), which does not exist yet.
@@ -112,13 +113,16 @@ def validate(
     failed = False
     for file in files:
         try:
-            load_module(file)
+            module = load_module(file)
         except ModuleError as error:
             failed = True
             for line in error.lines():
                 typer.echo(line, err=True)
         else:
             typer.echo(f"{file}: ok")
+            _, app_only = formula_columns(module)
+            for entry in app_only:  # derived fields without a sheet column (D-053)
+                typer.echo(f"  note: {entry}")
     if failed:
         raise typer.Exit(1)
 
