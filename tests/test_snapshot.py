@@ -126,7 +126,9 @@ def test_the_file_is_private_and_gzipped_json(path: Path, snapshots: Snapshots) 
                     "module": "test_snapshot",
                     "source_modified": "2026-10-20T00:00:00",
                     "read_at": "2026-10-20T00:00:00",
-                    "tables": {"T": {"columns": ["a"], "rows": [[3, {"a": {"x": 1}}]]}},
+                    "tables": {
+                        "T": {"columns": ["a"], "numbers": {}, "rows": [[3, {"a": {"x": 1}}]]}
+                    },
                     "kv": {},
                 }
             ).encode()
@@ -263,3 +265,17 @@ def test_a_failed_save_leaves_nothing_behind(
     with pytest.raises(OSError, match="disk full"):
         snapshots.save(snapshot)
     assert list(snapshots.folder.iterdir()) == []
+
+
+def test_formulas_come_from_the_workbook(path: Path, snapshots: Snapshots) -> None:
+    offline = SnapshotRepository(take("test_snapshot", XlsxBackend(path)))
+    with pytest.raises(StorageError, match="not formulas"):
+        offline.read_formulas("Sessions")
+    cached = CachedRepository("test_snapshot", XlsxBackend(path), snapshots)
+    assert cached.read_formulas("Sessions") == XlsxBackend(path).read_formulas("Sessions")
+    cached.refresh()  # a snapshot to fall back on
+    path.unlink()
+    cached = CachedRepository("test_snapshot", XlsxBackend(path), snapshots)
+    cached.refresh()  # offline: the snapshot taken above
+    with pytest.raises(SnapshotReadOnly):
+        cached.read_formulas("Sessions")

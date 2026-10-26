@@ -52,8 +52,9 @@ folder = "~/climbing/snapshots"
 ```
 
 `uv run climblog check` then lists, for every module, where the workbook and the YAML
-disagree, without changing anything; `uv run climblog check --apply` creates what is missing
-(the workbook too) and never deletes columns or data. All options are in
+disagree (formulas changed by hand included), without changing anything; `uv run climblog
+check --apply` creates what is missing (the workbook too), puts changed formulas back, and
+never deletes columns or data. All options are in
 [`design/02-architecture.md`](design/02-architecture.md#runtime).
 
 ## Documentation

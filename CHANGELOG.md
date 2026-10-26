@@ -73,6 +73,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   hand-written `"=..."` per entry. `climblog module validate` lists the entries that stay app
   only. A parity test recalculates the formulas in LibreOffice and compares every cell with
   the app; CI installs LibreOffice for it (D-053).
+- Formula columns in local workbooks: schema sync adds the AUTOMATIC columns (hidden key
+  column, number formats, coloured statuses) and writes their formulas into a 200-row buffer,
+  rewriting formulas changed by hand; app writes keep 50 buffer rows free. `climblog check`
+  reports formulas changed by hand and values the sheet computed differently from the app
+  (D-054).
 - Local snapshot of each module (`~/.local/share/climblog/snapshots/`, gzipped JSON): reads
   come from it while the workbook is unchanged, it is refreshed when the workbook changes, and
   it is used read-only when the workbook can't be reached. Always safe to delete (D-055).
@@ -85,4 +90,6 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   (5.825 on paper) now rounds to 5.83, not 5.82 (D-053).
 
 ### Changed
+- CI no longer installs LibreOffice: the formula parity tests are skipped there and run
+  locally before changes to formulas, expressions or sync (D-057).
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).

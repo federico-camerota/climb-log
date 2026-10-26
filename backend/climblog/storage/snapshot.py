@@ -102,6 +102,9 @@ class SnapshotRepository:
     def write_kv(self, name: str, values: Mapping[str, RawCell]) -> None:
         raise SnapshotReadOnly("the workbook can't be reached: changes can't be saved now")
 
+    def read_formulas(self, name: str) -> Table:
+        raise StorageError("the snapshot keeps values, not formulas")
+
     def exists(self) -> bool:
         return True
 
@@ -212,6 +215,12 @@ class CachedRepository:
         self.source.write_kv(name, values)
         self._current = None
 
+    def read_formulas(self, name: str) -> Table:
+        """From the workbook itself: the snapshot keeps no formulas (drift check)."""
+        if self.offline:
+            raise SnapshotReadOnly("the workbook can't be reached: its formulas can't be read")
+        return self.source.read_formulas(name)
+
     def exists(self) -> bool:
         return self.source.exists()
 
@@ -233,6 +242,7 @@ def _encode(snapshot: Snapshot) -> dict[str, Any]:
         "tables": {
             name: {
                 "columns": list(table.columns),
+                "numbers": dict(table.numbers),  # where each column is (drift check)
                 "rows": [
                     [row.number, {k: _cell(v) for k, v in row.cells.items()}] for row in table.rows
                 ],
@@ -254,6 +264,7 @@ def _decode(doc: Mapping[str, Any]) -> Snapshot:
                 SheetRow(int(number), {k: _value(v) for k, v in cells.items()})
                 for number, cells in table["rows"]
             ),
+            {key: int(n) for key, n in table["numbers"].items()},
         )
         for name, table in doc["tables"].items()
     }

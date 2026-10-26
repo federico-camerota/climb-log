@@ -280,6 +280,14 @@ column** in the sheet:
 - The **app never reads** formula columns as data. It computes everything itself from the
   raw inputs, and uses the formula results only for a **drift check**: a mismatch (e.g. a
   formula overwritten by hand) is reported as a data issue and repaired on the next schema sync.
+  `climblog check` reports two kinds (`storage/drift.py`, D-054): a **changed formula** (the
+  cell's formula is not the compiled one, or is gone in a row with data; `sync`, as
+  `--apply` puts it back), compared as spreadsheets rewrite formulas on save (LibreOffice drops
+  needless quotes around tab names and writes `TRUE()`); and a **different value** (the value
+  the sheet last computed differs from the app's; `info`). Values are compared only where the
+  sheet has one: openpyxl keeps no computed values, so after an app write there are none until
+  the workbook is opened and saved in Excel or LibreOffice, and a blank cell can't be told
+  from one not computed yet.
 - **Dialect rules found in the mock-up** (`mockups/sheet-tabs.md`): in `.xlsx`, functions
   newer than Excel 2007 (`MAXIFS`, `MINIFS`, `IFS`, `XLOOKUP`, `CONCAT`, …) must be emitted with
   the `_xlfn.` prefix, or they show `#NAME?`. The Google API takes the plain name, so the
@@ -321,10 +329,12 @@ column** in the sheet:
   5.824999999999999 (5.825 on paper) rounds to 5.83 in both.
 - **Parity test** (`tests/test_formula_parity.py`): fictional workbooks with random rows from
   fixed seeds (blanks, second sessions, sets, missing section rows) are recalculated by
-  LibreOffice headless and every formula cell must equal the app's value. CI installs
-  LibreOffice; locally the test runs when a working `soffice` is found (`CLIMBLOG_SOFFICE`, e.g.
-  `snap run libreoffice`, with `CLIMBLOG_SOFFICE_TMP=build/lo-parity` for a snap) and is
-  skipped otherwise. Hand-written formulas are not compared.
+  LibreOffice headless and every formula cell must equal the app's value. It runs when a
+  working `soffice` is found (`CLIMBLOG_SOFFICE`, e.g. `snap run libreoffice`, with
+  `CLIMBLOG_SOFFICE_TMP=build/lo-parity` for a snap) and is skipped otherwise, CI included
+  (D-057): run it locally before a PR that changes formulas, expressions or sync.
+  `CLIMBLOG_REQUIRE_SOFFICE=1` turns the skip into a failure. Hand-written formulas are not
+  compared.
 
 ### 2.3 Cross-record rules
 - **Declarative** (covers most cases; D-045):
@@ -429,7 +439,8 @@ sync applies (`climblog check --apply`, D-052), `info` ones need no change (a co
 doesn't know, a setting without a `_settings` row), `error` ones need a person (a workbook of
 another module, `_meta` newer than the YAML, unreadable header rows, both the old and the new
 column of a rename). It exits with 1 unless only `info` is left. Retired fields need no column;
-formula columns are checked with #19. It will also run on startup (#25).
+formula columns are checked like the others, and drifted formulas are reported (D-054). It
+will also run on startup (#25).
 `climblog check --apply` syncs each module, then checks again: it creates the workbook if the
 configured file doesn't exist, missing tabs and columns, `_settings` rows (with the defaults)
 and `_meta`, applies renames, and rewrites the dropdowns. A module with an `error` difference

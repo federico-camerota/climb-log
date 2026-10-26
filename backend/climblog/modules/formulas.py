@@ -99,7 +99,7 @@ class FormulaColumn:
     key: str  # `auto:<derived field>`, or `auto:_key`
     label: str
     number_format: str
-    levels: tuple[str, ...] | None = None  # a status: its levels, best first (for colours, #19)
+    levels: tuple[str, ...] | None = None  # a status: its levels, best first (for colours, D-054)
     hidden: bool = False
     hand_written: bool = False  # a `sheet_formula: "=..."`: not compared with the app
 
@@ -152,14 +152,16 @@ def compile_formulas(
 
 
 def default_columns(module: Module) -> dict[str, dict[str, int]]:
-    """Where the columns are in a workbook made by schema sync: the tab's fields, then
-    `updated_at`, `deleted` and its `auto:` columns (for tests and previews)."""
+    """Where the columns are in a workbook made by schema sync (`storage/layout.py`): the tab's
+    fields, its `auto:` columns with the hidden key last, then `updated_at` and `deleted`."""
     placed, _ = formula_columns(module)
     tabs: dict[str, dict[str, int]] = {}
     for entity in module.entities.values():
         for tab, names in entity.tab_fields().items():
+            autos = [c for c in placed if c.tab == tab]
             keys = [n for n in names if isinstance(entity.fields[n], BaseField)]
-            keys += ["updated_at", DELETED, *(c.key for c in placed if c.tab == tab)]
+            keys += [c.key for c in autos if not c.hidden] + [c.key for c in autos if c.hidden]
+            keys += ["updated_at", DELETED]
             tabs[tab] = {key: i for i, key in enumerate(keys, start=1)}
     return tabs
 
@@ -992,8 +994,31 @@ def _letter(columns: Mapping[str, int], key: str, tab: str) -> str:
 
 
 def _sheet(tab: str) -> str:
-    """A tab name as formulas write it: always quoted ('Hang sets')."""
+    """A tab name as formulas write it: quoted only when it needs it ('Hang sets', Sessions)."""
+    if _BARE_SHEET.match(tab) and not _LOOKS_LIKE_CELL.match(tab):
+        return tab
     return "'" + tab.replace("'", "''") + "'"
+
+
+_BARE_SHEET = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_LOOKS_LIKE_CELL = re.compile(r"^([A-Za-z]{1,3}[0-9]+|[RrCc]([0-9]+)?|[Rr][0-9]+[Cc][0-9]+)$")
+
+
+def normalize(formula: str) -> str:
+    """A formula as spreadsheets may rewrite it on save, for comparing (drift check, D-054):
+    no `_xlfn.`, `TRUE()` → TRUE, sheet names unquoted where possible, upper case and no
+    spaces outside strings."""
+    parts = re.split(r'("(?:[^"]|"")*")', formula)  # strings at odd positions
+    out = []
+    for i, part in enumerate(parts):
+        if i % 2:
+            out.append(part)
+            continue
+        part = part.upper().replace(" ", "").replace("_XLFN.", "")
+        part = re.sub(r"\b(TRUE|FALSE)\(\)", r"\1", part)
+        part = re.sub(r"'([A-Z_][A-Z0-9_]*)'!", r"\1!", part)
+        out.append(part)
+    return "".join(out)
 
 
 def _text(value: str | None) -> str:
