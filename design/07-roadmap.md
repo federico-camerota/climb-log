@@ -36,7 +36,7 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 - **Synthetic fixture generator** (D-034): fictional workbooks in the legacy layouts (with their
   original formulas) and in the new layout, used by importer, parity and hand-entry tests.
 - **Finger strength** journal (`modules/finger-strength.yaml`, local xlsx): child entities, conditional fields; end-to-end test of the xlsx backend (D-019, D-025).
-- Read API: `/api/modules`, `/api/modules/{m}/{entity}`.
+- Read API: `/api/modules`, `/api/modules/{m}/{entity}`. → done, through the snapshot (D-058).
 - **Done when**: the imported journal loads, and the derived values match the legacy sheet
   (parity tests green on the 2 real sessions + synthetic fixtures covering edge cases).
 

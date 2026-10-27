@@ -84,6 +84,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - The climbing journal module is complete in `modules/journal.yaml`, with a test for every rule
   of the legacy workbook; new functions `incomplete(...)` (the Log check) and `month(date)`
   (D-056).
+- Read API: `GET /api/modules` (modules and their schemas) and `GET /api/modules/{m}/{entity}`
+  (records with their derived values, data issues, "data as of"), through the local snapshot;
+  `climblog serve --config FILE` (D-058).
 
 ### Fixed
 - Set rows typed by hand with a blank Set # load with the next number for that date

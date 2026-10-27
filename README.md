@@ -28,7 +28,7 @@ To run the built app the way it will be used:
 
 ```sh
 make build
-uv run climblog serve   # http://127.0.0.1:8000
+uv run climblog serve   # http://127.0.0.1:8000 (--config FILE for another app config)
 ```
 
 `make test` runs the tests, `make lint` the format, lint and type checks, and `make help`

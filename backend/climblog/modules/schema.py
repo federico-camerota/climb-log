@@ -75,6 +75,8 @@ class OrdinalScale(Strict):
 
 # Union tags contain a space, so they never collide with YAML keys in error locations.
 def _scale_kind(value: Any) -> str:
+    if isinstance(value, NumericScale | OrdinalScale):  # serialising a loaded module
+        return "ordinal scale" if isinstance(value, OrdinalScale) else "numeric scale"
     is_ordinal = isinstance(value, dict) and value.get("type") == "ordinal"
     return "ordinal scale" if is_ordinal else "numeric scale"
 
@@ -250,6 +252,8 @@ _FIELD_TAGS = {
 
 
 def _field_kind(value: Any) -> str | None:
+    if isinstance(value, BaseModel):  # serialising a loaded module
+        return _MODEL_TAGS.get(type(value))
     if not isinstance(value, dict):
         return None
     if "template" in value:
@@ -288,6 +292,8 @@ ModuleField = Annotated[
 
 
 def _else_kind(value: Any) -> str:
+    if isinstance(value, BaseModel):  # serialising a loaded module
+        return "else item" if isinstance(value, Otherwise) else "case item"
     return "else item" if isinstance(value, dict) and "else" in value else "case item"
 
 
@@ -412,6 +418,8 @@ _DERIVED_KEYS = {
 def _derived_kind(value: Any) -> str | None:
     if isinstance(value, str):
         return "plain expression"
+    if isinstance(value, BaseModel):  # serialising a loaded module
+        return _MODEL_TAGS.get(type(value))
     if isinstance(value, dict):
         return next((_DERIVED_KEYS[k] for k in value if k in _DERIVED_KEYS), None)
     return None
@@ -496,6 +504,31 @@ class Entity(Strict):
         """The tab every record has a row in: `tab`, or `anchor_tab` (first section's tab)."""
         tab = self.tab or self.anchor_tab or next(iter(self.tab_fields()))
         return tab
+
+
+# Model class → its union tag, for serialising a loaded module (the discriminators above read
+# dicts when loading YAML, and models when dumping, e.g. for the read API).
+_MODEL_TAGS: dict[type, str] = {
+    DateField: "date field",
+    NumberField: "number field",
+    ScaleField: "scale field",
+    ChoiceField: "choice field",
+    MultichoiceField: "multichoice field",
+    BoolField: "bool field",
+    TextField: "text field",
+    GradeField: "grade field",
+    DurationField: "duration field",
+    RefField: "ref field",
+    PercentField: "percent field",
+    TemplateUse: "template field",
+    ReferenceTemplateUse: "reference template field",
+    ExprDerived: "expr entry",
+    BandsDerived: "bands entry",
+    WhenDerived: "when entry",
+    MapDerived: "map entry",
+    PluginDerived: "plugin entry",
+    ReferenceGroupDerived: "reference group entry",
+}
 
 
 class Module(Strict):
