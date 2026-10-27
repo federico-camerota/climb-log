@@ -363,7 +363,7 @@ def test_a_backup_is_taken_first(module: Module, existing: Path, tmp_path: Path)
 
 
 def test_the_finger_strength_mockup_keeps_its_data(tmp_path: Path) -> None:
-    module = load_module(Path("design/modules/finger-strength.yaml"))
+    module = load_module(Path("modules/finger-strength.yaml"))
     path = Path(shutil.copy("design/mockups/mockup-finger-strength.xlsx", tmp_path))
     before = openpyxl.load_workbook(path)
     repo = XlsxBackend(path)

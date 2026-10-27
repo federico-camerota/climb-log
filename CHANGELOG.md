@@ -84,6 +84,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - The climbing journal module is complete in `modules/journal.yaml`, with a test for every rule
   of the legacy workbook; new functions `incomplete(...)` (the Log check) and `month(date)`
   (D-056).
+- Read API: `GET /api/modules` (modules and their schemas) and `GET /api/modules/{m}/{entity}`
+  (records with their derived values, data issues, "data as of"), through the local snapshot;
+  `climblog serve --config FILE` (D-058).
+- The finger strength module is complete in `modules/finger-strength.yaml`, with an end-to-end
+  test of the local workbook: sync, write, read, derive (D-059).
 - Fictional journal workbooks for the tests, in the legacy layout (its formulas included) and
   the new one with the hand-entry cases; `make fixtures` writes them to open (D-060).
 

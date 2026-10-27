@@ -20,7 +20,7 @@ interface (logging, visualization, analysis, planning). The data stays in spread
 | [08-workflow.md](08-workflow.md) | How the project is developed: roles, PR workflow, git conventions, quality gates, data protection, working with Claude |
 | [decisions.md](decisions.md) | Decision log (accepted / proposed) |
 | [open-questions.md](open-questions.md) | Open questions with default answers |
-| [modules/](modules/) | Draft module YAMLs: shoulder, fear of falling (Google) and finger strength (local). The complete climbing journal is [/modules/journal.yaml](../modules/journal.yaml) (D-056) |
+| [modules/](modules/) | Draft module YAMLs: shoulder and fear of falling (Google). The complete modules are in [/modules/](../modules/): the climbing journal (D-056) and finger strength (local, D-059) |
 | [mockups/](mockups/sheet-tabs.md) | Spreadsheet mock-ups (Wellbeing, finger Sets) as real .xlsx files + description and verification |
 
 ## Process

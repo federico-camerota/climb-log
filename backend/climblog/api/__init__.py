@@ -3,7 +3,8 @@
 
 from fastapi import APIRouter
 
-from climblog.api import health
+from climblog.api import health, modules
 
 router = APIRouter(prefix="/api")
 router.include_router(health.router)
+router.include_router(modules.router)

@@ -220,3 +220,14 @@ def test_cli_schema_prints_json_schema() -> None:
     result = runner.invoke(cli.app, ["module", "schema"])
     assert result.exit_code == 0
     assert json.loads(result.output)["title"] == "Module"
+
+
+@pytest.mark.parametrize(
+    "file",
+    sorted([*(ROOT / "design" / "modules").glob("*.yaml"), *(ROOT / "modules").glob("*.yaml")]),
+    ids=str,
+)
+def test_a_loaded_module_serialises_to_json(file: Path) -> None:
+    # The read API sends the schema as JSON (D-058); a warning would be an error here.
+    dumped = load_module(file).model_dump(mode="json", by_alias=True, exclude_defaults=True)
+    assert dumped["module"] and dumped["entities"]

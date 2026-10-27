@@ -187,7 +187,7 @@ def test_difference_without_a_tab() -> None:
 
 def test_the_finger_strength_mockup_lacks_two_formula_columns(tmp_path: Path) -> None:
     # The YAML gained two derived fields after the mock-up was made (D-054 checks formulas).
-    module = load_module(Path("design/modules/finger-strength.yaml"))
+    module = load_module(Path("modules/finger-strength.yaml"))
     path = shutil.copy("design/mockups/mockup-finger-strength.xlsx", tmp_path)
     assert [str(d) for d in check_schema(module, XlsxBackend(Path(path)))] == [
         "Sessions: column 'auto:curl_volume' is missing",
