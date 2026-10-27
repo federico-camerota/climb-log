@@ -6,6 +6,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-27
+
+M1: the module framework and local storage (`design/07-roadmap.md`).
+
 ### Added
 - Python backend skeleton: FastAPI app with `GET /api/health` (status and version) (D-038).
 - `climblog serve` command (`--port`, `--reload`), bound to `127.0.0.1` only (D-010, D-038).
@@ -111,3 +115,6 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - CI no longer installs LibreOffice: the formula parity tests are skipped there and run
   locally before changes to formulas, expressions or sync (D-057).
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).
+
+[Unreleased]: https://github.com/federico-camerota/climb-log/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/federico-camerota/climb-log/releases/tag/v0.1.0
