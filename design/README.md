@@ -4,7 +4,8 @@ Design for a local web app that replaces the three training spreadsheets as the 
 interface (logging, visualization, analysis, planning). The data stays in spreadsheets
 (local `.xlsx` or Google Sheets).
 
-**Status:** design phase. No implementation and no commits until explicitly agreed. Last updated 2026-10-20.
+**Status:** M1 (module framework + local storage) done, released as v0.1.0; next is M2, the
+Google Sheets backend (`07-roadmap.md`). Last updated 2026-10-27.
 
 ## Read in this order
 | File | What it covers |

@@ -14,7 +14,7 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
   README, CONTRIBUTING, PR and issue templates done (README screenshots wait for M3).
 - **Done when**: `make dev` shows an empty app; `make test` passes.
 
-### M1 · Module framework + local storage ◐
+### M1 · Module framework + local storage ☑
 - Meta-schema (pydantic) for module YAML; loader with good error messages; JSON Schema export. → done (D-041).
 - Expression evaluator (safe AST), `bands`, `when`, `worst_of`, `flip`, `prev`. → parser, load-time check and evaluator done (D-043); derived fields with `bands`/`when`/`worst_of`/`map_from`, checked at load and computed in dependency order, done (D-044); `prev`, `parent.x`, `children(e).x` and `last` computed over whole tables (D-045).
 - Natural keys, **split entities** (one tab per section), **child entities** (sets), templates (`soreness`), `visible_if`; orphan-row detection. → schema side done (D-042); `visible_if` checked (D-043); orphan rows in #14.
@@ -39,7 +39,9 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 - **Finger strength** journal (`modules/finger-strength.yaml`, local xlsx): child entities, conditional fields; end-to-end test of the xlsx backend (D-019, D-025). → done: moved to `modules/`, round trip sync → write → read → derive (D-059). Its conditional fields are covered by the child tabs (hang-only and curl-only fields live in `Hang sets` and `Curl sets`), so it needs no `visible_if`; `visible_if` is checked at load (D-043) and comes to forms with the UI.
 - Read API: `/api/modules`, `/api/modules/{m}/{entity}`. → done, through the snapshot (D-058).
 - **Done when**: the imported journal loads, and the derived values match the legacy sheet
-  (parity tests green on the 2 real sessions + synthetic fixtures covering edge cases).
+  (parity tests green on the 2 real sessions + synthetic fixtures covering edge cases). →
+  done: the owner imported the real journal and its parity report passed (D-061). Released
+  as v0.1.0.
 
 ### M2 · Google Sheets backend ☐  *(moved up, D-013)*
 - OAuth desktop login (`climblog google login`), `GSheetsBackend` (batchGet, append,
