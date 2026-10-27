@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import os
 import shutil
 from pathlib import Path
 from typing import Any
@@ -63,7 +64,7 @@ def test_serve_has_no_host_option(uvicorn_calls: list[dict[str, Any]]) -> None:
 
 # ---- climblog check ----
 
-FINGERS = Path("design/modules/finger-strength.yaml").absolute()
+FINGERS = Path("modules/finger-strength.yaml").absolute()
 MOCKUP = Path("design/mockups/mockup-finger-strength.xlsx")
 
 
@@ -183,3 +184,13 @@ def test_check_apply_refuses_errors(config: Path) -> None:
     result = runner.invoke(cli.app, ["check", "--apply"])
     assert result.exit_code == 1
     assert result.output.splitlines()[1].startswith("  error: not synced, fix these first: _meta")
+
+
+def test_serve_passes_the_config_to_the_app(
+    uvicorn_calls: list[dict[str, Any]], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("CLIMBLOG_CONFIG", raising=False)
+    result = runner.invoke(cli.app, ["serve", "--config", str(tmp_path / "c.toml")])
+    assert result.exit_code == 0
+    assert os.environ["CLIMBLOG_CONFIG"] == str((tmp_path / "c.toml").resolve())
+    monkeypatch.delenv("CLIMBLOG_CONFIG")

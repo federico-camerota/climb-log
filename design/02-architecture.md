@@ -58,7 +58,7 @@ forms and widgets from module schemas and view definitions served by the API.
   the LAN PIN hash (D-010) are added when they are needed.
   ```toml
   [modules.finger_strength]          # the YAML's `module:` id
-  definition = "~/climb-log/design/modules/finger-strength.yaml"
+  definition = "~/climb-log/modules/finger-strength.yaml"
   workbook = "~/climbing/finger-strength.xlsx"   # M2: `google_sheet = "…"` instead
 
   [backups]                          # optional, these are the defaults
@@ -149,8 +149,8 @@ Both backends implement it. Analytics and the engine never know which one is in 
 ## API sketch
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/modules` | module list + full schemas (fields, forms, views, settings) |
-| GET | `/api/modules/{m}/{entity}` | records (+ derived fields), filters, paging |
+| GET | `/api/modules` | module list + full schemas (fields, forms, views, settings) (D-058: done) |
+| GET | `/api/modules/{m}/{entity}` | records (+ derived fields), filters, paging (D-058: done without filters and paging) |
 | POST/PATCH/DELETE | `/api/modules/{m}/{entity}[/{id}]` | write records |
 | GET | `/api/today?date=` | composed "Today" flow: which forms are due, prefilled values |
 | GET | `/api/recommendation?date=` | next-session recommendation + reasons |
@@ -161,6 +161,18 @@ Both backends implement it. Analytics and the engine never know which one is in 
 | GET | `/api/issues` | data-validation problems found in the sheets |
 | POST | `/api/sources/reload` | force reload |
 
+
+The read API (D-058, `api/modules.py`, `catalog.py`): the app loads the app config and every
+module's YAML on the **first API request** (not when it is built, so it starts without a
+config; `climblog serve --config FILE` passes another file). `GET /api/modules` lists each
+module with its id, name, version, kind and schema (the YAML as JSON), or the problems of a
+YAML that doesn't load; the config's own problems are listed too. `GET /api/modules/{m}/{entity}`
+returns `records` (each with `values`, its stored fields, `derived`, the app-computed values, and
+`rows`, tab → sheet row), the data `issues` of the entity's tabs, `as_of` and `offline`. It
+reads through the module's snapshot (`CachedRepository`, D-055) and computes the derived values
+on every request. Errors: an unknown module or entity is 404, a module whose YAML doesn't load
+409 with its problems, a workbook that can't be read with no snapshot 503. Dates are ISO
+(`2026-10-14`, times `18:30:00`).
 ## Security and privacy
 - Binds to localhost by default. LAN mode requires a PIN.
 - Google OAuth token is stored under `~/.config/climblog/` with 0600 permissions and

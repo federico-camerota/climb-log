@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from climblog import __version__, api
+from climblog.catalog import Catalog
 
 # Where `make build` puts the frontend (vite.config.ts, D-039).
 STATIC_DIR = Path(__file__).parent / "static"
@@ -19,9 +20,14 @@ for development.</p>
 """
 
 
-def create_app(static_dir: Path = STATIC_DIR) -> FastAPI:
-    """Build a new app instance (a fresh one per call, so tests stay independent)."""
+def create_app(static_dir: Path = STATIC_DIR, catalog: Catalog | None = None) -> FastAPI:
+    """Build a new app instance (a fresh one per call, so tests stay independent).
+
+    `catalog`: the modules to serve; by default loaded from the app config on the first API
+    request (D-058).
+    """
     app = FastAPI(title="climb-log", version=__version__)
+    app.state.catalog = catalog
     app.include_router(api.router)
     _add_spa(app, static_dir)
     return app
