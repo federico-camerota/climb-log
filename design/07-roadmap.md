@@ -43,7 +43,10 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
   done: the owner imported the real journal and its parity report passed (D-061). Released
   as v0.1.0.
 
-### M2 · Google Sheets backend ☐  *(moved up, D-013)*
+### M2 · Google Sheets backend ◐  *(moved up, D-013)*
+- **Backend contract tests** (`tests/test_backend_*.py`): what every `Repository` must do
+  (read, write, schema sync), run on each backend through a small harness
+  (`tests/backends.py`). → done for xlsx (#49); the Google backend joins with #51.
 - OAuth desktop login (`climblog google login`), `GSheetsBackend` (batchGet, append,
   update by key, conflict check), change polling, Drive-export backups.
 - `climblog module create --google` / "move module to Google" (copy a local workbook into a
