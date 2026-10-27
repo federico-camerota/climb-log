@@ -157,7 +157,7 @@ def test_shoulder_review_flag_follows_the_legacy_trend_rules() -> None:
 
 
 def test_finger_strength_session_aggregates() -> None:
-    fingers = load_module(DRAFTS / "finger-strength.yaml")
+    fingers = load_module(DRAFTS.parent.parent / "modules" / "finger-strength.yaml")
     tables: dict[str, list[dict[str, Value]]] = {
         "session": [
             {"date": day(20), "session_type": "Max hangs"},

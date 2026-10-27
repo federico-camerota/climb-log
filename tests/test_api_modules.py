@@ -11,7 +11,7 @@ from climblog.catalog import Catalog
 from climblog.config import load_config
 from climblog.main import create_app
 
-FINGERS = Path("design/modules/finger-strength.yaml").absolute()
+FINGERS = Path("modules/finger-strength.yaml").absolute()
 MOCKUP = Path("design/mockups/mockup-finger-strength.xlsx")
 
 

@@ -35,7 +35,7 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 - `modules/journal.yaml` complete; legacy journal importer + parity report; grade parser (French + gym). → grade parser done (D-047); journal complete, every legacy rule tested (D-056).
 - **Synthetic fixture generator** (D-034): fictional workbooks in the legacy layouts (with their
   original formulas) and in the new layout, used by importer, parity and hand-entry tests.
-- **Finger strength** journal (`modules/finger-strength.yaml`, local xlsx): child entities, conditional fields; end-to-end test of the xlsx backend (D-019, D-025).
+- **Finger strength** journal (`modules/finger-strength.yaml`, local xlsx): child entities, conditional fields; end-to-end test of the xlsx backend (D-019, D-025). → done: moved to `modules/`, round trip sync → write → read → derive (D-059). Its conditional fields are covered by the child tabs (hang-only and curl-only fields live in `Hang sets` and `Curl sets`), so it needs no `visible_if`; `visible_if` is checked at load (D-043) and comes to forms with the UI.
 - Read API: `/api/modules`, `/api/modules/{m}/{entity}`. → done, through the snapshot (D-058).
 - **Done when**: the imported journal loads, and the derived values match the legacy sheet
   (parity tests green on the 2 real sessions + synthetic fixtures covering edge cases).

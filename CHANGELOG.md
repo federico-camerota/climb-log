@@ -87,6 +87,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - Read API: `GET /api/modules` (modules and their schemas) and `GET /api/modules/{m}/{entity}`
   (records with their derived values, data issues, "data as of"), through the local snapshot;
   `climblog serve --config FILE` (D-058).
+- The finger strength module is complete in `modules/finger-strength.yaml`, with an end-to-end
+  test of the local workbook: sync, write, read, derive (D-059).
 
 ### Fixed
 - Set rows typed by hand with a blank Set # load with the next number for that date
