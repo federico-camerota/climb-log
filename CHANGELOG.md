@@ -91,8 +91,13 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   test of the local workbook: sync, write, read, derive (D-059).
 - Fictional journal workbooks for the tests, in the legacy layout (its formulas included) and
   the new one with the hand-entry cases; `make fixtures` writes them to open (D-060).
+- `climblog import-legacy --journal Climbing_Journal.xlsx [--dry-run]`: imports the legacy
+  journal into a new journal workbook (refusing one that has records) and reports what it read,
+  skipped, and how the values the legacy sheets computed compare with the app's (D-061).
 
 ### Fixed
+- Rest days compute their weekday, as the legacy Rest Days tab does (found by the importer's
+  parity report, D-061).
 - Set rows typed by hand with a blank Set # load with the next number for that date
   (`default: next`) instead of being left out with a data issue (D-050, #35).
 - A retired field whose column is missing is no longer reported as a data issue (D-052).

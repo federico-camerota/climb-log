@@ -10,6 +10,7 @@ import typer
 import uvicorn
 
 from climblog.config import ENV_VAR, AppConfig, ConfigError, config_path, load_config
+from climblog.importers.legacy_journal import import_legacy, parity, read_legacy
 from climblog.modules import Module, ModuleError, load_module
 from climblog.modules.formulas import formula_columns
 from climblog.storage import StorageError, check_schema, sync_module
@@ -109,6 +110,72 @@ def _fail(lines: list[str]) -> NoReturn:
     for line in lines:
         typer.echo(line, err=True)
     raise typer.Exit(1)
+
+
+@app.command("import-legacy")
+def import_legacy_command(
+    journal: Annotated[
+        Path,
+        typer.Option(
+            help="The legacy Climbing_Journal.xlsx (only read).", exists=True, dir_okay=False
+        ),
+    ],
+    module: Annotated[str, typer.Option(help="The journal module in the app config.")] = "journal",
+    config: Annotated[
+        Path | None,
+        typer.Option(
+            help="Config file (default: $CLIMBLOG_CONFIG, ~/.config/climblog/config.toml)."
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Read and compare only; write nothing.")
+    ] = False,
+) -> None:
+    """Import a legacy journal into the module's (new) workbook, then compare the values the
+    legacy sheets computed with the app's (D-061). Runs locally; never in CI."""
+    try:
+        app_config = load_config(config_path(config))
+    except ConfigError as error:
+        _fail(error.lines())
+    if module not in app_config.modules:
+        _fail([f"not in the config: {module}"])
+    try:
+        definition = app_config.module(module)
+        legacy = read_legacy(journal, definition)
+        if not dry_run:
+            report = import_legacy(journal, definition, app_config.repository(module))
+            typer.echo(f"imported into {app_config.modules[module].workbook}")
+            typer.echo(
+                f"  {report.counts['session']} sessions, {report.counts['rest_day']} rest days"
+            )
+    except (ModuleError, ValueError, StorageError) as error:
+        _fail([f"error: {error}"])
+    if dry_run:
+        typer.echo(f"read {legacy.count('session')} sessions, {legacy.count('rest_day')} rest days")
+    typer.echo(f"  settings: {legacy.settings}")
+    for line in [*legacy.skipped, *legacy.unread]:
+        typer.echo(f"  {line}")
+    if not legacy.computed:
+        typer.echo(
+            "parity: the legacy workbook holds no computed values; open it in Excel or "
+            "LibreOffice, save it, and run with --dry-run to compare"
+        )
+        return
+    typer.echo("parity (values the legacy sheets computed vs the app's):")
+    failed = False
+    for column in parity(legacy, definition):
+        status = "ok" if not column.mismatches else "DIFFERS"
+        typer.echo(
+            f"  {status}: {column.entity}.{column.field}: {column.matching}/{column.compared} match"
+        )
+        if column.mismatches and column.known:
+            typer.echo(f"    known difference: {column.known}")
+        elif column.mismatches:
+            failed = True
+        for day, sheet_value, app_value in column.mismatches[:5]:
+            typer.echo(f"    {day}: sheet {sheet_value!r}, app {app_value!r}")
+    if failed:
+        raise typer.Exit(1)
 
 
 module_app = typer.Typer(help="Check module definition files (YAML).", no_args_is_help=True)

@@ -8,7 +8,7 @@ sheet (`parse_cell`), so a write never creates a data issue. Every row written g
 """
 
 import datetime as dt
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 
 from climblog.expr import Value
 from climblog.modules.schema import NEXT, BaseField, Entity, Module
@@ -51,15 +51,45 @@ class RecordWriter:
         self._check_free(ent, key)
         data = load_data(self.module, self.repo)
         self._check_parent(ent, record, data)
+        self.repo.apply(self._appends(ent, record, self._now()))
 
+    def add_many(self, records: Sequence[tuple[str, Mapping[str, Value]]]) -> None:
+        """Several new records, `(entity, values)`, in one save, all or none (an import): each
+        checked as by `add`, against the workbook and the other records of the batch."""
+        data = load_data(self.module, self.repo)
         now = self._now()
+        edits: list[Edit] = []
+        taken: set[tuple[str, Key]] = set()
+        added: dict[str, list[dict[str, Value]]] = {}
+        for entity, values in records:
+            ent = self._entity(entity)
+            record = self._check(ent, values)
+            key = self._complete_key(ent, record)
+            record.update(zip(_key(ent), key, strict=True))
+            if (entity, key) in taken:
+                described = describe_key(_key(ent), key)
+                raise WriteError(f"{ent.label} {described} is in the batch twice")
+            self._check_free(ent, key)
+            taken.add((entity, key))
+            added.setdefault(entity, []).append(record)
+            edits += self._appends(ent, record, now)
+        for entity, rows in added.items():
+            ent = self.module.entities[entity]
+            parents = added.get(ent.parent.entity, []) if ent.parent is not None else []
+            for record in rows:
+                self._check_parent(ent, record, data, parents)
+        if edits:
+            self.repo.apply(edits)
+
+    def _appends(self, ent: Entity, record: Mapping[str, Value], now: dt.datetime) -> list[Edit]:
+        """A new record's rows: its main tab, and each section tab it has values for."""
         edits: list[Edit] = []
         for tab, fields in ent.tab_fields().items():
             cells = {f: _cell(record[f]) for f in fields if f in record}
             has_data = any(record.get(f) is not None for f in fields if f not in _key(ent))
             if tab == ent.main_tab or has_data:
                 edits.append(Append(tab, self._stamped(tab, cells, now)))
-        self.repo.apply(edits)
+        return edits
 
     def update(self, entity: str, key: Mapping[str, Value], values: Mapping[str, Value]) -> None:
         """New values for some fields of a record. A tab it has no row in yet gets one; a row
@@ -178,12 +208,19 @@ class RecordWriter:
                         f"{tab} already has a row for {describe_key(parts, key)} (row {row.number})"
                     )
 
-    def _check_parent(self, entity: Entity, record: Mapping[str, Value], data: ModuleData) -> None:
+    def _check_parent(
+        self,
+        entity: Entity,
+        record: Mapping[str, Value],
+        data: ModuleData,
+        more: Sequence[Mapping[str, Value]] = (),
+    ) -> None:
+        """The record's parent is in the data (or among `more`, new in the same batch)."""
         link = entity.parent
         if link is None:
             return
         want = tuple(record.get(part) for part in link.key)
-        for parent in data.entities[link.entity].records:
+        for parent in [*data.entities[link.entity].records, *more]:
             same_key = tuple(parent.get(part) for part in link.key) == want
             if same_key and all(parent.get(f) == v for f, v in link.fixed.items()):
                 return

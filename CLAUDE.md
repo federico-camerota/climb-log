@@ -59,4 +59,5 @@ through `pnpm --dir frontend`. Node 22 via fnm (`.node-version`). `make help` li
 - `uv run pre-commit run --all-files`: run the commit hooks (data check, lint) on every file
 - `uv run climblog module validate FILE...`: check module YAML files (`module schema` prints the JSON Schema)
 - `uv run climblog serve [--port 8000] [--reload]`: run the built app on `http://127.0.0.1:8000`
+- `uv run climblog import-legacy --journal FILE [--dry-run]`: import the legacy journal, with a parity report (owner runs it on the real file, never Claude)
 - `uv run climblog check [MODULE...] [--config FILE] [--apply]`: compare workbooks with their module YAML; `--apply` runs the additive schema sync

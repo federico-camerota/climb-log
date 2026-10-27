@@ -278,3 +278,24 @@ Automated tests additionally use throwaway synthetic workbooks in a temp dir; th
   legacy computed values (read with `data_only=True`, after recalculating with LibreOffice
   headless if the cached values are stale) compared with the app's derived values.
 - The legacy files are never modified.
+
+**Journal importer** (`importers/legacy_journal.py`, D-061): `climblog import-legacy --journal
+Climbing_Journal.xlsx [--module journal] [--dry-run]`.
+- Checks the layout first: the row-4 label of every column it reads or compares must be the
+  legacy one (an explicit mapping table: tab, column, label, field); a different file is refused.
+- Each `Session` row with a date is a session, with the same row of the other session tabs (they
+  are linked to it by row); a second session on a day gets `session_no` 2, and so on. Each
+  `Rest Days` row with a date is a rest day. Thresholds come from the named ranges on `Start Here`.
+- Cells are read as the module reads them (decimal commas, choices in any case, `'`/`=` notes as
+  typed); a value that can't be read is left out and reported by its place only, never its
+  content; a row with data but no date is skipped and reported.
+- Writes into the module's configured workbook (created by schema sync) in one save, and refuses
+  one that already holds records, so an import never mixes with other data. `--dry-run` reads
+  and compares only.
+- Parity: every legacy computed column against its derived field, record by record (numbers the
+  legacy sheet shows in a date format compared as numbers). Two differences are known and on
+  purpose: days since the last climb (the legacy sheet counts a session on the same day) and
+  days since the previous session (the legacy sheet looks at the row above). Exit code 1 for
+  any other difference. A workbook without computed values (never opened in a spreadsheet after
+  being written) is not compared. Run locally on the real journal; the tests use fictional ones.
+- The real file's Rest Days formula uses `MAXIFS` without the `_xlfn.` prefix (D-060).

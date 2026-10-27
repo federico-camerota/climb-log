@@ -204,6 +204,7 @@ entities:
         bands: *std_bands
       status: "worst_of(wellbeing_status, body_status)"
       days_since_climb: "days_between(last(session.date, before=date), date)"
+      weekday: "weekday(date)"                            # as the legacy Rest Days column
 
 forms:
   pre_session:  {entity: session, phase: pre,  sections: [info, wb_pre, ph_pre, mn_pre]}

@@ -32,7 +32,7 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
   LibreOffice parity test done (D-053); formula columns, buffer, status colours and drift
   check in xlsx done (D-054).
 - Local snapshot (D-020). → done: gzipped JSON of the rows, `CachedRepository` (D-055).
-- `modules/journal.yaml` complete; legacy journal importer + parity report; grade parser (French + gym). → grade parser done (D-047); journal complete, every legacy rule tested (D-056).
+- `modules/journal.yaml` complete; legacy journal importer + parity report; grade parser (French + gym). → grade parser done (D-047); journal complete, every legacy rule tested (D-056); importer and parity report done (D-061).
 - **Synthetic fixture generator** (D-034): fictional workbooks in the legacy layouts (with their
   original formulas) and in the new layout, used by importer, parity and hand-entry tests. →
   journal fixtures done, generated at test time; `make fixtures` (D-060).
