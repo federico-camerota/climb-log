@@ -89,6 +89,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   `climblog serve --config FILE` (D-058).
 - The finger strength module is complete in `modules/finger-strength.yaml`, with an end-to-end
   test of the local workbook: sync, write, read, derive (D-059).
+- Fictional journal workbooks for the tests, in the legacy layout (its formulas included) and
+  the new one with the hand-entry cases; `make fixtures` writes them to open (D-060).
 
 ### Fixed
 - Set rows typed by hand with a blank Set # load with the next number for that date

@@ -9,6 +9,8 @@
 /backups/
 /snapshots/
 *.parquet
+# Fictional workbooks written by `make fixtures` (the tests generate their own)
+/tests/fixtures/*.xlsx
 # Office lock files
 ~$*
 .~lock.*#
