@@ -17,6 +17,7 @@ from climblog.storage.base import (
 from climblog.storage.cells import CellError, DataIssue, RawCell, RowParser, parse_cell
 from climblog.storage.check import Difference, check_schema
 from climblog.storage.drift import Drift, find_drift
+from climblog.storage.gsheets import GSheetsBackend
 from climblog.storage.layout import WorkbookLayout, workbook_layout
 from climblog.storage.load import EntityData, ModuleData, load_data
 from climblog.storage.snapshot import (
@@ -40,6 +41,7 @@ __all__ = [
     "Drift",
     "Edit",
     "EntityData",
+    "GSheetsBackend",
     "ModuleData",
     "RawCell",
     "RecordNotFound",

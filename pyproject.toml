@@ -52,8 +52,12 @@ select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF"]
 strict = true
 files = ["backend", "scripts", "tests"]
 mypy_path = "scripts"
-# google-auth is typed but leaves some calls unannotated (Credentials.refresh, to_json, errors).
-untyped_calls_exclude = ["google.oauth2.credentials", "google.auth.exceptions"]
+# google-auth is typed but leaves some calls unannotated (Credentials.refresh, AuthorizedSession, …).
+untyped_calls_exclude = [
+    "google.oauth2.credentials",
+    "google.auth.exceptions",
+    "google.auth.transport.requests",
+]
 
 [[tool.mypy.overrides]]
 # No type information; used only in google_auth.browser_consent.

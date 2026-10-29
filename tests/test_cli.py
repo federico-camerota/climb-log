@@ -275,3 +275,22 @@ def test_google_login_errors(google_config: Path, tmp_path: Path) -> None:
     bad.write_text("[google]\nwhat = 1\n", encoding="utf-8")
     result = runner.invoke(cli.app, ["google", "login", "--config", str(bad)])
     assert (result.exit_code, result.output) == (1, f"{bad}: google.what: unknown key\n")
+
+
+def test_check_names_a_google_module_and_needs_the_login(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))  # no real login is ever used here
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    sheet = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-fict"
+    file = tmp_path / "google-module.toml"
+    file.write_text(
+        f'[modules.finger_strength]\ndefinition = "{FINGERS}"\ngoogle_sheet = "{sheet}"\n',
+        encoding="utf-8",
+    )
+    result = runner.invoke(cli.app, ["check", "--config", str(file)])
+    assert result.exit_code == 1
+    assert result.output.splitlines() == [
+        f"finger_strength (Google Sheet {sheet})",
+        "  error: not logged in to Google: run `climblog google login`",
+    ]

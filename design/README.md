@@ -5,7 +5,7 @@ interface (logging, visualization, analysis, planning). The data stays in spread
 (local `.xlsx` or Google Sheets).
 
 **Status:** M1 (module framework + local storage) done, released as v0.1.0; M2, the Google
-Sheets backend, in progress: contract tests and Google login done (`07-roadmap.md`). Last updated 2026-10-29.
+Sheets backend, in progress: contract tests, Google login and reading done (`07-roadmap.md`). Last updated 2026-10-29.
 
 ## Read in this order
 | File | What it covers |

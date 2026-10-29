@@ -33,7 +33,7 @@ forms and widgets from module schemas and view definitions served by the API.
 | Backend | Python 3.12, FastAPI, pydantic v2 | typed API, easy to extend in Python |
 | Data/analysis | pandas, numpy, scipy (statsmodels later if needed) | correlations, regressions, rolling stats |
 | Excel | openpyxl | read/write xlsx, data validation, styling |
-| Google | Google Sheets API v4; login with `google-auth-oauthlib` (D-062), the API client chosen with the read backend (#51) | batch reads |
+| Google | Sheets API v4 and Drive API v3 over REST with google-auth's `AuthorizedSession` (D-063); login with `google-auth-oauthlib` (D-062) | no extra client library, typed, one call reads a whole sheet |
 | Frontend | Vite + React + TypeScript | rich forms, fast UI |
 | Server state | TanStack Query | caching, refetch after writes |
 | Forms | react-hook-form + zod (zod schema generated from module schema JSON) | |
@@ -55,12 +55,12 @@ forms and widgets from module schemas and view definitions served by the API.
   of the repo. Each module names its YAML and its workbook; backups default to
   `~/.local/share/climblog/backups/<module>/` (`$XDG_DATA_HOME`). `~` is expanded and relative
   paths are relative to the config file. Unknown keys are errors. `[google]` names the OAuth
-  client file and, optionally, the token (D-062); the LAN PIN hash (D-010) is added when it is
-  needed.
+  client file and, optionally, the token (D-062) and `max_age_seconds` (D-063); the LAN PIN
+  hash (D-010) is added when it is needed.
   ```toml
   [modules.finger_strength]          # the YAML's `module:` id
   definition = "~/climb-log/modules/finger-strength.yaml"
-  workbook = "~/climbing/finger-strength.xlsx"   # M2: `google_sheet = "…"` instead
+  workbook = "~/climbing/finger-strength.xlsx"   # or google_sheet = "<ID or URL>" (D-063)
 
   [backups]                          # optional, these are the defaults
   folder = "~/.local/share/climblog/backups"

@@ -101,6 +101,16 @@ uv run climblog google logout   # revokes the access and deletes the token
 The app asks for Google Sheets and for the Drive files it creates itself, nothing else. The
 token is saved readable by you only, and is never printed or logged.
 
+A module then names its sheet instead of a workbook (the ID, or the URL as the browser shows
+it). Reading works today; writing, schema sync and creating the module's sheet are coming
+(M2), and until the app creates the sheet itself Google won't let it see when the sheet changes.
+
+```toml
+[modules.journal]
+definition = "~/climb-log/modules/journal.yaml"
+google_sheet = "https://docs.google.com/spreadsheets/d/<ID>/edit"
+```
+
 ## Documentation
 
 The design lives in [`design/`](design/README.md): goals, architecture, the module framework,

@@ -85,7 +85,7 @@ def check(
         _fail([f"not in the config: {', '.join(unknown)}"])
     failed = False
     for name in names:
-        typer.echo(f"{name} ({app_config.modules[name].workbook})")
+        typer.echo(f"{name} ({app_config.modules[name].location})")
         lines, ok = _check_module(app_config, name, apply)
         typer.echo("\n".join(f"  {line}" for line in lines))
         failed |= not ok
@@ -153,7 +153,7 @@ def import_legacy_command(
         legacy = read_legacy(journal, definition)
         if not dry_run:
             report = import_legacy(journal, definition, app_config.repository(module))
-            typer.echo(f"imported into {app_config.modules[module].workbook}")
+            typer.echo(f"imported into {app_config.modules[module].location}")
             typer.echo(
                 f"  {report.counts['session']} sessions, {report.counts['rest_day']} rest days"
             )

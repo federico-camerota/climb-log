@@ -11,13 +11,20 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   by `[google] client_secret` in the app config; the token is kept in the config folder,
   readable by the owner only, refreshed when needed and never printed; logout revokes it.
   Setup steps in the README, *Connect Google Sheets* (D-062, #50).
+- Reading modules from Google Sheets: `google_sheet = "<ID or URL>"` in a module's config
+  instead of `workbook`; one call reads the whole sheet with its number formats, so dates,
+  times and durations read as from an `.xlsx`. The sheet is read again when Drive sees a change
+  or the copy is older than `[google] max_age_seconds` (60 by default; Drive lags about 3
+  minutes behind an edit). Plain REST, no new dependency (D-063, #51).
 - `PRIVACY.md`: the privacy policy Google asks for before an OAuth app can be published; the
   README setup steps now include it and the home page link.
 
 ### Changed
 - The storage tests that every backend must pass are a contract suite
   (`tests/test_backend_*.py`), run on each backend through `tests/backends.py`; the tests
-  particular to `.xlsx` stay in `test_xlsx*.py` and `test_sync.py` (#49).
+  particular to `.xlsx` stay in `test_xlsx*.py` and `test_sync.py` (#49). The read contract
+  also runs on the Google backend, on an in-memory Google and, with `CLIMBLOG_GOOGLE_LIVE=1`,
+  on the real API (#51).
 
 ## [0.1.0] - 2026-10-27
 

@@ -14,6 +14,8 @@ from workbooks import tab
 
 from climblog.storage import Repository, SheetRow, StorageError, TableNotFound
 
+CONTRACT = "read"
+
 
 @pytest.fixture
 def book(backend: Backend) -> Repository:

@@ -8,6 +8,7 @@ from textwrap import dedent
 import pytest
 
 from climblog.config import ConfigError, config_path, load_config
+from climblog.storage import GSheetsBackend, StorageError, XlsxBackend
 
 FINGERS = Path("modules/finger-strength.yaml").absolute()
 
@@ -109,6 +110,7 @@ def test_repository_is_the_workbook_with_its_backups(tmp_path: Path) -> None:
         """,
     )
     repo = load_config(file).repository("finger_strength")
+    assert isinstance(repo, XlsxBackend)
     assert repo.path == tmp_path / "fingers.xlsx"
     assert repo.backups is not None
     assert repo.backups.folder.name == "finger_strength"
@@ -153,7 +155,6 @@ def test_problems_are_listed_together(tmp_path: Path) -> None:
         """,
     )
     assert problems(file) == [
-        "modules.journal.workbook: Field required",
         "modules.journal.workbok: unknown key",
         "modules.Bad-Name.[key]: String should match pattern '^[a-z][a-z0-9_]*$'",
         "backups.keep: Input should be greater than or equal to 1",
@@ -215,3 +216,64 @@ def test_google_paths_can_be_configured(tmp_path: Path) -> None:
     assert problems(write(tmp_path, '[google]\nsecret = "x.json"\n')) == [
         "google.secret: unknown key"
     ]
+
+
+SHEET_ID = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-fict"
+
+
+def test_a_module_can_live_in_a_google_sheet(tmp_path: Path) -> None:
+    file = write(
+        tmp_path,
+        f"""\
+        [modules.journal]
+        definition = "j.yaml"
+        google_sheet = "https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit#gid=0"
+
+        [modules.fear]
+        definition = "f.yaml"
+        google_sheet = " {SHEET_ID} "
+        """,
+    )
+    config = load_config(file)
+    assert config.modules["journal"].google_sheet == SHEET_ID
+    assert config.modules["journal"].workbook is None
+    assert config.modules["journal"].location == f"Google Sheet {SHEET_ID}"
+    assert config.modules["fear"].google_sheet == SHEET_ID
+    repo = config.repository("journal")  # no network, no login: the session is made on first use
+    assert isinstance(repo, GSheetsBackend)
+    assert repo.spreadsheet_id == SHEET_ID
+    assert repo.max_age == dt.timedelta(seconds=60)
+    file.write_text(file.read_text(encoding="utf-8") + "[google]\nmax_age_seconds = 15\n", "utf-8")
+    repo = load_config(file).repository("journal")
+    assert isinstance(repo, GSheetsBackend)
+    assert repo.max_age == dt.timedelta(seconds=15)
+
+
+def test_a_module_lives_in_one_place(tmp_path: Path) -> None:
+    text = """\
+        [modules.both]
+        definition = "b.yaml"
+        workbook = "b.xlsx"
+        google_sheet = "{id}"
+
+        [modules.none]
+        definition = "n.yaml"
+
+        [modules.bad]
+        definition = "x.yaml"
+        google_sheet = "https://example.com/sheet"
+        """
+    assert problems(write(tmp_path, text.format(id=SHEET_ID))) == [
+        "modules.both: Value error, set either workbook or google_sheet",
+        "modules.none: Value error, set either workbook or google_sheet",
+        "modules.bad.google_sheet: Value error, not a Google Sheet ID or URL",
+    ]
+
+
+def test_reading_a_google_sheet_needs_the_login(tmp_path: Path) -> None:
+    file = write(
+        tmp_path, f'[modules.journal]\ndefinition = "j.yaml"\ngoogle_sheet = "{SHEET_ID}"\n'
+    )
+    repo = load_config(file).repository("journal")
+    with pytest.raises(StorageError, match="not logged in to Google: run `climblog google login`"):
+        repo.list_tables()
