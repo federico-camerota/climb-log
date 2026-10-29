@@ -26,6 +26,8 @@ from climblog.storage import (
     workbook_layout,
 )
 
+CONTRACT = "sync"
+
 TABS = ("Pre", "Post", "_settings", "_meta")
 
 

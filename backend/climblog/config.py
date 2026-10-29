@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The app config (02-architecture.md, D-051): which workbook each module lives in, backups,
-the Google login (D-062).
+"""The app config (02-architecture.md, D-051): which workbook or Google Sheet each module lives
+in (D-063), backups, the Google login (D-062).
 
 A TOML file, by default `~/.config/climblog/config.toml` (`$XDG_CONFIG_HOME` honoured), or the
 file named by `--config` or `CLIMBLOG_CONFIG`. It holds paths, never training data, and is not
@@ -9,16 +9,26 @@ part of the repo. Paths may start with `~`; relative ones are relative to the co
 
 import datetime as dt
 import os
+import re
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from climblog.modules import Module, load_module
 from climblog.modules.schema import Key
-from climblog.storage import Backups, XlsxBackend
+from climblog.storage import Backups, GSheetsBackend, Repository, StorageError, XlsxBackend
+from climblog.storage.google_client import RestSheetsClient, Session
 from climblog.storage.snapshot import CachedRepository, Snapshots
 
 ENV_VAR = "CLIMBLOG_CONFIG"
@@ -72,6 +82,8 @@ class SnapshotConfig(_Strict):
 class GoogleConfig(_Strict):
     client_secret: Path | None = None  # the OAuth desktop client's JSON, downloaded from Google
     token: Path | None = None  # None: $XDG_CONFIG_HOME/climblog/google-token.json
+    # Read a sheet again after this long even if Drive saw no change (it lags ~3 min, D-063).
+    max_age_seconds: float = Field(default=60, ge=0)
 
     def token_file(self) -> Path:
         return self.token or _xdg("XDG_CONFIG_HOME", ".config") / "climblog" / "google-token.json"
@@ -79,7 +91,29 @@ class GoogleConfig(_Strict):
 
 class ModuleConfig(_Strict):
     definition: Path  # the module YAML
-    workbook: Path  # a local .xlsx; M2 adds `google_sheet`, one of the two
+    workbook: Path | None = None  # a local .xlsx, or
+    google_sheet: str | None = None  # a Google Sheet: its ID, or its URL (D-063)
+
+    @field_validator("google_sheet", mode="after")
+    @classmethod
+    def _sheet_id(cls, value: str) -> str:  # only when set: defaults are not validated
+        """The ID from `https://docs.google.com/spreadsheets/d/<ID>/edit…`, or the ID itself."""
+        if match := re.search(r"/spreadsheets/d/([A-Za-z0-9_-]+)", value):
+            return match.group(1)
+        if re.fullmatch(r"[A-Za-z0-9_-]{20,}", value.strip()):
+            return value.strip()
+        raise ValueError("not a Google Sheet ID or URL")
+
+    @model_validator(mode="after")
+    def _one_place(self) -> "ModuleConfig":
+        if (self.workbook is None) == (self.google_sheet is None):
+            raise ValueError("set either workbook or google_sheet")
+        return self
+
+    @property
+    def location(self) -> str:
+        """Where the module lives, for messages."""
+        return str(self.workbook) if self.workbook else f"Google Sheet {self.google_sheet}"
 
 
 class AppConfig(_Strict):
@@ -96,9 +130,28 @@ class AppConfig(_Strict):
             raise ValueError(f"{file} defines module '{module.module}', not '{name}'")
         return module
 
-    def repository(self, name: str) -> XlsxBackend:
-        """The module's workbook, with its backups (taken only on writes)."""
-        return XlsxBackend(self.modules[name].workbook, backups=self.backups.for_module(name))
+    def repository(self, name: str) -> Repository:
+        """The module's workbook (with its backups, taken only on writes) or Google Sheet."""
+        module = self.modules[name]
+        if module.google_sheet is not None:
+            return GSheetsBackend(
+                module.google_sheet,
+                RestSheetsClient(self.google_session),
+                max_age=dt.timedelta(seconds=self.google.max_age_seconds),
+            )
+        assert module.workbook is not None
+        return XlsxBackend(module.workbook, backups=self.backups.for_module(name))
+
+    def google_session(self) -> Session:
+        """A session with the saved Google login (made when the sheet is first read)."""
+        from google.auth.transport.requests import AuthorizedSession
+
+        from climblog.google_auth import GoogleAuthError, load_credentials  # imports this module
+
+        try:
+            return AuthorizedSession(load_credentials(self.google))
+        except GoogleAuthError as error:
+            raise StorageError(str(error)) from None
 
     def cached(self, name: str) -> CachedRepository:
         """The module's workbook through its local snapshot (D-020, D-055)."""

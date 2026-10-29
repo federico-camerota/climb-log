@@ -22,6 +22,8 @@ from climblog.storage import (
     WriteConflict,
 )
 
+CONTRACT = "write"
+
 D20, D21 = dt.datetime(2026, 10, 20), dt.datetime(2026, 10, 21)
 KEYS = ["date", "kg", "note", "auto:double", "updated_at"]
 TABS = ("Sets", "_settings", "Labels")

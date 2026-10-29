@@ -22,7 +22,6 @@ from typing import Protocol
 
 import openpyxl
 from openpyxl.cell.cell import Cell, MergedCell
-from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
@@ -33,7 +32,6 @@ from climblog.storage.base import (
     FIRST_DATA_ROW,
     Append,
     Edit,
-    SheetRow,
     StorageError,
     Table,
     TableNotFound,
@@ -42,10 +40,11 @@ from climblog.storage.base import (
     WriteConflict,
 )
 from climblog.storage.cells import RawCell
+from climblog.storage.grid import Rows, blank, grid_table, key_columns, kv_columns, kv_pairs
 from climblog.storage.layout import WorkbookLayout
 from climblog.storage.xlsx_sync import apply_layout, top_up
 
-Sheet = list[tuple[RawCell, ...]]
+Sheet = Rows
 
 # Formats for cells written into General (or text-formatted) cells, as in the mock-ups.
 _FORMATS: list[tuple[type, str]] = [
@@ -68,7 +67,7 @@ class XlsxBackend:
         return list(self._sheets())
 
     def read_table(self, name: str) -> Table:
-        return _table(name, self._sheet(name))
+        return grid_table(name, self._sheet(name))
 
     def read_formulas(self, name: str) -> Table:
         workbook = self._load(read_only=True, data_only=False)
@@ -79,17 +78,10 @@ class XlsxBackend:
             rows = [tuple(_raw(v) for v in row) for row in sheet.iter_rows(values_only=True)]
         finally:
             workbook.close()
-        return _table(name, rows)
+        return grid_table(name, rows)
 
     def read_kv(self, name: str) -> dict[str, RawCell]:
-        rows = self._sheet(name)
-        k, v = _kv_columns(name, rows[0] if rows else ())
-        pairs: dict[str, RawCell] = {}
-        for row in rows[1:]:
-            key = row[k] if k < len(row) else None
-            if not _blank(key):
-                pairs.setdefault(str(key).strip(), row[v] if v < len(row) else None)
-        return pairs
+        return kv_pairs(name, self._sheet(name))
 
     def last_modified(self) -> dt.datetime:
         return dt.datetime.fromtimestamp(self._stat_mtime_ns() / 1e9)
@@ -100,7 +92,7 @@ class XlsxBackend:
             numbers = []
             for edit in edits:
                 sheet = _worksheet(workbook, edit.tab)
-                columns = _columns(edit.tab, _row_values(sheet, FIRST_DATA_ROW - 1))
+                columns = key_columns(edit.tab, _row_values(sheet, FIRST_DATA_ROW - 1))
                 _check_columns(edit.tab, columns, edit.cells)
                 if isinstance(edit, Append):
                     if edit.tab not in free:
@@ -114,7 +106,7 @@ class XlsxBackend:
                 numbers.append(number)
             for tab in free:  # rows were taken from the formula buffer: keep 50 free (D-054)
                 sheet = _worksheet(workbook, tab)
-                columns = _columns(tab, _row_values(sheet, FIRST_DATA_ROW - 1))
+                columns = key_columns(tab, _row_values(sheet, FIRST_DATA_ROW - 1))
                 top_up(sheet, {key: i + 1 for key, i in columns.items()})
             return numbers
 
@@ -123,11 +115,11 @@ class XlsxBackend:
     def write_kv(self, name: str, values: Mapping[str, RawCell]) -> None:
         def write(workbook: Workbook) -> None:
             sheet = _worksheet(workbook, name)
-            k, v = _kv_columns(name, _row_values(sheet, 1))
+            k, v = kv_columns(name, _row_values(sheet, 1))
             rows = {}
             for number in range(sheet.max_row, 1, -1):  # bottom up: the first of a key wins
                 key = _raw(sheet.cell(number, k + 1).value)
-                if not _blank(key):
+                if not blank(key):
                     rows[str(key).strip()] = number
             for key, value in values.items():
                 number = rows.get(key) or sheet.max_row + 1
@@ -252,42 +244,6 @@ class _FreeRows:
         return all(self.sheet.cell(number, i + 1).value in (None, "") for i in self.data)
 
 
-def _table(name: str, rows: Sheet) -> Table:
-    """Keys from row 2, rows from row 3 (those with a non-blank cell)."""
-    columns = _columns(name, rows[FIRST_DATA_ROW - 2] if len(rows) >= FIRST_DATA_ROW - 1 else ())
-    data = []
-    for number, row in enumerate(rows[FIRST_DATA_ROW - 1 :], start=FIRST_DATA_ROW):
-        cells = {k: row[i] for k, i in columns.items() if i < len(row) and row[i] not in (None, "")}
-        if any(not _blank(value) for value in cells.values()):  # kept as written (04 §3b)
-            data.append(SheetRow(number, cells))
-    numbers = {key: i + 1 for key, i in columns.items()}
-    return Table(name, tuple(columns), tuple(data), numbers)
-
-
-def _columns(tab: str, keys: Sequence[object]) -> dict[str, int]:
-    """Column key (row 2) → 0-based column index. A key twice is an error."""
-    columns: dict[str, int] = {}
-    for i, key in enumerate(keys):
-        if _blank(key):
-            continue
-        text = str(key).strip()
-        if text in columns:
-            first, second = (get_column_letter(c + 1) for c in (columns[text], i))
-            raise StorageError(
-                f"tab '{tab}': column key '{text}' is in row 2 twice ({first}2 and {second}2)"
-            )
-        columns[text] = i
-    return columns
-
-
-def _kv_columns(tab: str, headers: Sequence[object]) -> tuple[int, int]:
-    """The `key` and `value` columns of a key/value tab, from row 1."""
-    names = [str(h).strip().casefold() if not _blank(h) else "" for h in headers]
-    if "key" not in names or "value" not in names:
-        raise StorageError(f"tab '{tab}' needs the headers 'key' and 'value' in row 1")
-    return names.index("key"), names.index("value")
-
-
 def _worksheet(workbook: Workbook, name: str) -> Worksheet:
     if name not in workbook.sheetnames:
         raise TableNotFound(f"no tab '{name}' in the workbook")
@@ -351,7 +307,3 @@ def _raw(value: object) -> RawCell:
     if isinstance(value, Decimal):
         return float(value)
     return str(value)  # rich text, or a formula object (not given with data_only)
-
-
-def _blank(value: object) -> bool:
-    return value is None or (isinstance(value, str) and not value.strip())

@@ -3,7 +3,7 @@
 the storage backend each contract test runs on."""
 
 import datetime as dt
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from textwrap import dedent
 
@@ -46,10 +46,18 @@ def problems(load: LoadYaml) -> Problems:
 
 
 @pytest.fixture(params=BACKENDS)
-def backend(request: pytest.FixtureRequest, tmp_path: Path) -> Backend:
-    """Each storage backend in turn, for the contract tests (`backends.py`)."""
+def backend(request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[Backend]:
+    """Each storage backend in turn, for the contract tests (`backends.py`); the test module's
+    `CONTRACT` is skipped on a backend that doesn't meet it yet."""
     name: str = request.param
-    return harness(name, tmp_path)
+    chosen = harness(name, tmp_path)
+    contract: str = request.module.CONTRACT
+    if contract in chosen.pending:
+        pytest.skip(f"{name}: the {contract} contract comes with {chosen.pending[contract]}")
+    try:
+        yield chosen
+    finally:
+        chosen.close()
 
 
 S10 = (1.0, 10.0)

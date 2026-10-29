@@ -179,8 +179,21 @@ are picked up by change polling.
 - Scopes: `https://www.googleapis.com/auth/spreadsheets` and
   `https://www.googleapis.com/auth/drive.file` (Drive access to the files the app creates:
   module sheets are created by the app, so change detection and export work on them).
-- Read: one `values.batchGet` for all tabs of a module, with `valueRenderOption=UNFORMATTED_VALUE`
-  and `dateTimeRenderOption=SERIAL_NUMBER`, then convert.
+- Read (D-063): one `spreadsheets.get` with `includeGridData` and a field mask for each cell's
+  value, number format and formula. **Freshness**: Drive's `modifiedTime` (and `version`) moves
+  about 3 minutes after an edit (measured 2026-10-29), so the copy is read again when Drive
+  reports a change *or* it is older than `[google] max_age_seconds` (default 60); a phone edit
+  shows within a minute while the app is in use. `last_modified` is Drive's time, or when the
+  app saw the content change if later, so the snapshot (D-020) follows the content, and a new
+  process always reads Google once rather than trusting a snapshot on disk. Cells become
+  the raw values openpyxl gives: a number formatted as a date or date-time is a `datetime`, as a
+  time a `time`, as a duration (`[h]:mm`) a `timedelta`; whole numbers are `int`, errors their
+  `#DIV/0!`-style text. So the loader, the parsers and the contract tests are the same for both
+  backends (`batchGet` with serials would give dates as bare numbers). Calls are plain REST
+  through google-auth's `AuthorizedSession` (`storage/google_client.py`), behind a
+  `SheetsClient` protocol that the tests replace with an in-memory Google. A sheet the app
+  didn't create is readable but Drive won't show its `modifiedTime` (`drive.file`): the app
+  says so and points to letting it create the module's sheet (#54).
 - Write: `values.update` into the first row with an empty key for new records (formula buffer, §1); `values.update` on the row found by key for edits; buffer top-up with `batchUpdate`.
   Writes are queued and retried with backoff (quota is ~60 write req/min/user, ample).
 - Concurrency: before updating, re-read the target row and compare `updated_at`. If it
