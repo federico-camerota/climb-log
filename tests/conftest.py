@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Shared by the tests: write a module YAML snippet and load it; an expression environment."""
+"""Shared by the tests: write a module YAML snippet and load it; an expression environment;
+the storage backend each contract test runs on."""
 
 import datetime as dt
 from collections.abc import Callable
@@ -7,6 +8,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from backends import BACKENDS, Backend, harness
 
 from climblog.expr import Env, FieldMeta, NameInfo
 from climblog.modules import Module, ModuleError, load_module
@@ -41,6 +43,13 @@ def problems(load: LoadYaml) -> Problems:
         return [line.removeprefix(f"{error.value.file}:") for line in error.value.lines()]
 
     return problems
+
+
+@pytest.fixture(params=BACKENDS)
+def backend(request: pytest.FixtureRequest, tmp_path: Path) -> Backend:
+    """Each storage backend in turn, for the contract tests (`backends.py`)."""
+    name: str = request.param
+    return harness(name, tmp_path)
 
 
 S10 = (1.0, 10.0)

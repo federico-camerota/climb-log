@@ -6,6 +6,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 
 ## [Unreleased]
 
+### Changed
+- The storage tests that every backend must pass are a contract suite
+  (`tests/test_backend_*.py`), run on each backend through `tests/backends.py`; the tests
+  particular to `.xlsx` stay in `test_xlsx*.py` and `test_sync.py` (#49).
+
 ## [0.1.0] - 2026-10-27
 
 M1: the module framework and local storage (`design/07-roadmap.md`).
