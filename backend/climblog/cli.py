@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """The `climblog` command line."""
 
+import datetime as dt
 import json
 import os
 from pathlib import Path
@@ -9,7 +10,15 @@ from typing import Annotated, NoReturn
 import typer
 import uvicorn
 
-from climblog.config import ENV_VAR, AppConfig, ConfigError, config_path, load_config
+from climblog import google_auth
+from climblog.config import (
+    ENV_VAR,
+    AppConfig,
+    ConfigError,
+    GoogleConfig,
+    config_path,
+    load_config,
+)
 from climblog.importers.legacy_journal import import_legacy, parity, read_legacy
 from climblog.modules import Module, ModuleError, load_module
 from climblog.modules.formulas import formula_columns
@@ -210,3 +219,65 @@ def validate(
 def schema() -> None:
     """Print the JSON Schema of module files (committed as modules/module.schema.json)."""
     typer.echo(json.dumps(Module.model_json_schema(), indent=2, ensure_ascii=False))
+
+
+google_app = typer.Typer(help="Log in to Google Sheets (D-062).", no_args_is_help=True)
+app.add_typer(google_app, name="google")
+
+ConfigOption = Annotated[
+    Path | None,
+    typer.Option(help="Config file (default: $CLIMBLOG_CONFIG, ~/.config/climblog/config.toml)."),
+]
+
+
+def _google_config(config: Path | None) -> GoogleConfig:
+    try:
+        return load_config(config_path(config)).google
+    except ConfigError as error:
+        _fail(error.lines())
+
+
+@google_app.command()
+def login(
+    config: ConfigOption = None,
+    browser: Annotated[
+        bool, typer.Option(help="Open the browser (--no-browser: print the address to open).")
+    ] = True,
+) -> None:
+    """Give the app access to Google Sheets: opens Google's consent page, saves the token."""
+    try:
+        path = google_auth.login(_google_config(config), open_browser=browser)
+    except google_auth.GoogleAuthError as error:
+        _fail([f"error: {error}"])
+    typer.echo(f"logged in; token saved in {path} (readable by you only)")
+
+
+@google_app.command()
+def status(config: ConfigOption = None) -> None:
+    """Check the saved login with Google (refreshes it once). Exits 1 when it can't be used."""
+    google = _google_config(config)
+    try:
+        credentials = google_auth.load_credentials(google, refresh=True)
+    except google_auth.GoogleAuthError as error:
+        _fail([f"{google.token_file()}: {error}"])
+    typer.echo(f"logged in ({google.token_file()})")
+    typer.echo(f"  scopes: {', '.join(credentials.scopes or ())}")
+    if credentials.expiry is not None:  # naive UTC in google-auth
+        until = credentials.expiry.replace(tzinfo=dt.UTC).astimezone()
+        typer.echo(f"  access token valid until {until:%H:%M} (renewed automatically)")
+
+
+@google_app.command()
+def logout(config: ConfigOption = None) -> None:
+    """Revoke the app's access with Google and delete the saved token."""
+    google = _google_config(config)
+    revoked = google_auth.logout(google)
+    if revoked is None:
+        typer.echo("not logged in: nothing to do")
+    elif revoked:
+        typer.echo(f"access revoked; {google.token_file()} deleted")
+    else:
+        typer.echo(
+            f"{google.token_file()} deleted, but Google did not confirm the revoke: remove "
+            "climb-log at https://myaccount.google.com/permissions"
+        )

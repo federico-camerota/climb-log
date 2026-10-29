@@ -199,3 +199,19 @@ def test_cached_is_the_workbook_through_its_snapshot(tmp_path: Path) -> None:
     assert cached.module == "finger_strength"
     assert cached.source.path == tmp_path / "fingers.xlsx"  # type: ignore[attr-defined]
     assert cached.snapshots.folder.name == "snapshots"
+
+
+def test_the_google_token_defaults_to_the_xdg_config_folder(tmp_path: Path) -> None:
+    google = load_config(write(tmp_path, "")).google
+    assert google.client_secret is None
+    assert google.token_file() == tmp_path / "home/.config/climblog/google-token.json"
+
+
+def test_google_paths_can_be_configured(tmp_path: Path) -> None:
+    text = '[google]\nclient_secret = "~/keys/client.json"\ntoken = "google.json"\n'
+    google = load_config(write(tmp_path, text)).google
+    assert google.client_secret == tmp_path / "home/keys/client.json"
+    assert google.token_file() == tmp_path / "google.json"
+    assert problems(write(tmp_path, '[google]\nsecret = "x.json"\n')) == [
+        "google.secret: unknown key"
+    ]

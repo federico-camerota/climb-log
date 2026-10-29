@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The app config (02-architecture.md, D-051): which workbook each module lives in, backups.
+"""The app config (02-architecture.md, D-051): which workbook each module lives in, backups,
+the Google login (D-062).
 
 A TOML file, by default `~/.config/climblog/config.toml` (`$XDG_CONFIG_HOME` honoured), or the
 file named by `--config` or `CLIMBLOG_CONFIG`. It holds paths, never training data, and is not
@@ -68,6 +69,14 @@ class SnapshotConfig(_Strict):
         )
 
 
+class GoogleConfig(_Strict):
+    client_secret: Path | None = None  # the OAuth desktop client's JSON, downloaded from Google
+    token: Path | None = None  # None: $XDG_CONFIG_HOME/climblog/google-token.json
+
+    def token_file(self) -> Path:
+        return self.token or _xdg("XDG_CONFIG_HOME", ".config") / "climblog" / "google-token.json"
+
+
 class ModuleConfig(_Strict):
     definition: Path  # the module YAML
     workbook: Path  # a local .xlsx; M2 adds `google_sheet`, one of the two
@@ -77,6 +86,7 @@ class AppConfig(_Strict):
     modules: dict[Key, ModuleConfig] = {}
     backups: BackupConfig = BackupConfig()
     snapshots: SnapshotConfig = SnapshotConfig()
+    google: GoogleConfig = GoogleConfig()
 
     def module(self, name: str) -> Module:
         """The module's YAML, loaded. Raises `ModuleError`, or `ValueError` if its id differs."""

@@ -165,12 +165,20 @@ never both (no two-way sync). A journal I want to log while away from home lives
 Sheets, and the app at home reads/writes that same sheet. Hand entries made on the phone
 are picked up by change polling.
 
-- **Auth**: OAuth 2.0 "Desktop app" client. One-time setup: create a Google Cloud project
-  and an OAuth client ID, download `client_secret.json`, then run `climblog google login`
-  (browser consent). The token is stored at `~/.config/climblog/google-token.json`.
-  A service account (sharing the sheet with its email) is an alternative for headless use.
-- Scopes: `https://www.googleapis.com/auth/spreadsheets` (+ `drive.metadata.readonly` for
-  change detection; or `drive.file` if the app creates the spreadsheets).
+- **Auth** (D-062): OAuth 2.0 "Desktop app" client. One-time setup (README, *Connect Google
+  Sheets*): a Google Cloud project with the Sheets and Drive APIs, the app published *In
+  production* (refresh tokens of apps in *Testing* expire after 7 days), a Desktop client whose
+  JSON is named by `[google] client_secret` in the app config, then `climblog google login`
+  (browser consent on a loopback port, offline access). The token is stored at
+  `~/.config/climblog/google-token.json` (`[google] token`), mode 0600 in a 0700 folder, written
+  atomically, never printed or logged; a token others can read is refused. `climblog google
+  status` checks it with Google; `logout` revokes it (best effort) and deletes it. The backend
+  gets its credentials from `google_auth.load_credentials`, which refreshes and saves the
+  access token. A service account (sharing the sheet with its email) is an alternative for
+  headless use.
+- Scopes: `https://www.googleapis.com/auth/spreadsheets` and
+  `https://www.googleapis.com/auth/drive.file` (Drive access to the files the app creates:
+  module sheets are created by the app, so change detection and export work on them).
 - Read: one `values.batchGet` for all tabs of a module, with `valueRenderOption=UNFORMATTED_VALUE`
   and `dateTimeRenderOption=SERIAL_NUMBER`, then convert.
 - Write: `values.update` into the first row with an empty key for new records (formula buffer, §1); `values.update` on the row found by key for edits; buffer top-up with `batchUpdate`.
