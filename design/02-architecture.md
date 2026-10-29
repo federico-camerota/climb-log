@@ -33,7 +33,7 @@ forms and widgets from module schemas and view definitions served by the API.
 | Backend | Python 3.12, FastAPI, pydantic v2 | typed API, easy to extend in Python |
 | Data/analysis | pandas, numpy, scipy (statsmodels later if needed) | correlations, regressions, rolling stats |
 | Excel | openpyxl | read/write xlsx, data validation, styling |
-| Google | Google Sheets API v4 via `gspread` + `google-auth-oauthlib` | mature, batch reads |
+| Google | Google Sheets API v4; login with `google-auth-oauthlib` (D-062), the API client chosen with the read backend (#51) | batch reads |
 | Frontend | Vite + React + TypeScript | rich forms, fast UI |
 | Server state | TanStack Query | caching, refetch after writes |
 | Forms | react-hook-form + zod (zod schema generated from module schema JSON) | |
@@ -54,8 +54,9 @@ forms and widgets from module schemas and view definitions served by the API.
   file with `--config` or `CLIMBLOG_CONFIG`) holds paths only, no training data, and is not part
   of the repo. Each module names its YAML and its workbook; backups default to
   `~/.local/share/climblog/backups/<module>/` (`$XDG_DATA_HOME`). `~` is expanded and relative
-  paths are relative to the config file. Unknown keys are errors. The Google token path (M2) and
-  the LAN PIN hash (D-010) are added when they are needed.
+  paths are relative to the config file. Unknown keys are errors. `[google]` names the OAuth
+  client file and, optionally, the token (D-062); the LAN PIN hash (D-010) is added when it is
+  needed.
   ```toml
   [modules.finger_strength]          # the YAML's `module:` id
   definition = "~/climb-log/modules/finger-strength.yaml"
@@ -176,6 +177,5 @@ on every request. Errors: an unknown module or entity is 404, a module whose YAM
 ## Security and privacy
 - Binds to localhost by default. LAN mode requires a PIN.
 - Google OAuth token is stored under `~/.config/climblog/` with 0600 permissions and
-  minimal scopes (`spreadsheets`, plus `drive.metadata.readonly` for modifiedTime, or
-  `drive.file` if we create the sheets).
+  minimal scopes: `spreadsheets` and `drive.file` (only the files the app creates) (D-062).
 - No telemetry and no external calls except Google APIs when that backend is configured.

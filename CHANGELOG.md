@@ -6,6 +6,12 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 
 ## [Unreleased]
 
+### Added
+- Google login: `climblog google login | status | logout` with an OAuth desktop client named
+  by `[google] client_secret` in the app config; the token is kept in the config folder,
+  readable by the owner only, refreshed when needed and never printed; logout revokes it.
+  Setup steps in the README, *Connect Google Sheets* (D-062, #50).
+
 ### Changed
 - The storage tests that every backend must pass are a contract suite
   (`tests/test_backend_*.py`), run on each backend through `tests/backends.py`; the tests

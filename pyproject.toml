@@ -9,6 +9,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.159.1",
+    "google-auth-oauthlib>=1.5.0",
     "openpyxl>=3.1.5",
     "pydantic>=2.14.1",
     "ruamel-yaml>=0.19.1",
@@ -51,6 +52,13 @@ select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF"]
 strict = true
 files = ["backend", "scripts", "tests"]
 mypy_path = "scripts"
+# google-auth is typed but leaves some calls unannotated (Credentials.refresh, to_json, errors).
+untyped_calls_exclude = ["google.oauth2.credentials", "google.auth.exceptions"]
+
+[[tool.mypy.overrides]]
+# No type information; used only in google_auth.browser_consent.
+module = ["google_auth_oauthlib.*", "oauthlib.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

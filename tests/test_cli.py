@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+import json
+import logging
 import os
 import shutil
 from pathlib import Path
@@ -7,9 +9,11 @@ from typing import Any
 import openpyxl
 import pytest
 from conftest import WriteYaml
+from test_google_auth import CLIENT, SECRETS, FakeConsent, FakeGoogle
 from typer.testing import CliRunner
 
-from climblog import cli
+from climblog import cli, google_auth
+from climblog.google_auth import SCOPES
 from climblog.modules import load_module
 from climblog.storage import XlsxBackend, sync_module
 
@@ -194,3 +198,80 @@ def test_serve_passes_the_config_to_the_app(
     assert result.exit_code == 0
     assert os.environ["CLIMBLOG_CONFIG"] == str((tmp_path / "c.toml").resolve())
     monkeypatch.delenv("CLIMBLOG_CONFIG")
+
+
+# ---- climblog google (fictional credentials, a fake Google: test_google_auth.py) ----
+
+
+@pytest.fixture
+def google_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A config with a fictional desktop client, the token in the temp folder; no real Google."""
+    (tmp_path / "client.json").write_text(json.dumps(CLIENT), encoding="utf-8")
+    file = tmp_path / "google.toml"
+    file.write_text('[google]\nclient_secret = "client.json"\ntoken = "token.json"\n', "utf-8")
+    monkeypatch.setenv("CLIMBLOG_CONFIG", str(file))
+    monkeypatch.setattr(google_auth, "browser_consent", FakeConsent())
+    return file
+
+
+def use_google(monkeypatch: pytest.MonkeyPatch, google: FakeGoogle) -> None:
+    monkeypatch.setattr(google_auth, "HttpRequest", lambda: google)
+
+
+def no_secrets(output: str) -> bool:
+    return not any(secret in output for secret in SECRETS)
+
+
+def test_google_login_status_logout(
+    google_config: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    token = google_config.parent / "token.json"
+    login = runner.invoke(cli.app, ["google", "login", "--no-browser"])
+    assert login.exit_code == 0, login.output
+    assert login.output == f"logged in; token saved in {token} (readable by you only)\n"
+    assert google_auth.browser_consent.asked[0][2] is False  # type: ignore[attr-defined]
+
+    google = FakeGoogle()
+    use_google(monkeypatch, google)
+    status = runner.invoke(cli.app, ["google", "status"])
+    assert status.exit_code == 0, status.output
+    assert status.output.startswith(f"logged in ({token})\n  scopes: {', '.join(SCOPES)}\n")
+    assert "access token valid until" in status.output
+    assert len(google.calls) == 1  # status checks with Google
+
+    logout = runner.invoke(cli.app, ["google", "logout"])
+    assert logout.output == f"access revoked; {token} deleted\n"
+    assert not token.exists()
+    again = runner.invoke(cli.app, ["google", "logout"])
+    assert again.output == "not logged in: nothing to do\n"
+    outputs = [login.output, status.output, logout.output, caplog.text]
+    assert all(no_secrets(output) for output in outputs)
+
+
+def test_google_status_without_a_login(google_config: Path) -> None:
+    result = runner.invoke(cli.app, ["google", "status"])
+    assert result.exit_code == 1
+    assert "token.json: not logged in to Google: run `climblog google login`" in result.output
+
+
+def test_google_logout_when_google_is_unreachable(
+    google_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner.invoke(cli.app, ["google", "login"])
+    use_google(monkeypatch, FakeGoogle(offline=True))
+    result = runner.invoke(cli.app, ["google", "logout"])
+    assert result.exit_code == 0
+    assert "deleted, but Google did not confirm the revoke" in result.output
+    assert "myaccount.google.com/permissions" in result.output
+
+
+def test_google_login_errors(google_config: Path, tmp_path: Path) -> None:
+    (tmp_path / "client.json").write_text('{"web": {}}', encoding="utf-8")
+    result = runner.invoke(cli.app, ["google", "login"])
+    assert result.exit_code == 1
+    assert "error: " in result.output and "a web client" in result.output
+    bad = tmp_path / "bad.toml"
+    bad.write_text("[google]\nwhat = 1\n", encoding="utf-8")
+    result = runner.invoke(cli.app, ["google", "login", "--config", str(bad)])
+    assert (result.exit_code, result.output) == (1, f"{bad}: google.what: unknown key\n")

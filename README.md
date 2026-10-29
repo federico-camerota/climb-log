@@ -66,6 +66,36 @@ uv run climblog import-legacy --journal Climbing_Journal.xlsx             # into
 The legacy file is only read. The report lists what was imported or skipped and compares the
 values your legacy sheets computed with the app's.
 
+## Connect Google Sheets
+
+A module can live in a Google Sheet instead of a local workbook (M2, in progress). The app uses
+its own OAuth client in a Google Cloud project of yours; setting it up takes a few minutes, once:
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), create a project and
+   enable the **Google Sheets API** and the **Google Drive API**.
+2. Under *Google Auth Platform*, set the app name and your email, choose the **External**
+   audience, then **publish the app** (*In production*): while it is in *Testing*, Google ends
+   the login after 7 days. No verification is needed for your own use; at login Google warns
+   that the app isn't verified, and you continue.
+3. Under *Clients*, create an OAuth client of type **Desktop app** and download its JSON.
+   Keep it outside the repository, e.g. `~/.config/climblog/client_secret.json`.
+4. Name it in the config, and log in (your browser opens Google's consent page):
+
+```toml
+[google]
+client_secret = "~/.config/climblog/client_secret.json"
+# token = "~/.config/climblog/google-token.json"   # the default
+```
+
+```sh
+uv run climblog google login    # --no-browser prints the address to open instead
+uv run climblog google status   # checks the login with Google
+uv run climblog google logout   # revokes the access and deletes the token
+```
+
+The app asks for Google Sheets and for the Drive files it creates itself, nothing else. The
+token is saved readable by you only, and is never printed or logged.
+
 ## Documentation
 
 The design lives in [`design/`](design/README.md): goals, architecture, the module framework,
