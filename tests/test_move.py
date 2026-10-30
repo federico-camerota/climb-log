@@ -190,6 +190,9 @@ def test_move_prints_the_config_line(config: Path, client: FakeSheetsClient) -> 
         f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
     )
     assert lines[2].startswith("  rows copied: ")
+    assert lines[3] == (
+        "  checked: the same records, settings and data issues; formulas give the app's values"
+    )
     assert lines[-1] == f'google_sheet = "{spreadsheet_id}"'
     assert client.parents[spreadsheet_id] == client.folders["climb-log"]
 

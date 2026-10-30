@@ -305,7 +305,9 @@ def move(
         for line in report.differences:
             typer.echo(f"    {line}")
         raise typer.Exit(1)
-    typer.echo("  checked: the same records, settings and data issues; formulas give the app's")
+    typer.echo(
+        "  checked: the same records, settings and data issues; formulas give the app's values"
+    )
     typer.echo(f"Replace `workbook = ...` under [modules.{module}] in the config with:")
     typer.echo(f'google_sheet = "{report.spreadsheet_id}"')
 
