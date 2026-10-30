@@ -37,10 +37,18 @@ from climblog.storage.base import (
     TableNotFound,
     Update,
     WorkbookLocked,
-    WriteConflict,
 )
 from climblog.storage.cells import RawCell
-from climblog.storage.grid import Rows, blank, grid_table, key_columns, kv_columns, kv_pairs
+from climblog.storage.grid import (
+    Rows,
+    blank,
+    check_columns,
+    check_unchanged,
+    grid_table,
+    key_columns,
+    kv_columns,
+    kv_pairs,
+)
 from climblog.storage.layout import WorkbookLayout
 from climblog.storage.xlsx_sync import apply_layout, top_up
 
@@ -93,7 +101,7 @@ class XlsxBackend:
             for edit in edits:
                 sheet = _worksheet(workbook, edit.tab)
                 columns = key_columns(edit.tab, _row_values(sheet, FIRST_DATA_ROW - 1))
-                _check_columns(edit.tab, columns, edit.cells)
+                check_columns(edit.tab, columns, edit.cells)
                 if isinstance(edit, Append):
                     if edit.tab not in free:
                         free[edit.tab] = _FreeRows(sheet, columns)
@@ -258,27 +266,11 @@ def _row_values(sheet: Worksheet, number: int) -> list[object]:
     return [cell.value for cell in sheet[number]]
 
 
-def _check_columns(tab: str, columns: Mapping[str, int], cells: Mapping[str, RawCell]) -> None:
-    missing = [key for key in cells if key not in columns]
-    if missing:
-        raise StorageError(f"tab '{tab}' has no column {', '.join(missing)} in row 2")
-    formulas = [key for key in cells if key.startswith(AUTO)]
-    if formulas:
-        raise StorageError(f"tab '{tab}': {', '.join(formulas)} is app-managed, not written")
-
-
 def _check_unchanged(sheet: Worksheet, columns: Mapping[str, int], edit: Update) -> None:
-    """The row still holds what was read, `auto:` columns aside (blank = absent)."""
-    if edit.row < FIRST_DATA_ROW:
-        raise StorageError(f"tab '{edit.tab}': row {edit.row} is a header row")
-    for key, i in columns.items():
-        if key.startswith(AUTO):
-            continue
-        now = _raw(sheet.cell(edit.row, i + 1).value)
-        if _cell_value(now) != _cell_value(edit.expected.get(key)):
-            raise WriteConflict(
-                f"tab '{edit.tab}', row {edit.row} changed since it was read: reload and retry"
-            )
+    now = {}  # a header row is refused before it is read
+    if edit.row >= FIRST_DATA_ROW:
+        now = {key: _raw(sheet.cell(edit.row, i + 1).value) for key, i in columns.items()}
+    check_unchanged(edit, now)
 
 
 def _write(cell: Cell | MergedCell, value: RawCell) -> None:
@@ -294,10 +286,6 @@ def _write(cell: Cell | MergedCell, value: RawCell) -> None:
         cell.number_format = before
     else:
         cell.number_format = next((f for t, f in _FORMATS if isinstance(value, t)), "General")
-
-
-def _cell_value(value: RawCell) -> RawCell:
-    return None if value == "" else value
 
 
 def _raw(value: object) -> RawCell:

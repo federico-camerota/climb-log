@@ -5,9 +5,14 @@
 with google-auth's `AuthorizedSession` (requests), which adds the login and refreshes the access
 token. The session is made on first use, so loading the app config never needs the network or a
 login. The tests use an in-memory client that speaks the same JSON (`tests/fake_sheets.py`).
+
+Google's quota (about 60 write requests a minute) answers 429 when exceeded, and its servers
+sometimes answer 5xx: such calls are tried again after 1, 2, 4, 8 and 16 seconds (D-064). Every
+write is to fixed cells, so doing one twice gives the same sheet.
 """
 
 import datetime as dt
+import time
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Protocol
 
@@ -19,10 +24,13 @@ SHEETS = "https://sheets.googleapis.com/v4/spreadsheets"
 DRIVE = "https://www.googleapis.com/drive/v3/files"
 # Each tab's values, number formats and formulas, in one response (D-063).
 GRID_FIELDS = (
-    "properties.title,sheets(properties(sheetId,title,index),data(rowData(values("
-    "userEnteredValue,effectiveValue,effectiveFormat/numberFormat))))"
+    "properties(title,locale),"
+    "sheets(properties(sheetId,title,index,gridProperties(rowCount,columnCount)),"
+    "data(rowData(values(userEnteredValue,effectiveValue,effectiveFormat/numberFormat))))"
 )
 TIMEOUT = 30  # seconds
+RETRY_AFTER = (1, 2, 4, 8, 16)  # seconds to wait before each new try (429 and 5xx)
+_RETRY = {429, 500, 502, 503, 504}
 
 Json = dict[str, Any]
 
@@ -64,8 +72,11 @@ class Session(Protocol):
 class RestSheetsClient:
     """`SheetsClient` over HTTPS, with the session from `connect` (made on first use)."""
 
-    def __init__(self, connect: Callable[[], Session]) -> None:
+    def __init__(
+        self, connect: Callable[[], Session], *, sleep: Callable[[float], None] = time.sleep
+    ) -> None:
         self._connect = connect
+        self._sleep = sleep
         self._session: Session | None = None
 
     def title(self, spreadsheet_id: str) -> str:
@@ -94,10 +105,14 @@ class RestSheetsClient:
     def _call(self, method: str, url: str, **kwargs: Any) -> Json:
         if self._session is None:
             self._session = self._connect()
-        try:
-            response = self._session.request(method, url, timeout=TIMEOUT, **kwargs)
-        except requests.RequestException:
-            raise StorageError("cannot reach Google") from None
+        for wait in (*RETRY_AFTER, None):
+            try:
+                response = self._session.request(method, url, timeout=TIMEOUT, **kwargs)
+            except requests.RequestException:
+                raise StorageError("cannot reach Google") from None
+            if response.status_code not in _RETRY or wait is None:
+                break
+            self._sleep(wait)
         if response.ok:
             doc = response.json() if response.content else {}
             return doc if isinstance(doc, dict) else {}
@@ -108,6 +123,8 @@ class RestSheetsClient:
             raise StorageError("Google refused the login: run `climblog google login`")
         if status == 403:
             raise StorageError(f"Google refused access: {message}")
+        if status == 429:
+            raise StorageError("Google's quota is used up for now: try again in a minute")
         raise StorageError(f"Google answered {status}: {message}")
 
 

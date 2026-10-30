@@ -114,7 +114,7 @@ class Xlsx:
 class GSheets:
     """The Google backend on `client`: the fake, or the real API (`live`)."""
 
-    pending: Mapping[str, str] = {"write": "#52", "sync": "#53"}
+    pending: Mapping[str, str] = {"sync": "#53"}
 
     def __init__(self, client: SheetsClient, *, live: bool) -> None:
         self.client, self.live = client, live
@@ -136,7 +136,9 @@ class GSheets:
         return GSheetsBackend(spreadsheet_id, self.client, max_age=max_age)
 
     def cells(self, repo: Repository, tab: str) -> Cells:
-        rows = grid_rows(self._sheet(repo, tab), formulas=True)
+        assert isinstance(repo, GSheetsBackend)
+        locale = self.client.get_grid(repo.spreadsheet_id)["properties"].get("locale", "en_US")
+        rows = grid_rows(self._sheet(repo, tab), formulas=True, locale=locale)
         while rows and all(v is None for v in rows[-1]):
             rows.pop()
         width = max((len(row) for row in rows), default=0)  # Google leaves out trailing blanks

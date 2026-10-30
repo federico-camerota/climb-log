@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The Google backend's reading, on an in-memory Google (04-storage.md §3, D-063).
+"""The Google backend, on an in-memory Google (04-storage.md §3, D-063, D-064).
 
-What every backend does is in the contract tests (`test_backend_read.py`); here, what is
-particular to Google: cell types from number formats, caching on Drive's `modifiedTime`, sheets
-the app didn't create, and writes refused until #52/#53.
+What every backend does is in the contract tests (`test_backend_*.py`); here, what is particular
+to Google: cell types from number formats, caching on Drive's `modifiedTime`, sheets the app
+didn't create, what a write sends, and schema sync refused until #53.
 """
 
 import datetime as dt
@@ -15,14 +15,18 @@ from fake_sheets import FakeSheetsClient, cell_data, spreadsheet_body
 from workbooks import SYNC_MODULE, tab
 
 from climblog.storage import (
+    Append,
     CachedRepository,
     GSheetsBackend,
     Snapshots,
     StorageError,
+    Update,
+    WriteConflict,
     workbook_layout,
 )
+from climblog.storage.cells import RawCell
 from climblog.storage.google_client import GoogleNotFound, Json
-from climblog.storage.gsheets import grid_rows
+from climblog.storage.gsheets import en_formula, grid_rows
 
 D20 = dt.datetime(2026, 10, 20)
 
@@ -90,6 +94,21 @@ def test_formulas_as_text(client: FakeSheetsClient) -> None:
         "date": D20,
         "auto:double": '=IF(A3="","",B3*2)',
     }
+
+
+def test_formulas_come_back_in_en_us_syntax(client: FakeSheetsClient) -> None:
+    body = spreadsheet_body("Journal", {"T": tab(["a", "auto:b"], [1, '=IF(A3="","",A3*1.5)'])})
+    body["properties"]["locale"] = "it_IT"
+    repo = GSheetsBackend(client.create(body), client)
+    sheet = client.get_grid(repo.spreadsheet_id)["sheets"][0]
+    assert grid_rows(sheet, formulas=True)[2][1] == '=IF(A3="";"";A3*1,5)'  # as Google gives it
+    assert repo.read_formulas("T").rows[0].cells["auto:b"] == '=IF(A3="","",A3*1.5)'
+
+
+def test_en_formula() -> None:
+    assert en_formula('=IF(A3="";"";B3*1,5)') == '=IF(A3="","",B3*1.5)'
+    assert en_formula('=IF(A3="a;b,c";"x""y;";1)') == '=IF(A3="a;b,c","x""y;",1)'
+    assert en_formula("=SUM('Tab; 1,5'!A:A;2)") == "=SUM('Tab; 1,5'!A:A,2)"
 
 
 class Clock:
@@ -185,11 +204,114 @@ def test_a_sheet_that_disappears_between_calls(client: FakeSheetsClient) -> None
         repo.read_table("T")
 
 
-def test_writes_wait_for_later_issues(client: FakeSheetsClient, load: LoadYaml) -> None:
+def test_schema_sync_waits_for_53(client: FakeSheetsClient, load: LoadYaml) -> None:
     repo = book(client, ["a"])
-    with pytest.raises(StorageError, match="comes with #52"):
-        repo.apply([])
-    with pytest.raises(StorageError, match="comes with #52"):
-        repo.write_kv("_meta", {})
     with pytest.raises(StorageError, match="comes with #53"):
         repo.sync_schema(workbook_layout(load(SYNC_MODULE)), {})
+
+
+# ---- Writing ----
+
+
+def formats(client: FakeSheetsClient, repo: GSheetsBackend, row: int) -> list[object]:
+    """The number format of each cell of a row of tab T, as Google holds it."""
+    sheet = client.books[repo.spreadsheet_id]["sheets"][0]
+    values = sheet["data"][0]["rowData"][row - 1]["values"]
+    return [v.get("effectiveFormat", {}).get("numberFormat") for v in values]
+
+
+def test_values_are_written_with_their_formats(client: FakeSheetsClient) -> None:
+    repo = book(client, ["day", "at", "start", "rest", "kg", "ok", "note"])
+    at = dt.datetime(2026, 10, 20, 18, 30)
+    values: list[RawCell] = [at.date(), at, at.time(), dt.timedelta(minutes=90), 12.5, True, "=1+1"]
+    keys = ["day", "at", "start", "rest", "kg", "ok", "note"]
+    repo.apply([Append("T", dict(zip(keys, values, strict=True)))])
+    assert formats(client, repo, 3) == [
+        {"type": "DATE", "pattern": "dd/mm/yyyy"},
+        {"type": "DATE_TIME", "pattern": "dd/mm/yyyy hh:mm:ss"},
+        {"type": "TIME", "pattern": "hh:mm"},
+        {"type": "TIME", "pattern": "[h]:mm"},
+        None,
+        None,
+        {"type": "TEXT"},
+    ]
+    assert repo.read_table("T").rows[0].cells == {
+        "day": D20,  # as from openpyxl: a date cell reads as a datetime
+        "at": dt.datetime(2026, 10, 20, 18, 30),
+        "start": dt.time(18, 30),
+        "rest": dt.timedelta(minutes=90),
+        "kg": 12.5,
+        "ok": True,
+        "note": "=1+1",  # text, never a formula
+    }
+
+
+def test_a_format_of_the_values_kind_is_kept(client: FakeSheetsClient) -> None:
+    repo = book(client, ["day", "kg", "note"], [D20, 1, "x"])
+    sheet = client.books[repo.spreadsheet_id]["sheets"][0]
+    cells = sheet["data"][0]["rowData"][2]["values"]
+    cells[0]["effectiveFormat"] = {"numberFormat": {"type": "DATE", "pattern": "d mmm yyyy"}}
+    cells[1]["effectiveFormat"] = {"numberFormat": {"type": "PERCENT", "pattern": "0%"}}
+    row = repo.read_table("T").rows[0]
+    repo.apply([Update("T", 3, {"day": D20, "kg": "7,5", "note": 3}, row.cells)])
+    assert formats(client, repo, 3) == [
+        {"type": "DATE", "pattern": "d mmm yyyy"},  # chosen in the sheet: kept
+        {"type": "TEXT"},  # a string is always text
+        None,  # a number in a text cell: back to automatic
+    ]
+
+
+def test_a_write_is_one_batch_on_a_fresh_read(client: FakeSheetsClient) -> None:
+    clock = Clock()
+    repo = book(client, ["a"], [1])
+    repo = GSheetsBackend(repo.spreadsheet_id, client, clock=clock)
+    row = repo.read_table("T").rows[0]
+    lagging_edit(client, repo, 2)  # the cached copy, under a minute old, doesn't show it yet
+    client.calls.clear()
+    with pytest.raises(WriteConflict, match="row 3 changed since it was read"):
+        repo.apply([Update("T", 3, {"a": 5}, row.cells)])
+    assert client.calls == ["get_grid"]  # read again for the write; nothing sent
+    client.calls.clear()
+    repo.apply([Append("T", {"a": 7}), Append("T", {"a": 8})])
+    assert client.calls == ["get_grid", "batch_update"]
+
+
+def test_reads_see_a_write_at_once(client: FakeSheetsClient) -> None:
+    clock = Clock()
+    repo = book(client, ["a"], [1])
+    repo = GSheetsBackend(repo.spreadsheet_id, client, clock=clock)
+    before = repo.last_modified()
+    clock.now += dt.timedelta(seconds=1)
+    client.modified[repo.spreadsheet_id] -= dt.timedelta(hours=1)  # Drive lags behind
+    repo.apply([Append("T", {"a": 2})])
+    assert [r.cells["a"] for r in repo.read_table("T").rows] == [1, 2]
+    assert repo.last_modified() > before  # so the snapshot is taken again
+
+
+def test_rows_are_added_to_the_grid_when_needed(client: FakeSheetsClient) -> None:
+    repo = book(client, ["a", "auto:b"], [1, "=A3"])
+    sheet = client.books[repo.spreadsheet_id]["sheets"][0]
+    sheet["properties"]["gridProperties"]["rowCount"] = 3
+    repo.apply([Append("T", {"a": 2})])
+    sheet = client.books[repo.spreadsheet_id]["sheets"][0]
+    assert sheet["properties"]["gridProperties"]["rowCount"] == 202  # buffer from row 3 to 202
+    assert repo.read_formulas("T").rows[-1].cells == {"auto:b": "=A202"}
+
+
+def test_a_failed_write_changes_nothing(client: FakeSheetsClient) -> None:
+    repo = book(client, ["a"], [1])
+    sheet = client.books[repo.spreadsheet_id]["sheets"][0]
+    sheet["properties"]["gridProperties"]["columnCount"] = 0  # Google refuses every cell
+    with pytest.raises(StorageError, match="exceeds grid limits"):
+        repo.apply([Append("T", {"a": 2})])
+    assert [r.cells["a"] for r in repo.read_table("T").rows] == [1]
+
+
+def test_write_kv_adds_keys_below_the_last_row(client: FakeSheetsClient) -> None:
+    spreadsheet_id = client.create(
+        spreadsheet_body("Journal", {"_settings": [["key", "value"], ["a", 1], [None, "x"]]})
+    )
+    repo = GSheetsBackend(spreadsheet_id, client)
+    repo.write_kv("_settings", {"b": 2})
+    assert repo.read_kv("_settings") == {"a": 1, "b": 2}
+    assert grid_rows(client.books[spreadsheet_id]["sheets"][0])[3] == ("b", 2)
