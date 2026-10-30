@@ -9,6 +9,7 @@ import pytest
 
 from climblog.config import ConfigError, config_path, load_config
 from climblog.storage import GSheetsBackend, StorageError, XlsxBackend
+from climblog.storage.gsheets import NewSheets
 
 FINGERS = Path("modules/finger-strength.yaml").absolute()
 
@@ -243,10 +244,13 @@ def test_a_module_can_live_in_a_google_sheet(tmp_path: Path) -> None:
     assert isinstance(repo, GSheetsBackend)
     assert repo.spreadsheet_id == SHEET_ID
     assert repo.max_age == dt.timedelta(seconds=60)
-    file.write_text(file.read_text(encoding="utf-8") + "[google]\nmax_age_seconds = 15\n", "utf-8")
+    assert repo.new_sheets == NewSheets("climb-log", "it_IT", "Europe/Rome")
+    google = '[google]\nmax_age_seconds = 15\nfolder = "Training"\nlocale = "en_GB"\n'
+    file.write_text(file.read_text(encoding="utf-8") + google, "utf-8")
     repo = load_config(file).repository("journal")
     assert isinstance(repo, GSheetsBackend)
     assert repo.max_age == dt.timedelta(seconds=15)
+    assert repo.new_sheets == NewSheets("Training", "en_GB", "Europe/Rome")
 
 
 def test_a_module_lives_in_one_place(tmp_path: Path) -> None:

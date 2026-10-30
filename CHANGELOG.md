@@ -22,6 +22,12 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   stays text (`'` and `=` notes as typed). Busy answers (429, 5xx) are tried again for up to
   half a minute. Formulas read from a sheet in an Italian (decimal-comma) locale are compared
   in the app's syntax (D-064, #52).
+- Schema sync on Google Sheets: `climblog check --apply` makes a Google-hosted module's sheet
+  match its YAML as for a local workbook (tabs, styled and frozen headers, dropdowns, colour
+  scales, status colours, formula columns with their buffer, named settings, `_meta`), in one
+  request; headers and formula columns get a warning-only protection. A sheet the app creates
+  goes into a `climb-log` Drive folder, in the it_IT locale and Europe/Rome time zone (`[google]
+  folder`, `locale`, `time_zone`) (D-065, #53).
 - `PRIVACY.md`: the privacy policy Google asks for before an OAuth app can be published; the
   README setup steps now include it and the home page link.
 
@@ -30,7 +36,7 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   (`tests/test_backend_*.py`), run on each backend through `tests/backends.py`; the tests
   particular to `.xlsx` stay in `test_xlsx*.py` and `test_sync.py` (#49). The read contract
   also runs on the Google backend, on an in-memory Google and, with `CLIMBLOG_GOOGLE_LIVE=1`,
-  on the real API (#51), and so does the write contract (#52).
+  on the real API (#51), and so do the write (#52) and sync (#53) contracts.
 
 ## [0.1.0] - 2026-10-27
 

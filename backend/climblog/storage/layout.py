@@ -130,6 +130,7 @@ class WorkbookLayout:
     tabs: tuple[TabLayout, ...]
     settings: tuple[SettingRow, ...]
     formulas: Formulas = lambda columns, dialect: {}
+    title: str = ""  # the module's name, for a new Google Sheet
 
 
 def workbook_layout(module: Module) -> WorkbookLayout:
@@ -146,7 +147,9 @@ def workbook_layout(module: Module) -> WorkbookLayout:
     def formulas(columns: ColumnMap, dialect: Dialect) -> dict[tuple[str, str], Template]:
         return compile_formulas(module, columns, dialect)
 
-    return WorkbookLayout(module.module, module.version, tuple(tabs), settings, formulas)
+    return WorkbookLayout(
+        module.module, module.version, tuple(tabs), settings, formulas, module.name
+    )
 
 
 def _entity_tabs(

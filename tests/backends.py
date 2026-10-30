@@ -29,7 +29,7 @@ from workbooks import Rows, write_workbook
 from climblog.config import config_path, load_config
 from climblog.storage import GSheetsBackend, Repository, XlsxBackend
 from climblog.storage.google_client import RestSheetsClient, SheetsClient
-from climblog.storage.gsheets import MAX_AGE, grid_rows
+from climblog.storage.gsheets import MAX_AGE, NewSheets, grid_rows
 
 Cells = list[tuple[Any, ...]]
 
@@ -114,12 +114,13 @@ class Xlsx:
 class GSheets:
     """The Google backend on `client`: the fake, or the real API (`live`)."""
 
-    pending: Mapping[str, str] = {"sync": "#53"}
+    pending: Mapping[str, str] = {}
 
     def __init__(self, client: SheetsClient, *, live: bool) -> None:
         self.client, self.live = client, live
         self.name = "gsheets-live" if live else "gsheets"
         self.created: list[str] = []
+        self.new_ones: list[GSheetsBackend] = []  # their sheet is made by schema sync
 
     def make(self, tabs: Mapping[str, Rows]) -> GSheetsBackend:
         title = f"climblog-test-{uuid.uuid4().hex[:8]}"
@@ -128,16 +129,20 @@ class GSheets:
         return self._backend(spreadsheet_id)
 
     def new(self) -> GSheetsBackend:
-        return self._backend(f"climblog-test-missing-{uuid.uuid4().hex}")
+        backend = self._backend(None)
+        self.new_ones.append(backend)
+        return backend
 
-    def _backend(self, spreadsheet_id: str) -> GSheetsBackend:
-        """Live, every read goes to Google: Drive would show an edit only minutes later."""
+    def _backend(self, spreadsheet_id: str | None) -> GSheetsBackend:
+        """Live, every read goes to Google: Drive would show an edit only minutes later. New
+        sheets go into a test folder."""
         max_age = dt.timedelta(0) if self.live else MAX_AGE
-        return GSheetsBackend(spreadsheet_id, self.client, max_age=max_age)
+        new_sheets = NewSheets(folder="climblog-test")
+        return GSheetsBackend(spreadsheet_id, self.client, max_age=max_age, new_sheets=new_sheets)
 
     def cells(self, repo: Repository, tab: str) -> Cells:
         assert isinstance(repo, GSheetsBackend)
-        locale = self.client.get_grid(repo.spreadsheet_id)["properties"].get("locale", "en_US")
+        locale = self.client.get_grid(_sid(repo))["properties"].get("locale", "en_US")
         rows = grid_rows(self._sheet(repo, tab), formulas=True, locale=locale)
         while rows and all(v is None for v in rows[-1]):
             rows.pop()
@@ -154,20 +159,26 @@ class GSheets:
         }
         rows = [{"values": [cell_data(value)]}]
         update = {"rows": rows, "start": start, "fields": "userEnteredValue,userEnteredFormat"}
-        self.client.batch_update(repo.spreadsheet_id, [{"updateCells": update}])
+        self.client.batch_update(_sid(repo), [{"updateCells": update}])
 
     def label(self, repo: Repository) -> str:
         assert isinstance(repo, GSheetsBackend)
-        return f"Google Sheet '{self.client.title(repo.spreadsheet_id)}'"
+        return f"Google Sheet '{self.client.title(_sid(repo))}'"
 
     def close(self) -> None:
-        for spreadsheet_id in self.created:
+        made = [b.spreadsheet_id for b in self.new_ones if b.spreadsheet_id is not None]
+        for spreadsheet_id in [*self.created, *made]:
             self.client.trash(spreadsheet_id)
 
     def _sheet(self, repo: Repository, tab: str) -> dict[str, Any]:
         assert isinstance(repo, GSheetsBackend)
-        sheets = self.client.get_grid(repo.spreadsheet_id)["sheets"]
+        sheets = self.client.get_grid(_sid(repo))["sheets"]
         return next(s for s in sheets if s["properties"]["title"] == tab)
+
+
+def _sid(repo: GSheetsBackend) -> str:
+    assert repo.spreadsheet_id is not None
+    return repo.spreadsheet_id
 
 
 LIVE = os.environ.get("CLIMBLOG_GOOGLE_LIVE") == "1"

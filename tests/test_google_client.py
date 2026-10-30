@@ -12,9 +12,12 @@ import requests
 from climblog.storage import StorageError
 from climblog.storage.google_client import (
     DRIVE,
+    FOLDER,
     GRID_FIELDS,
+    LAYOUT_FIELDS,
     RETRY_AFTER,
     SHEETS,
+    SPREADSHEET,
     GoogleNotFound,
     RestSheetsClient,
 )
@@ -80,6 +83,35 @@ def test_each_call_and_what_it_asks() -> None:
         ("PATCH", f"{DRIVE}/{ID}", None, {"trashed": True}),
     ]  # fmt: skip
     assert all(kwargs["timeout"] == 30 for _, _, kwargs in session.requests)
+
+
+def test_layout_folders_and_new_files() -> None:
+    sheets, session = client(
+        response(body={"sheets": []}),
+        response(body={"files": [{"id": "folder-1"}, {"id": "folder-2"}]}),
+        response(body={"files": []}),
+        response(body={"id": "folder-3"}),
+        response(body={"id": ID}),
+    )
+    assert sheets.get_layout(ID) == {"sheets": []}
+    assert sheets.folder("climb-log") == "folder-1"  # the oldest of the app's folders
+    assert sheets.folder("it's") == "folder-3"  # none yet: made
+    assert sheets.create_file("Journal", "folder-3") == ID
+    asked = [(m, url, kw.get("params"), kw.get("json")) for m, url, kw in session.requests]
+    query = f"mimeType='{FOLDER}' and name='{{}}' and trashed=false"
+    find = {"fields": "files(id)", "orderBy": "createdTime"}
+    assert asked == [
+        ("GET", f"{SHEETS}/{ID}", {"includeGridData": "true", "fields": LAYOUT_FIELDS}, None),
+        ("GET", DRIVE, {"q": query.format("climb-log"), **find}, None),
+        ("GET", DRIVE, {"q": query.format("it\\'s"), **find}, None),
+        ("POST", DRIVE, None, {"name": "it's", "mimeType": FOLDER}),
+        (
+            "POST",
+            DRIVE,
+            None,
+            {"name": "Journal", "mimeType": SPREADSHEET, "parents": ["folder-3"]},
+        ),
+    ]
 
 
 def test_the_session_is_made_on_first_use_only() -> None:
