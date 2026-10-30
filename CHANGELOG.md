@@ -37,6 +37,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   so phone entries reach the snapshot, and Google modules are backed up locally: the sheet is
   exported as `.xlsx` into the backups folder before writes and when a change is seen, at most
   every 30 minutes (D-068, #55).
+- A checklist for hand entry on the phone (04-storage.md §3), to run once the journal is on
+  Google, before M2 closes (#56).
 - `PRIVACY.md`: the privacy policy Google asks for before an OAuth app can be published; the
   README setup steps now include it and the home page link.
 
