@@ -6,6 +6,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-30
+
+M2: the Google Sheets backend (`design/07-roadmap.md`).
+
 ### Added
 - Google login: `climblog google login | status | logout` with an OAuth desktop client named
   by `[google] client_secret` in the app config; the token is kept in the config folder,
@@ -159,5 +163,6 @@ M1: the module framework and local storage (`design/07-roadmap.md`).
   locally before changes to formulas, expressions or sync (D-057).
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).
 
-[Unreleased]: https://github.com/federico-camerota/climb-log/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/federico-camerota/climb-log/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/federico-camerota/climb-log/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/federico-camerota/climb-log/releases/tag/v0.1.0

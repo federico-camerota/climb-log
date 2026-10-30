@@ -43,7 +43,7 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
   done: the owner imported the real journal and its parity report passed (D-061). Released
   as v0.1.0.
 
-### M2 · Google Sheets backend ◐  *(moved up, D-013)*
+### M2 · Google Sheets backend ☑  *(moved up, D-013)*
 - **Backend contract tests** (`tests/test_backend_*.py`): what every `Repository` must do
   (read, write, schema sync), run on each backend through a small harness
   (`tests/backends.py`). → done for xlsx (#49); reading on Google too, on an in-memory Google
@@ -59,9 +59,12 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
   --google`, `module move MODULE --to-google`; the owner moves the real journal.
 - Verify hand entry on the phone (Google Sheets app): dropdowns work, dates parse, blank
   `session_no`/`id` are accepted, rows are picked up by the app. → the checklist is in
-  04-storage.md §3, *Hand entry on the phone* (#56); the owner runs it on the real journal.
+  04-storage.md §3, *Hand entry on the phone* (#56); → done: the owner moved the real journal
+  to Google and every item passed on the phone.
 - **Done when**: the journal works identically from local and Google, with the backend
-  contract tests passing for both; a session typed by hand on the phone appears in the app.
+  contract tests passing for both; a session typed by hand on the phone appears in the app. →
+  done: the journal lives on Google, `climblog check journal` is clean, and a session typed on
+  the phone reached the app. Released as v0.2.0.
 
 ### M3 · Journal app (logging + parity views) ☐
 - Write API (a session write is split across the section tabs); schema-driven forms

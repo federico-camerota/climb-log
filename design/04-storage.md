@@ -267,7 +267,7 @@ are picked up by change polling.
 ### Hand entry on the phone: checklist (#56)
 Hand entry in the Google Sheets app is a main reason for M2 (D-003, D-013). The owner runs this
 once the journal is on Google; each problem becomes a `fix/…` PR, and the item is ticked when
-it passes. It uses the real journal, so nothing from it goes into the repository or an issue:
+it passes. → Run on 2026-10-30 on the real journal: every item passed. It uses the real journal, so nothing from it goes into the repository or an issue:
 describe a problem by tab, column and what was typed, with made-up values.
 
 **Before**: `climblog check journal --apply` clean on the local workbook; `climblog module move
