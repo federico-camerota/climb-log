@@ -69,7 +69,8 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 ### M3 · Journal app (logging + parity views) ☐  *(re-scoped, D-069)*
 Logging happens mainly in the app on the computer; Google Sheets on the phone is the fallback
 away from home (D-069). Issues in the milestone "M3 · Journal app", in this order:
-- App shell: pages, navigation (desktop-first), data fetching (D-070).
+- App shell: pages, navigation (desktop-first), data fetching (D-070). → done (D-073, #70):
+  routes, sidebar, light/dark, Settings → modules, record counts; API types generated.
 - Write API (a session write is split across the section tabs, `storage/write.py`).
 - Schema-driven forms (pre-session, post-session, rest day; a record created at pre and
   completed at post).

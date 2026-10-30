@@ -7,7 +7,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["node_modules", "dist"] },
+  { ignores: ["node_modules", "dist", "src/api/schema.ts"] }, // schema.ts: generated (make api-types)
   {
     files: ["**/*.{ts,tsx}"],
     extends: [
