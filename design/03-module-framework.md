@@ -360,7 +360,9 @@ column** in the sheet:
     `last(e.x, ...)` read stored fields only. So child entities are computed before their
     parents, and an entity's rows in date order (`climblog/modules/compute.py`).
   - `window(field, days=14).count(status == LOW)` (counts over recent records) comes with the
-    Summary and the recommendation (M3).
+    Summary and the recommendation (M3). The recommendation is a `recommendation:` block of
+    conditions on such values, not a plugin, so the app and the sheet's Summary tab share one
+    definition (D-071).
 - **Plugin**: `{plugin: module.rule_name}`, a Python function
   `(records: DataFrame, ctx) -> Series | list[Flag]`. Example: fall-ladder advancement
   (two consecutive falls on the same rung with BERP ≥ 3, fear ≤ 5, soft catch).

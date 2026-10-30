@@ -66,15 +66,27 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
   done: the journal lives on Google, `climblog check journal` is clean, and a session typed on
   the phone reached the app. Released as v0.2.0.
 
-### M3 · Journal app (logging + parity views) ☐
-- Write API (a session write is split across the section tabs); schema-driven forms
-  (pre/post/rest day); Today page with due list and log check.
-- Records table + search; data-issues panel (orphan section rows, bad values).
-- Journal dashboard at parity: status board, last N sessions, monthly averages,
-  reflections, rest days, readiness recommendation.
-- Generated `Summary` tab with formulas (latest statuses, suggested next session).
+### M3 · Journal app (logging + parity views) ☐  *(re-scoped, D-069)*
+Logging happens mainly in the app on the computer; Google Sheets on the phone is the fallback
+away from home (D-069). Issues in the milestone "M3 · Journal app", in this order:
+- App shell: pages, navigation (desktop-first), data fetching (D-070).
+- Write API (a session write is split across the section tabs, `storage/write.py`).
+- Schema-driven forms (pre-session, post-session, rest day; a record created at pre and
+  completed at post).
+- `window()` and a declarative readiness recommendation (D-071).
+- Today page: due forms, log check, recommendation.
+- Records page with search and the data issues (orphan section rows, bad values); editing and
+  fixing records, including those typed on the phone.
+- Journal dashboard at parity (D-072): status board, last N sessions, monthly averages,
+  reflections, rest days.
+- Generated `Summary` tab in the sheet ("Recent": latest statuses, suggested next session), so
+  the recommendation is also in the sheet away from home.
 - README screenshots of the Today page and dashboard (left out of M0: the app was empty).
-- **Done when**: I log a full session on my phone (LAN mode + PIN) and no longer need the old journal spreadsheet.
+- **Done when**: I log full sessions (pre, post, rest day) from the app on the computer and
+  review them there (Today log check and recommendation, records with data issues, dashboard
+  at parity with the old Summary sheets); a session typed on the phone in the sheet shows up
+  and can be fixed in the app; the sheet's Summary tab matches the app's recommendation; the
+  old journal spreadsheet is no longer needed.
 
 ### M4 · Analytics ☐
 - Metric query layer; widget library v1 (kpi, line+bands, bars, box_by, scatter, calendar heatmap).
@@ -96,6 +108,13 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 - Settings UI (thresholds, sources, backups restore, data issues).
 - Saved explorer views, period reports, exports.
 - Optional: offline outbox for Google; module editor UI; insights feed.
+
+### Backlog (no milestone yet)
+- **LAN mode + PIN** (D-010): the app from the phone on the home network. Out of M3: the phone
+  logs in Google Sheets (D-069).
+- **Gym log**: a sheet-first module for logging at the gym how each boulder or route attempt
+  felt (one row per attempt, typed on the phone, reviewed in the app). The module framework
+  covers it as it is: a new module YAML and `climblog module create FILE --google`.
 
 ## Testing strategy
 - **Backend contract tests** run against both backends (xlsx in a temp dir; Google against
