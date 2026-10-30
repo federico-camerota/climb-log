@@ -6,7 +6,8 @@ interface (logging, visualization, analysis, planning). The data stays in spread
 
 **Status:** M1 (module framework + local storage) done, released as v0.1.0; M2 (the Google
 Sheets backend) done, released as v0.2.0: the journal lives on Google and is typed on the phone.
-Next is M3, the journal app (`07-roadmap.md`). Last updated 2026-10-30.
+Next is M3, the journal app, re-scoped around logging in the app on the computer (D-069,
+`07-roadmap.md`). Last updated 2026-10-30.
 
 ## Read in this order
 | File | What it covers |

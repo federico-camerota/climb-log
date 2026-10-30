@@ -8,7 +8,8 @@ awkward in spreadsheets.
 
 ## Goals
 - **G1 · Logging**: fast, guided forms (pre-session, post-session, rest day, program
-  check-ins), usable on a phone over the local network. One "Today" flow that collects
+  check-ins) in the app on the computer, and by hand in Google Sheets on the phone away from
+  home (D-069). One "Today" flow that collects
   everything relevant for the day across all active modules. No duplicate entry.
 - **G2 · Spreadsheets as the source of truth**: every piece of data lives in a spreadsheet
   in a clean, human-readable layout. Backends: local `.xlsx` and Google Sheets.
@@ -26,7 +27,7 @@ awkward in spreadsheets.
 
 ## Non-goals (for now)
 - Multi-user accounts, cloud hosting, sharing with a coach. It is single-user and local.
-  LAN access from my phone is the only remote access.
+  The phone uses Google Sheets; LAN access to the app is a backlog item (D-069).
 - Native mobile app. A responsive web UI is enough.
 - A database as source of truth. An in-memory cache or SQLite index is allowed but is
   always rebuildable from the sheets.

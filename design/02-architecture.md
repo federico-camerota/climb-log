@@ -3,7 +3,7 @@
 ## Overview
 
 ```
- Browser (desktop / phone on LAN)
+ Browser (desktop)
  ┌──────────────────────────────────────────────┐
  │ React + TypeScript SPA                        │
  │  · schema-driven forms   · dashboards/widgets │
@@ -46,8 +46,8 @@ forms and widgets from module schemas and view definitions served by the API.
   `make build` writes the SPA into the Python package (`backend/climblog/static/`, git-ignored);
   `/api/*` goes to the API (unknown paths: JSON 404), `/assets/*` to the bundled files, and every
   other path returns `index.html` so client-side routes survive a reload (D-039).
-- `climblog serve --lan`: binds `0.0.0.0` for phone access and **requires a PIN/token**
-  (set on first run) because the API can write data.
+- `climblog serve --lan` (backlog, D-069): would bind `0.0.0.0` for phone access and **require
+  a PIN/token** (set on first run) because the API can write data.
 - Dev mode (`make dev`): Vite dev server on `127.0.0.1:5173` (hot reload) proxying `/api` to
   `climblog serve --reload` on `:8000`; Ctrl-C stops both.
 - App config (D-051): `~/.config/climblog/config.toml` (`$XDG_CONFIG_HOME` honoured; another
@@ -157,7 +157,8 @@ Both backends implement it. Analytics and the engine never know which one is in 
 | GET | `/api/modules/{m}/{entity}` | records (+ derived fields), filters, paging (D-058: done without filters and paging) |
 | POST/PATCH/DELETE | `/api/modules/{m}/{entity}[/{id}]` | write records |
 | GET | `/api/today?date=` | composed "Today" flow: which forms are due, prefilled values |
-| GET | `/api/recommendation?date=` | next-session recommendation + reasons |
+| GET | `/api/recommendation?date=` | next-session recommendation + reasons (D-071) |
+| GET | `/api/modules/{m}/views/{view}` | each widget's data for a module view, computed in Python (D-072) |
 | POST | `/api/analytics/query` | generic metric query (metric(s), range, grouping, filters) |
 | GET | `/api/analytics/correlations` | correlation matrix / pair with lags |
 | GET | `/api/search?q=` | full-text search across text fields |
@@ -178,7 +179,7 @@ on every request. Errors: an unknown module or entity is 404, a module whose YAM
 409 with its problems, a workbook that can't be read with no snapshot 503. Dates are ISO
 (`2026-10-14`, times `18:30:00`).
 ## Security and privacy
-- Binds to localhost by default. LAN mode requires a PIN.
+- Binds to localhost. LAN mode (backlog, D-069) would require a PIN.
 - Google OAuth token is stored under `~/.config/climblog/` with 0600 permissions and
   minimal scopes: `spreadsheets` and `drive.file` (only the files the app creates) (D-062).
 - No telemetry and no external calls except Google APIs when that backend is configured.

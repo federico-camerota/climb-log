@@ -6,6 +6,12 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 
 ## [Unreleased]
 
+### Changed
+- M3 re-scoped (`design/07-roadmap.md`): logging mainly in the app on the computer, Google
+  Sheets on the phone as the fallback; LAN mode moved to the backlog (D-069). Frontend
+  libraries, the declarative readiness rule and backend-computed dashboards decided
+  (D-070–D-072).
+
 ## [0.2.0] - 2026-10-30
 
 M2: the Google Sheets backend (`design/07-roadmap.md`).
