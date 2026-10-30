@@ -194,10 +194,23 @@ are picked up by change polling.
   `SheetsClient` protocol that the tests replace with an in-memory Google. A sheet the app
   didn't create is readable but Drive won't show its `modifiedTime` (`drive.file`): the app
   says so and points to letting it create the module's sheet (#54).
-- Write: `values.update` into the first row with an empty key for new records (formula buffer, §1); `values.update` on the row found by key for edits; buffer top-up with `batchUpdate`.
-  Writes are queued and retried with backoff (quota is ~60 write req/min/user, ample).
-- Concurrency: before updating, re-read the target row and compare `updated_at`. If it
-  changed (hand edit on the web), surface a conflict instead of overwriting.
+- Write (D-064): the sheet is read again first (the cached copy may be a minute old), the
+  edits are checked on it as for `.xlsx` (first free row of the formula buffer, conflicts on
+  every column but `auto:`, D-027, D-049), and everything goes in **one `batchUpdate`**, which
+  Google applies all or none: more grid rows when needed, each cell (`updateCells`), and the
+  buffer top-up (`copyPaste` of the last formula row, so Google moves the relative references).
+  Strings are `stringValue` cells with the TEXT format (the API's RAW, §3b); dates, times and
+  durations are serials with the formats of §2, unless the cell already has a format of that
+  kind; booleans and numbers reset a text or date format to automatic. After a write the copy
+  is read again, so the snapshot follows at once. Answers 429 (quota, ~60 writes a minute) and
+  5xx are tried again after 1, 2, 4, 8 and 16 s; every write is to fixed cells, so a repeat is
+  harmless.
+- Concurrency: Google has no "write only if unchanged", so a hand edit made in the second
+  between the write's read and the write itself is not seen; edits by hand are occasional
+  (D-027) and backups cover the rest.
+- Formulas: the API takes them in en_US syntax in any locale, but gives them back in the
+  sheet's (`=IF(A3="";"";B3*1,5)` in it_IT): the backend turns them back into en_US syntax for
+  decimal-comma locales, so the drift check compares like with like.
 - Backups: periodic export of the spreadsheet as `.xlsx` into the local backups folder
   (Drive export), so a Google-hosted module is also backed up locally.
 - Offline: if Google is unreachable, the UI is read-only from cache, and *optionally*

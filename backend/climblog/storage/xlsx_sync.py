@@ -27,6 +27,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from climblog.modules.formulas import XLSX
 from climblog.storage.base import AUTO, FIRST_DATA_ROW, StorageError
 from climblog.storage.cells import RawCell
+from climblog.storage.grid import formula_rows_end
 from climblog.storage.layout import (
     EARLIEST_DATE,
     GROUP_COLOURS,
@@ -50,8 +51,6 @@ ERROR_TEXT = "Value outside the allowed range/choices"
 # Scale cells from red (worst) through yellow to green (best), as in the mock-ups.
 RED, YELLOW, GREEN = "F8696B", "FFEB84", "63BE7B"
 _GOOD, _WATCH, _LOW = "C6EFCE", "FFE699", "F8CBAD"  # status cells (mock-ups)
-BUFFER = 200  # rows that already hold the formulas, for hand entry (04 §1)
-TOP_UP = 50  # fewer free buffer rows than this: 200 more
 
 _LABEL_FONT = Font(bold=True, color="1F1F1F")
 _KEY_FONT = Font(name="Roboto Mono", size=9, color="404040")
@@ -301,7 +300,7 @@ def _write_formulas(workbook: Workbook, layout: WorkbookLayout) -> list[str]:
 
 
 def buffer_end(sheet: Worksheet, keys: Mapping[str, int]) -> int:
-    """The last row of the formula buffer: at least BUFFER rows, topped up below TOP_UP free."""
+    """The last row the formula buffer should reach (`formula_rows_end`)."""
     data = [i for key, i in keys.items() if not key.startswith(AUTO)]
     autos = [i for key, i in keys.items() if key.startswith(AUTO)]
     last_data = FIRST_DATA_ROW - 1
@@ -311,10 +310,7 @@ def buffer_end(sheet: Worksheet, keys: Mapping[str, int]) -> int:
             last_data = row
         if any(str(sheet.cell(row, i).value or "").startswith("=") for i in autos):
             last_formula = row
-    end = max(last_formula, FIRST_DATA_ROW + BUFFER - 1)
-    if end - last_data < TOP_UP:
-        end = last_data + BUFFER
-    return end
+    return formula_rows_end(last_data, last_formula)
 
 
 def top_up(sheet: Worksheet, keys: Mapping[str, int]) -> None:

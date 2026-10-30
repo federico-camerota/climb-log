@@ -59,7 +59,10 @@ def test_appends_fill_the_formula_buffer_then_go_below(backend: Backend, book: R
     assert cells[4][:2] == (None, 15)  # the hand row is kept
     assert cells[5] == (D20, 11, None, formula(6), None)  # the formula is kept
     assert cells[7][:4] == (D20, 11, None, formula(8))  # the buffer was topped up (D-054)
-    assert book.read_table("Sets").rows[-1] == SheetRow(8, {"date": D20, "kg": 11})
+    last = book.read_table("Sets").rows[-1]  # Google has computed `auto:double` too
+    assert SheetRow(
+        last.number, {k: v for k, v in last.cells.items() if k in KEYS[:3]}
+    ) == SheetRow(8, {"date": D20, "kg": 11})
 
 
 def test_appends_keep_fifty_free_formula_rows(backend: Backend, book: Repository) -> None:

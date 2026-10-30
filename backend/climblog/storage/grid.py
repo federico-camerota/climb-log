@@ -6,14 +6,25 @@ columns in row 1. A backend turns its sheet into `Rows` (row 1 first) and these 
 rest, so the rules and their messages are the same for xlsx and Google Sheets.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from openpyxl.utils import get_column_letter
 
-from climblog.storage.base import FIRST_DATA_ROW, SheetRow, StorageError, Table
+from climblog.storage.base import (
+    AUTO,
+    FIRST_DATA_ROW,
+    SheetRow,
+    StorageError,
+    Table,
+    Update,
+    WriteConflict,
+)
 from climblog.storage.cells import RawCell
 
 Rows = list[tuple[RawCell, ...]]
+
+BUFFER = 200  # rows that already hold the formulas, for hand entry (04 §1)
+TOP_UP = 50  # fewer free buffer rows than this: 200 more
 
 
 def grid_table(name: str, rows: Rows) -> Table:
@@ -65,3 +76,41 @@ def kv_pairs(tab: str, rows: Rows) -> dict[str, RawCell]:
 
 def blank(value: object) -> bool:
     return value is None or (isinstance(value, str) and not value.strip())
+
+
+def formula_rows_end(last_data: int, last_formula: int) -> int:
+    """The last row the formula buffer should reach, given the last row with data and the last
+    with a formula: at least `BUFFER` rows from row 3, and `BUFFER` past the last data row when
+    fewer than `TOP_UP` are free (D-054)."""
+    end = max(last_formula, FIRST_DATA_ROW + BUFFER - 1)
+    if end - last_data < TOP_UP:
+        end = last_data + BUFFER
+    return end
+
+
+def check_columns(tab: str, columns: Mapping[str, int], cells: Mapping[str, RawCell]) -> None:
+    """The cells of an edit are in row 2, and none is an app-managed formula column."""
+    missing = [key for key in cells if key not in columns]
+    if missing:
+        raise StorageError(f"tab '{tab}' has no column {', '.join(missing)} in row 2")
+    formulas = [key for key in cells if key.startswith(AUTO)]
+    if formulas:
+        raise StorageError(f"tab '{tab}': {', '.join(formulas)} is app-managed, not written")
+
+
+def check_unchanged(edit: Update, now: Mapping[str, RawCell]) -> None:
+    """The row still holds what was read (`now`: every column of the row as in the sheet),
+    `auto:` columns aside; a blank cell and an absent one are the same (D-027)."""
+    if edit.row < FIRST_DATA_ROW:
+        raise StorageError(f"tab '{edit.tab}': row {edit.row} is a header row")
+    for key, value in now.items():
+        if key.startswith(AUTO):
+            continue
+        if _filled(value) != _filled(edit.expected.get(key)):
+            raise WriteConflict(
+                f"tab '{edit.tab}', row {edit.row} changed since it was read: reload and retry"
+            )
+
+
+def _filled(value: RawCell) -> RawCell:
+    return None if value == "" else value

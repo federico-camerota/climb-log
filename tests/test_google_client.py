@@ -13,6 +13,7 @@ from climblog.storage import StorageError
 from climblog.storage.google_client import (
     DRIVE,
     GRID_FIELDS,
+    RETRY_AFTER,
     SHEETS,
     GoogleNotFound,
     RestSheetsClient,
@@ -29,11 +30,13 @@ def response(status: int = 200, body: Any = None, reason: str = "") -> requests.
 
 
 class FakeSession:
-    """Answers with `answers` in turn (an exception is raised), and records each request."""
+    """Answers with `answers` in turn (an exception is raised), and records each request and
+    each wait."""
 
     def __init__(self, *answers: requests.Response | Exception) -> None:
         self.answers = list(answers)
         self.requests: list[tuple[str, str, dict[str, Any]]] = []
+        self.waits: list[float] = []  # the client's sleeps between tries
 
     def request(self, method: str, url: str, **kwargs: Any) -> requests.Response:
         self.requests.append((method, url, kwargs))
@@ -45,7 +48,7 @@ class FakeSession:
 
 def client(*answers: requests.Response | Exception) -> tuple[RestSheetsClient, FakeSession]:
     session = FakeSession(*answers)
-    return RestSheetsClient(lambda: session), session
+    return RestSheetsClient(lambda: session, sleep=session.waits.append), session
 
 
 def test_each_call_and_what_it_asks() -> None:
@@ -114,13 +117,40 @@ ERROR = {"error": {"code": 0, "message": "Requested entity was not found.", "sta
         (response(500, None, "Internal Server Error"), StorageError,
          "Google answered 500: Internal Server Error"),
         (response(503, None), StorageError, "Google answered 503: no details"),
+        (response(429, ERROR), StorageError, "quota is used up for now: try again in a minute"),
+        (response(400, ERROR), StorageError, "Google answered 400: Requested entity"),
         (requests.ConnectionError("offline"), StorageError, "cannot reach Google"),
     ],
 )  # fmt: skip
 def test_errors(answer: requests.Response | Exception, error: type, message: str) -> None:
-    sheets, _ = client(answer)
+    sheets, _ = client(*[answer] * (len(RETRY_AFTER) + 1))  # 429 and 5xx are tried again
     with pytest.raises(error, match=message):
         sheets.get_grid(ID)
+
+
+def test_busy_answers_are_tried_again() -> None:
+    sheets, session = client(response(503), response(429), response(body={"sheets": []}))
+    assert sheets.get_grid(ID) == {"sheets": []}
+    assert len(session.requests) == 3
+    assert session.waits == [1, 2]
+
+
+def test_tries_stop_after_the_last_wait() -> None:
+    sheets, session = client(*[response(500)] * 10)
+    with pytest.raises(StorageError, match="Google answered 500"):
+        sheets.batch_update(ID, [])
+    assert session.waits == [1, 2, 4, 8, 16]
+    assert len(session.requests) == 6
+
+
+def test_other_errors_are_not_tried_again() -> None:
+    sheets, session = client(response(400, ERROR), requests.ConnectionError("offline"))
+    with pytest.raises(StorageError, match="400"):
+        sheets.get_grid(ID)
+    with pytest.raises(StorageError, match="cannot reach Google"):
+        sheets.get_grid(ID)
+    assert len(session.requests) == 2
+    assert session.waits == []
 
 
 def test_a_body_that_is_not_an_object_is_empty() -> None:
