@@ -58,7 +58,8 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
   new Google Sheet with headers, dropdowns, colours). → done (D-067, #54): `module create FILE
   --google`, `module move MODULE --to-google`; the owner moves the real journal.
 - Verify hand entry on the phone (Google Sheets app): dropdowns work, dates parse, blank
-  `session_no`/`id` are accepted, rows are picked up by the app.
+  `session_no`/`id` are accepted, rows are picked up by the app. → the checklist is in
+  04-storage.md §3, *Hand entry on the phone* (#56); the owner runs it on the real journal.
 - **Done when**: the journal works identically from local and Google, with the backend
   contract tests passing for both; a session typed by hand on the phone appears in the app.
 

@@ -264,6 +264,47 @@ are picked up by change polling.
 - Offline: if Google is unreachable, the UI is read-only from cache, and *optionally*
   writes go to a local outbox that is flushed later (M6 nice-to-have).
 
+### Hand entry on the phone: checklist (#56)
+Hand entry in the Google Sheets app is a main reason for M2 (D-003, D-013). The owner runs this
+once the journal is on Google; each problem becomes a `fix/…` PR, and the item is ticked when
+it passes. It uses the real journal, so nothing from it goes into the repository or an issue:
+describe a problem by tab, column and what was typed, with made-up values.
+
+**Before**: `climblog check journal --apply` clean on the local workbook; `climblog module move
+journal --to-google` with no differences; the printed `google_sheet` line in the config instead
+of `workbook`; `climblog check journal` prints `ok`; `climblog serve` running on the computer.
+
+**On the phone**, in the journal's sheet (a new session on a test date, e.g. a day in the
+future, deleted at the end):
+1. **New row in the buffer**: type a date in the first empty row of `Session`; the `auto:`
+   columns (session #, statuses) fill in at once, and status cells get their colours.
+2. **Dates**: `30/10/2026` and `30/10` (this year) become dates, shown as `dd/mm/yyyy`; a text
+   like `ieri` is refused by the date rule (a red mark, with the rule's message).
+3. **Blank `session_no`**: left empty, the session is #1; a second session on the same day with
+   `2` in `Session #` on every tab is a separate session.
+4. **Dropdowns**: the choice columns (`setting`, `session_type`) and the 1–10 scales open a
+   list; a value not in the list is refused, or only warned about where the module has
+   `allow_other`.
+5. **Decimal commas**: `7,5` in `wb_sleep_hours` is a number (right-aligned) and the app reads
+   7.5; `15` there is refused by its range rule (0–14).
+6. **Notes as typed**: in `notes`, type `po' stanco`, `'ok`, `=domani` and a two-line note
+   (line break in the cell); each is kept as typed, in the sheet and in the app (§3b). Check
+   especially the leading `'`: Google Sheets may take it as "keep as text" and hide it.
+7. **Section tabs**: type the same date (and session #) in `Wellbeing` and `Physical`, on rows in
+   any order; the app joins them to the session. A section row whose date has no `Session` row
+   shows as a data issue.
+8. **Protection**: editing a header cell (rows 1–2) or an `auto:` cell asks for confirmation
+   first (warning-only protection); cancel it.
+9. **Picked up by the app**: within about a minute (`[google] poll_seconds`) the session is in
+   `GET http://127.0.0.1:8000/api/modules/journal/session`, `as_of` has moved, and a new
+   backup is in `~/.local/share/climblog/backups/journal/` (at most one per 30 minutes).
+10. **After**: delete the test rows (clear the cells, keeping the formulas in the `auto:`
+    columns); `climblog check journal` prints `ok` again (no drift).
+
+**Done when** (M2, 07-roadmap.md): the journal lives on Google; `climblog check journal` is
+clean; a session typed on the phone appears in `GET /api/modules/journal/session`. Then M2 is
+closed in a small `docs:` PR (roadmap, design README status, CHANGELOG release).
+
 ## 3b. Text and language (Italian notes, D-024)
 - UTF-8 end to end; accented letters (à è é ì ò ù), typographic quotes and emoji round-trip
   unchanged through both backends and the snapshot.
