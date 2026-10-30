@@ -33,6 +33,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   cells and all, checks the copy (records, settings, data issues, formulas computed by Google)
   and prints the config line; the workbook is only read. `climblog module create FILE --google`
   makes a new module's sheet (D-067, #54).
+- While `climblog serve` runs, Google modules are read again every `[google] poll_seconds` (60)
+  so phone entries reach the snapshot, and Google modules are backed up locally: the sheet is
+  exported as `.xlsx` into the backups folder before writes and when a change is seen, at most
+  every 30 minutes (D-068, #55).
 - `PRIVACY.md`: the privacy policy Google asks for before an OAuth app can be published; the
   README setup steps now include it and the home page link.
 

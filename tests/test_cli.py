@@ -42,7 +42,7 @@ def test_serve_binds_localhost_on_default_port(uvicorn_calls: list[dict[str, Any
     assert result.exit_code == 0
     assert uvicorn_calls == [
         {
-            "app": "climblog.main:create_app",
+            "app": "climblog.main:serve_app",
             "factory": True,
             "host": "127.0.0.1",
             "port": 8000,

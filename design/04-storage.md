@@ -249,8 +249,18 @@ are picked up by change polling.
   create FILE --google` makes an empty module's sheet the same way. A write sends one
   `updateCells` per run of adjacent cells in a row, each cell with its number format, so a
   move of hundreds of records stays a few thousand requests in one call.
-- Backups: periodic export of the spreadsheet as `.xlsx` into the local backups folder
-  (Drive export), so a Google-hosted module is also backed up locally.
+- Backups (D-068): the spreadsheet is exported as `.xlsx` through Drive (`files.export`,
+  allowed by `drive.file` for the app's sheets) into the module's backups folder
+  (`<backups>/<module>/<YYYYMMDD-HHMMSS>.xlsx`, file 0600 in a 0700 folder, the newest 30 kept),
+  with the throttle of §2: before the first write of each app session and at most every 30
+  minutes, and also when a read sees the content changed by hand (the poller's reads included).
+  A write whose backup fails is refused; a backup that fails on a read is logged and the read
+  goes on.
+- Change polling (D-068, `climblog/poll.py`): while `climblog serve` runs, each Google module is
+  read again every `[google] poll_seconds` (default 60, 0 = off), first right at start, through
+  the API's own `CachedRepository` (its refresh is locked, so the poller and the API's threads
+  never take a snapshot twice). A module that can't be read is logged and tried again. Local
+  workbooks are not polled: every read checks the file's `mtime`.
 - Offline: if Google is unreachable, the UI is read-only from cache, and *optionally*
   writes go to a local outbox that is flushed later (M6 nice-to-have).
 
@@ -316,7 +326,8 @@ stored on disk (`~/.local/share/climblog/snapshots/<module>.json.gz`, folder set
   takes a new snapshot. When the source can't be reached, the snapshot is used **read-only**
   (`offline`; a write raises `SnapshotReadOnly`), and `as_of` gives "data as of HH:MM".
 - On startup the app loads the snapshot immediately, then refreshes it from the source in the
-  background (and on change polling, the Reload button, and after every write) (#25).
+  background (and on change polling, the Reload button, and after every write) (#25). For
+  Google modules the poller does this from the start of `climblog serve` (D-068).
 - All analysis runs on the snapshot, so the app is fast and still usable (read-only) when
   Google is unreachable. The UI shows "data as of HH:MM".
 - The snapshot is a cache: a missing, damaged, older-format or other module's file is ignored,

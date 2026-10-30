@@ -37,6 +37,7 @@ LAYOUT_FIELDS = (
 )
 FOLDER = "application/vnd.google-apps.folder"
 SPREADSHEET = "application/vnd.google-apps.spreadsheet"
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 TIMEOUT = 30  # seconds
 RETRY_AFTER = (1, 2, 4, 8, 16)  # seconds to wait before each new try (429 and 5xx)
 _RETRY = {429, 500, 502, 503, 504}
@@ -84,6 +85,10 @@ class SheetsClient(Protocol):
 
     def trash(self, spreadsheet_id: str) -> None:
         """Move the file to the Drive trash."""
+        ...
+
+    def export_xlsx(self, spreadsheet_id: str) -> bytes:
+        """The spreadsheet as an `.xlsx` file (Drive export, for backups)."""
         ...
 
 
@@ -142,7 +147,16 @@ class RestSheetsClient:
     def trash(self, spreadsheet_id: str) -> None:
         self._call("PATCH", f"{DRIVE}/{spreadsheet_id}", json={"trashed": True})
 
+    def export_xlsx(self, spreadsheet_id: str) -> bytes:
+        params = {"mimeType": XLSX}
+        return self._request("GET", f"{DRIVE}/{spreadsheet_id}/export", params=params).content
+
     def _call(self, method: str, url: str, **kwargs: Any) -> Json:
+        response = self._request(method, url, **kwargs)
+        doc = response.json() if response.content else {}
+        return doc if isinstance(doc, dict) else {}
+
+    def _request(self, method: str, url: str, **kwargs: Any) -> requests.Response:
         if self._session is None:
             self._session = self._connect()
         for wait in (*RETRY_AFTER, None):
@@ -154,8 +168,7 @@ class RestSheetsClient:
                 break
             self._sleep(wait)
         if response.ok:
-            doc = response.json() if response.content else {}
-            return doc if isinstance(doc, dict) else {}
+            return response
         status, message = response.status_code, _message(response)
         if status == 404:
             raise GoogleNotFound(f"not found on Google ({message})")

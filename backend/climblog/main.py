@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """FastAPI application factory."""
 
+import asyncio
+import contextlib
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -9,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from climblog import __version__, api
 from climblog.catalog import Catalog
+from climblog.poll import poll
 
 # Where `make build` puts the frontend (vite.config.ts, D-039).
 STATIC_DIR = Path(__file__).parent / "static"
@@ -20,17 +24,33 @@ for development.</p>
 """
 
 
-def create_app(static_dir: Path = STATIC_DIR, catalog: Catalog | None = None) -> FastAPI:
+def create_app(
+    static_dir: Path = STATIC_DIR, catalog: Catalog | None = None, *, polling: bool = False
+) -> FastAPI:
     """Build a new app instance (a fresh one per call, so tests stay independent).
 
     `catalog`: the modules to serve; by default loaded from the app config on the first API
-    request (D-058).
+    request (D-058). `polling`: read Google modules again in the background (D-068).
     """
-    app = FastAPI(title="climb-log", version=__version__)
+    app = FastAPI(title="climb-log", version=__version__, lifespan=_polling if polling else None)
     app.state.catalog = catalog
     app.include_router(api.router)
     _add_spa(app, static_dir)
     return app
+
+
+def serve_app() -> FastAPI:
+    """The app `climblog serve` runs: with change polling."""
+    return create_app(polling=True)
+
+
+@contextlib.asynccontextmanager
+async def _polling(app: FastAPI) -> AsyncIterator[None]:
+    task = asyncio.create_task(poll(app))
+    yield
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
 
 
 def _add_spa(app: FastAPI, static_dir: Path) -> None:

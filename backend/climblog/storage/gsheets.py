@@ -20,7 +20,8 @@ it as the xlsx backend does (free rows, conflicts, columns), and sends them all 
 formula buffer's top-up (copied down, so Google moves the relative references). Strings are text
 cells (`stringValue`, the API's RAW), so `'`, `=` notes stay as typed (04 §3b). A hand edit made
 between that read and the write is not seen: edits by hand are occasional (D-027) and backups
-cover the rest.
+cover the rest. Before a write that is due one (`Backups`), the sheet is exported as `.xlsx` into
+the module's backups folder, and so it is when a read sees the content changed by hand (D-068).
 
 Schema sync (`gsheets_sync.py`) sends its changes in one `batchUpdate` too. A backend made
 without an ID creates its spreadsheet on the first sync, in the app's Drive folder, with the
@@ -28,10 +29,14 @@ locale and time zone of `NewSheets` (D-065).
 """
 
 import datetime as dt
+import logging
+import os
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
+from climblog.storage.backup import Backups
 from climblog.storage.base import (
     AUTO,
     FIRST_DATA_ROW,
@@ -68,6 +73,8 @@ _ERRORS = {  # Google's error types as the sheet shows them (and openpyxl reads 
     "LOADING": "#LOADING",
 }
 
+
+log = logging.getLogger(__name__)
 
 MAX_AGE = dt.timedelta(seconds=60)
 _DAY = dt.timedelta(days=1)
@@ -114,11 +121,13 @@ class GSheetsBackend:
         max_age: dt.timedelta = MAX_AGE,
         clock: Callable[[], dt.datetime] = dt.datetime.now,
         new_sheets: NewSheets = NEW_SHEETS,
+        backups: Backups | None = None,
     ) -> None:
         self.spreadsheet_id = spreadsheet_id
         self.client = client
         self.max_age = max_age
         self.new_sheets = new_sheets
+        self.backups = backups
         self._clock = clock
         self._copy: _Copy | None = None
 
@@ -154,6 +163,8 @@ class GSheetsBackend:
             except GoogleNotFound:
                 raise StorageError(f"workbook not found: {self.label}") from None
             changed = now if copy is None or grid != copy.grid else copy.changed_at
+            if copy is not None and changed == now:
+                self._backup_quietly()  # changed by hand (or by another app): keep a copy
             self._copy = copy = _Copy(drive, now, changed, grid)
         return max(drive, copy.changed_at)
 
@@ -235,7 +246,7 @@ class GSheetsBackend:
                     book, self.new_sheets.locale, self.new_sheets.time_zone
                 )
                 requests = first + requests + last
-            self._send(requests)
+            self._send(requests, backup=not created)
         except BaseException:
             if created:  # no half-made sheet is left behind
                 self.client.trash(self._id())
@@ -258,13 +269,29 @@ class GSheetsBackend:
             raise TableNotFound(f"no tab '{name}' in {self.label}")
         return tabs[name]
 
-    def _send(self, requests: list[Json]) -> None:
-        """One `batchUpdate`: Google applies all of it or none. The copy is read again after."""
+    def _send(self, requests: list[Json], *, backup: bool = True) -> None:
+        """One `batchUpdate`: Google applies all of it or none. A backup is taken first when one
+        is due; the copy is read again after."""
         if requests:
+            if backup:
+                self.backup()
             try:
                 self.client.batch_update(self._id(), requests)
             finally:
                 self._copy = None
+
+    def backup(self) -> Path | None:
+        """Export the sheet as `.xlsx` into the backups folder, if a backup is due."""
+        if self.backups is None:
+            return None
+        return self.backups.take(lambda path: _save(path, self.client.export_xlsx(self._id())))
+
+    def _backup_quietly(self) -> None:
+        """A backup on reading: a failure is logged, never in the way of the read."""
+        try:
+            self.backup()
+        except (StorageError, OSError) as error:
+            log.warning("no backup of %s: %s", self.label, error)
 
     # ---- Reading ----
 
@@ -283,6 +310,12 @@ class GSheetsBackend:
             if sheet["properties"]["title"] == name:
                 return sheet
         raise TableNotFound(f"no tab '{name}' in {self.label}")
+
+
+def _save(path: Path, data: bytes) -> None:
+    """Write a backup, readable by the owner only from the start."""
+    with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as file:
+        file.write(data)
 
 
 def grid_rows(sheet: Mapping[str, Any], *, formulas: bool = False, locale: str = "en_US") -> Rows:

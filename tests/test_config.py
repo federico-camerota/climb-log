@@ -245,6 +245,8 @@ def test_a_module_can_live_in_a_google_sheet(tmp_path: Path) -> None:
     assert repo.spreadsheet_id == SHEET_ID
     assert repo.max_age == dt.timedelta(seconds=60)
     assert repo.new_sheets == NewSheets("climb-log", "it_IT", "Europe/Rome")
+    assert repo.backups is not None and repo.backups.folder.name == "journal"  # Drive exports
+    assert config.google.poll_seconds == 60
     google = '[google]\nmax_age_seconds = 15\nfolder = "Training"\nlocale = "en_GB"\n'
     file.write_text(file.read_text(encoding="utf-8") + google, "utf-8")
     repo = load_config(file).repository("journal")
