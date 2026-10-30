@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Formula parity (03 §2.2b): the sheet formulas, recalculated by LibreOffice, must give what the
-app computes, on fictional workbooks generated from a seed (D-034).
+"""Formula parity (03 §2.2b): the sheet formulas, recalculated by LibreOffice or computed by
+Google Sheets, must give what the app computes, on fictional workbooks generated from a seed
+(D-034).
 
 LibreOffice is found through `CLIMBLOG_SOFFICE` (a command, e.g. `snap run libreoffice`) or
 `soffice` on the PATH, and used only if it can open and recalculate an .xlsx; otherwise the
@@ -40,7 +41,14 @@ from climblog.modules.schema import (
     ScaleField,
     TextField,
 )
-from climblog.storage import XlsxBackend, find_drift, load_data, sync_module
+from climblog.storage import (
+    Append,
+    Repository,
+    XlsxBackend,
+    find_drift,
+    load_data,
+    sync_module,
+)
 from climblog.storage.drift import same
 
 WORDS = ["[ESEMPIO]", "bene", "stanco", "forte", "presa", "giù", "così così"]
@@ -109,28 +117,53 @@ def generate(module: Module, folder: Path, seed: int, records: int = 40) -> Gene
     fictional rows typed into it, as by hand."""
     path = folder / "parity.xlsx"
     sync_module(module, XlsxBackend(path))
+    rows, typed = typed_rows(module, seed, records)
+    book = openpyxl.load_workbook(path)
+    for tab, tab_rows in typed.items():
+        sheet = book[tab]
+        assert isinstance(sheet, Worksheet)
+        columns = {str(c.value): c.column for c in sheet[2] if c.value}
+        for row, values in enumerate(tab_rows, start=3):
+            for key, value in values.items():
+                if key in columns:
+                    sheet.cell(row, columns[key]).value = value
+    book.save(path)
+    return Generated(path, rows)
+
+
+def generate_google(module: Module, repo: Repository, seed: int, records: int = 40) -> None:
+    """The same on a Google Sheet: made by schema sync, the rows typed in through the backend."""
+    sync_module(module, repo)
+    _, typed = typed_rows(module, seed, records)
+    repo.apply(
+        [
+            Append(tab, {k: v for k, v in values.items() if v is not None})
+            for tab, tab_rows in typed.items()
+            for values in tab_rows
+        ]
+    )
+
+
+def typed_rows(
+    module: Module, seed: int, records: int
+) -> tuple[dict[str, list[dict[str, Value]]], dict[str, list[dict[str, Any]]]]:
+    """Random fictional records (entity → values), and the cells of each tab's rows from row
+    3, as they would be typed (Yes/No, dates as midnight)."""
     rng = random.Random(seed)
     rows = _records(module, rng, records)
-    book = openpyxl.load_workbook(path)
+    typed: dict[str, list[dict[str, Any]]] = {}
     for name, entity in module.entities.items():
+        keys = set(entity.key or [])
         for tab, names in entity.tab_fields().items():
-            sheet = book[tab]
-            assert isinstance(sheet, Worksheet)
-            columns = {str(c.value): c.column for c in sheet[2] if c.value}
-            keys = set(entity.key or [])
-            row = 3
+            tab_rows = typed.setdefault(tab, [])
             for record in rows[name]:
                 values = {k: record.get(k) for k in names}
                 section = entity.is_split and tab != entity.main_tab
                 empty = all(values[k] is None for k in names if k not in keys)
                 if section and (rng.random() < 0.2 or empty):
                     continue  # a section not filled in
-                for key, value in values.items():
-                    if key in columns:
-                        sheet.cell(row, columns[key]).value = _cell(value)
-                row += 1
-    book.save(path)
-    return Generated(path, rows)
+                tab_rows.append({k: _cell(v) for k, v in values.items()})
+    return rows, typed
 
 
 def _records(module: Module, rng: random.Random, count: int) -> dict[str, list[dict[str, Value]]]:
@@ -249,14 +282,21 @@ def _cell(value: Value) -> Any:
 
 def mismatches(module: Module, generated: Generated, command: list[str]) -> list[str]:
     """Every formula cell whose recalculated value differs from the app's."""
-    repo = XlsxBackend(generated.path)
-    data = load_data(module, repo)
-    tables = {name: e.records for name, e in data.entities.items()}
-    derived = compute_module(module, tables, data.settings)
     sheets = recalculate(command, generated.path)
     # Saved by LibreOffice, the workbook must show no drift (its formulas rewritten on save).
     saved = XlsxBackend(generated.path.parent / "recalculated" / generated.path.name)
     drift = [str(d) for d in find_drift(module, saved)]
+    return [*drift, *compare(module, XlsxBackend(generated.path), sheets)]
+
+
+def compare(
+    module: Module, repo: Repository, sheets: Mapping[str, list[tuple[Any, ...]]]
+) -> list[str]:
+    """Every formula cell of `sheets` (tab → rows from row 1, as the sheet computed them) whose
+    value differs from what the app computes from `repo`."""
+    data = load_data(module, repo)
+    tables = {name: e.records for name, e in data.entities.items()}
+    derived = compute_module(module, tables, data.settings)
     placed, _ = formula_columns(module)
     found = []
     for name, entity_data in data.entities.items():
@@ -271,14 +311,15 @@ def mismatches(module: Module, generated: Generated, command: list[str]) -> list
             ):
                 if column.tab not in place:
                     continue
-                got = rows[place[column.tab] - 1][index]
+                row = rows[place[column.tab] - 1]
+                got = row[index] if index < len(row) else None
                 want = values.get(key)
                 if not same(want, got):
                     found.append(
                         f"{column.tab}!{column.key} row {place[column.tab]}: "
                         f"app {want!r}, sheet {got!r} ({_short(record)})"
                     )
-    return [*drift, *found]
+    return found
 
 
 def _short(record: Mapping[str, Value]) -> str:

@@ -27,7 +27,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   scales, status colours, formula columns with their buffer, named settings, `_meta`), in one
   request; headers and formula columns get a warning-only protection. A sheet the app creates
   goes into a `climb-log` Drive folder, in the it_IT locale and Europe/Rome time zone (`[google]
-  folder`, `locale`, `time_zone`) (D-065, #53).
+  folder`, `locale`, `time_zone`) (D-065, #53). The drift check works there too, and an opt-in
+  live test checks that every value Google computes is the app's (D-066, #53).
 - `PRIVACY.md`: the privacy policy Google asks for before an OAuth app can be published; the
   README setup steps now include it and the home page link.
 
