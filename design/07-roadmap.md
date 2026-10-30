@@ -97,6 +97,8 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 - **Parity tests**: fixtures from the legacy workbooks with the expected computed values.
 - **Formula parity**: the generated formulas are evaluated by LibreOffice headless (xlsx) and
   read back from a test Google Sheet, and must equal the Python results on the same fixtures.
+  → both done: `test_formula_parity.py` (LibreOffice) and `test_gsheets_parity.py` (Google,
+  opt-in with `CLIMBLOG_GOOGLE_LIVE=1`, D-066).
 - **Hand-entry tests**: fixtures with rows typed "by a human" (blank keys, reordered columns, Italian notes starting with `'`,
   `7,5` decimals, legacy choice values, orphan section rows).
 - **Expression/rules unit tests** for each rule in `00-current-state.md`.

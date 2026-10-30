@@ -216,6 +216,12 @@ are picked up by change polling.
   and a formula keeps the syntax it was entered in. Read back, one with `;` outside strings in a
   decimal-comma locale is turned into en_US syntax, so the drift check compares like with like
   (the app's formula columns are only ever written by sync, or copied down by the buffer top-up).
+- Drift check and formula parity (D-066): `climblog check` finds changed formulas and other
+  values on Google as on `.xlsx` (formulas read back in en_US syntax; the Google and xlsx
+  dialects differ only by `_xlfn.`, which the comparison ignores). Google computes the formulas
+  as soon as they are written, so the "different value" half of the check always applies there.
+  The live parity test syncs fictional modules into new sheets, types fictional rows in through
+  the backend, and needs every value Google computes to be the app's.
 - Schema sync (D-065, `storage/gsheets_sync.py`): the changes of `xlsx_sync.py` as requests from
   one read of the sheet (cells, rules, protections, named ranges), sent in one `batchUpdate`.
   Headers styled and frozen (rows 1–2, columns A–B), a note on A2, column widths (7 px per
