@@ -28,6 +28,15 @@ GRID_FIELDS = (
     "sheets(properties(sheetId,title,index,gridProperties(rowCount,columnCount)),"
     "data(rowData(values(userEnteredValue,effectiveValue,effectiveFormat/numberFormat))))"
 )
+# What schema sync needs besides the cells: rules, protections and named ranges (D-065).
+LAYOUT_FIELDS = (
+    "properties(title,locale),namedRanges(namedRangeId,name),"
+    "sheets(properties(sheetId,title,index,gridProperties(rowCount,columnCount)),"
+    "conditionalFormats,protectedRanges(protectedRangeId,description),"
+    "data(rowData(values(userEnteredValue,effectiveValue,effectiveFormat/numberFormat))))"
+)
+FOLDER = "application/vnd.google-apps.folder"
+SPREADSHEET = "application/vnd.google-apps.spreadsheet"
 TIMEOUT = 30  # seconds
 RETRY_AFTER = (1, 2, 4, 8, 16)  # seconds to wait before each new try (429 and 5xx)
 _RETRY = {429, 500, 502, 503, 504}
@@ -48,8 +57,21 @@ class SheetsClient(Protocol):
         """The spreadsheet with every tab's cells (`GRID_FIELDS`). Raises `GoogleNotFound`."""
         ...
 
+    def get_layout(self, spreadsheet_id: str) -> Json:
+        """`get_grid` with each tab's conditional formats and protected ranges, and the named
+        ranges (`LAYOUT_FIELDS`), for schema sync. Raises `GoogleNotFound`."""
+        ...
+
     def modified_time(self, spreadsheet_id: str) -> dt.datetime:
         """When Drive last saw the file change (local time). Raises `GoogleNotFound`."""
+        ...
+
+    def folder(self, name: str) -> str:
+        """The ID of the app's Drive folder of that name in My Drive, made if missing."""
+        ...
+
+    def create_file(self, title: str, folder_id: str) -> str:
+        """A new, empty spreadsheet in that folder; its ID."""
         ...
 
     def create(self, body: Mapping[str, Any]) -> str:
@@ -86,6 +108,24 @@ class RestSheetsClient:
     def get_grid(self, spreadsheet_id: str) -> Json:
         params = {"includeGridData": "true", "fields": GRID_FIELDS}
         return self._call("GET", f"{SHEETS}/{spreadsheet_id}", params=params)
+
+    def get_layout(self, spreadsheet_id: str) -> Json:
+        params = {"includeGridData": "true", "fields": LAYOUT_FIELDS}
+        return self._call("GET", f"{SHEETS}/{spreadsheet_id}", params=params)
+
+    def folder(self, name: str) -> str:
+        # `drive.file` shows only the folders the app made, so a folder of the same name made
+        # by hand is not found and a new one is made beside it.
+        query = f"mimeType='{FOLDER}' and name='{_quoted(name)}' and trashed=false"
+        params = {"q": query, "fields": "files(id)", "orderBy": "createdTime"}
+        found = self._call("GET", DRIVE, params=params).get("files", [])
+        if found:
+            return str(found[0]["id"])
+        return str(self._call("POST", DRIVE, json={"name": name, "mimeType": FOLDER})["id"])
+
+    def create_file(self, title: str, folder_id: str) -> str:
+        body = {"name": title, "mimeType": SPREADSHEET, "parents": [folder_id]}
+        return str(self._call("POST", DRIVE, json=body)["id"])
 
     def modified_time(self, spreadsheet_id: str) -> dt.datetime:
         doc = self._call("GET", f"{DRIVE}/{spreadsheet_id}", params={"fields": "modifiedTime"})
@@ -126,6 +166,11 @@ class RestSheetsClient:
         if status == 429:
             raise StorageError("Google's quota is used up for now: try again in a minute")
         raise StorageError(f"Google answered {status}: {message}")
+
+
+def _quoted(text: str) -> str:
+    """Text inside '…' in a Drive query."""
+    return text.replace("\\", "\\\\").replace("'", "\\'")
 
 
 def _message(response: requests.Response) -> str:

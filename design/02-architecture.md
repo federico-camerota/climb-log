@@ -55,7 +55,8 @@ forms and widgets from module schemas and view definitions served by the API.
   of the repo. Each module names its YAML and its workbook; backups default to
   `~/.local/share/climblog/backups/<module>/` (`$XDG_DATA_HOME`). `~` is expanded and relative
   paths are relative to the config file. Unknown keys are errors. `[google]` names the OAuth
-  client file and, optionally, the token (D-062) and `max_age_seconds` (D-063); the LAN PIN
+  client file and, optionally, the token (D-062), `max_age_seconds` (D-063) and, for the sheets
+  the app creates, `folder`, `locale` and `time_zone` (D-065); the LAN PIN
   hash (D-010) is added when it is needed.
   ```toml
   [modules.finger_strength]          # the YAML's `module:` id

@@ -47,10 +47,12 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 - **Backend contract tests** (`tests/test_backend_*.py`): what every `Repository` must do
   (read, write, schema sync), run on each backend through a small harness
   (`tests/backends.py`). → done for xlsx (#49); reading on Google too, on an in-memory Google
-  and, opt-in, the real API (#51); writing too (#52); sync joins with #53.
+  and, opt-in, the real API (#51); writing (#52) and schema sync (#53) too.
 - OAuth desktop login (`climblog google login | status | logout`). → done (D-062, #50).
 - `GSheetsBackend`: reading, `google_sheet` in the config (→ done, D-063, #51); append,
   update by key, conflict check (→ done, D-064, #52); change polling, Drive-export backups.
+- Schema sync on Google: headers, dropdowns, colours, formulas, warning-only protection; a new
+  sheet in the app's Drive folder (→ done, D-065, #53).
 - `climblog module create --google` / "move module to Google" (copy a local workbook into a
   new Google Sheet with headers, dropdowns, colours).
 - Verify hand entry on the phone (Google Sheets app): dropdowns work, dates parse, blank

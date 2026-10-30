@@ -102,8 +102,17 @@ The app asks for Google Sheets and for the Drive files it creates itself, nothin
 token is saved readable by you only, and is never printed or logged.
 
 A module then names its sheet instead of a workbook (the ID, or the URL as the browser shows
-it). Reading works today; writing, schema sync and creating the module's sheet are coming
-(M2), and until the app creates the sheet itself Google won't let it see when the sheet changes.
+it). Reading, writing and `climblog check --apply` work on it; a command to create a module's
+sheet, or move a local module to Google, is coming (M2). Google lets the app see when a sheet
+changes only if the app created it. Sheets the app creates go into a `climb-log` folder of
+your Drive and read hand-typed values the Italian way (`7,5`, `24/10/2026`); to change that:
+
+```toml
+[google]
+# folder = "climb-log"
+# locale = "it_IT"          # e.g. "en_GB" for 7.5
+# time_zone = "Europe/Rome"
+```
 
 ```toml
 [modules.journal]

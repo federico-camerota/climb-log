@@ -29,6 +29,7 @@ from climblog.modules import Module, load_module
 from climblog.modules.schema import Key
 from climblog.storage import Backups, GSheetsBackend, Repository, StorageError, XlsxBackend
 from climblog.storage.google_client import RestSheetsClient, Session
+from climblog.storage.gsheets import NEW_SHEETS, NewSheets
 from climblog.storage.snapshot import CachedRepository, Snapshots
 
 ENV_VAR = "CLIMBLOG_CONFIG"
@@ -84,6 +85,13 @@ class GoogleConfig(_Strict):
     token: Path | None = None  # None: $XDG_CONFIG_HOME/climblog/google-token.json
     # Read a sheet again after this long even if Drive saw no change (it lags ~3 min, D-063).
     max_age_seconds: float = Field(default=60, ge=0)
+    # Sheets the app creates (D-065): the Drive folder, and how they read hand-typed values.
+    folder: str = NEW_SHEETS.folder
+    locale: str = NEW_SHEETS.locale
+    time_zone: str = NEW_SHEETS.time_zone
+
+    def new_sheets(self) -> NewSheets:
+        return NewSheets(self.folder, self.locale, self.time_zone)
 
     def token_file(self) -> Path:
         return self.token or _xdg("XDG_CONFIG_HOME", ".config") / "climblog" / "google-token.json"
@@ -138,6 +146,7 @@ class AppConfig(_Strict):
                 module.google_sheet,
                 RestSheetsClient(self.google_session),
                 max_age=dt.timedelta(seconds=self.google.max_age_seconds),
+                new_sheets=self.google.new_sheets(),
             )
         assert module.workbook is not None
         return XlsxBackend(module.workbook, backups=self.backups.for_module(name))

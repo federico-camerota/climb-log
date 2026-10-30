@@ -8,8 +8,8 @@ become the cell's value as Google would show it, except formulas, which get no c
 
 `batch_update` knows the requests the backend sends, and like Google applies all of them or
 none, and refuses cells outside the grid (`gridProperties`, 1000 rows and 26 columns for a new
-tab). In a decimal-comma locale (`properties.locale`), formulas come back in its syntax, as from
-Google: `=IF(A3="";"";B3*1,5)`.
+tab). As on Google, formulas sent with `create` in a decimal-comma locale come back in its
+syntax (`=IF(A3="";"";B3*1,5)`), those sent with `batch_update` as sent.
 """
 
 import copy
@@ -22,7 +22,7 @@ from openpyxl.utils import get_column_letter
 
 from climblog.storage import StorageError
 from climblog.storage.google_client import GoogleNotFound, Json
-from climblog.storage.gsheets import comma_decimal
+from climblog.storage.gsheets import comma_decimal, local_formula
 
 _EPOCH = dt.datetime(1899, 12, 30)
 START = dt.datetime(2026, 10, 1, 9, 0)
@@ -91,6 +91,27 @@ class FakeSheetsClient:
         self.modified: dict[str, dt.datetime] = {}
         self.unwatched: set[str] = set()
         self.calls: list[str] = []
+        self.folders: dict[str, str] = {}  # name → ID
+        self.parents: dict[str, str] = {}  # spreadsheet ID → folder ID
+        self._ids = 0
+
+    def get_layout(self, spreadsheet_id: str) -> Json:
+        book = self.get_grid(spreadsheet_id)
+        self.calls[-1] = "get_layout"
+        return book
+
+    def folder(self, name: str) -> str:
+        self.calls.append("folder")
+        return self.folders.setdefault(name, f"folder-{len(self.folders) + 1}")
+
+    def create_file(self, title: str, folder_id: str) -> str:
+        """An empty spreadsheet, as Drive makes it: one tab, the account's locale."""
+        self.calls.append("create_file")
+        sheet = {"properties": {"sheetId": 0, "title": "Sheet1", "index": 0}}
+        spreadsheet_id = self.create({"properties": {"title": title}, "sheets": [sheet]})
+        self.calls.pop()
+        self.parents[spreadsheet_id] = folder_id
+        return spreadsheet_id
 
     def title(self, spreadsheet_id: str) -> str:
         self.calls.append("title")
@@ -98,16 +119,7 @@ class FakeSheetsClient:
 
     def get_grid(self, spreadsheet_id: str) -> Json:
         self.calls.append("get_grid")
-        book = copy.deepcopy(self._book(spreadsheet_id))
-        if comma_decimal(book["properties"].get("locale", "en_US")):
-            for sheet in book.get("sheets", []):
-                for data in sheet.get("data", []):
-                    for row in data.get("rowData", []):
-                        for value in row.get("values", []):
-                            entered = value.get("userEnteredValue", {})
-                            if "formulaValue" in entered:
-                                entered["formulaValue"] = _localized(entered["formulaValue"])
-        return book
+        return copy.deepcopy(self._book(spreadsheet_id))
 
     def modified_time(self, spreadsheet_id: str) -> dt.datetime:
         self.calls.append("modified_time")
@@ -118,14 +130,22 @@ class FakeSheetsClient:
 
     def create(self, body: Mapping[str, Any]) -> str:
         self.calls.append("create")
-        spreadsheet_id = f"fake-{len(self.books) + 1:04d}-{'x' * 30}"
+        self._ids += 1
+        spreadsheet_id = f"fake-{self._ids:04d}-{'x' * 30}"
         book = copy.deepcopy(dict(body))
+        book["properties"].setdefault("locale", "en_US")
         for number, sheet in enumerate(book.get("sheets", []), start=1):
             props = sheet["properties"]
             props.setdefault("sheetId", number * 1000)
+            props.setdefault("index", number - 1)
             rows = [row for data in sheet.get("data", []) for row in data.get("rowData", [])]
             for row in rows:
                 row["values"] = [_typed(value) for value in row.get("values", [])]
+                if comma_decimal(book["properties"]["locale"]):  # Google keeps them localized
+                    for value in row["values"]:
+                        entered = value.get("userEnteredValue", {})
+                        if "formulaValue" in entered:
+                            entered["formulaValue"] = local_formula(entered["formulaValue"])
             grid = props.setdefault("gridProperties", {})
             grid.setdefault("rowCount", max(1000, len(rows)))
             width = max((len(row["values"]) for row in rows), default=0)
@@ -147,20 +167,90 @@ class FakeSheetsClient:
     def _updateCells(self, book: Json, update: Mapping[str, Any]) -> None:
         start = update["start"]
         sheet = _sheet(book, start["sheetId"])
-        fields = str(update["fields"]).split(",")
         for r, row in enumerate(update["rows"], start=start["rowIndex"]):
             for c, value in enumerate(row["values"], start=start["columnIndex"]):
-                cell = _cell(sheet, r, c)
-                new = _typed(value)
-                if "userEnteredValue" in fields:
-                    for key in ("userEnteredValue", "effectiveValue"):
-                        cell.pop(key, None)
-                        if key in new:
-                            cell[key] = new[key]
-                if any(f.startswith("userEnteredFormat") for f in fields):
-                    cell.pop("effectiveFormat", None)
-                    if "effectiveFormat" in new:
-                        cell["effectiveFormat"] = new["effectiveFormat"]
+                _set(_cell(sheet, r, c), value, str(update["fields"]).split(","))
+
+    def _repeatCell(self, book: Json, body: Mapping[str, Any]) -> None:
+        cells = body["range"]
+        sheet = _sheet(book, cells["sheetId"])
+        grid = sheet["properties"]["gridProperties"]
+        for r in range(cells.get("startRowIndex", 0), cells.get("endRowIndex", grid["rowCount"])):
+            columns = range(
+                cells.get("startColumnIndex", 0), cells.get("endColumnIndex", grid["columnCount"])
+            )
+            for c in columns:
+                _set(_cell(sheet, r, c), body["cell"], str(body["fields"]).split(","))
+
+    def _addSheet(self, book: Json, body: Mapping[str, Any]) -> None:
+        props = copy.deepcopy(dict(body["properties"]))
+        if any(s["properties"]["title"] == props["title"] for s in book["sheets"]):
+            raise StorageError(f"Google answered 400: A sheet named '{props['title']}' exists")
+        props["index"] = len(book["sheets"])
+        grid = props.setdefault("gridProperties", {})
+        grid.setdefault("rowCount", 1000)
+        grid.setdefault("columnCount", 26)
+        book["sheets"].append({"properties": props})
+
+    def _deleteSheet(self, book: Json, body: Mapping[str, Any]) -> None:
+        if len(book["sheets"]) == 1:
+            raise StorageError("Google answered 400: can't delete the only sheet")
+        book["sheets"].remove(_sheet(book, body["sheetId"]))
+        for index, sheet in enumerate(book["sheets"]):
+            sheet["properties"]["index"] = index
+
+    def _updateSpreadsheetProperties(self, book: Json, body: Mapping[str, Any]) -> None:
+        for name in str(body["fields"]).split(","):
+            book["properties"][name] = body["properties"][name]
+
+    def _updateDimensionProperties(self, book: Json, body: Mapping[str, Any]) -> None:
+        cells = body["range"]
+        dimensions = _sheet(book, cells["sheetId"]).setdefault("dimensions", {})
+        for i in range(cells["startIndex"], cells["endIndex"]):
+            done = dimensions.setdefault(f"{cells['dimension']}:{i}", {})
+            for name in str(body["fields"]).split(","):
+                done[name] = body["properties"][name]
+
+    def _setDataValidation(self, book: Json, body: Mapping[str, Any]) -> None:
+        cells = body["range"]
+        rules = _sheet(book, cells["sheetId"]).setdefault("dataValidations", [])
+        rules[:] = [rule for rule in rules if rule["range"] != cells]
+        if "rule" in body:
+            rules.append({"range": dict(cells), "rule": copy.deepcopy(body["rule"])})
+
+    def _addConditionalFormatRule(self, book: Json, body: Mapping[str, Any]) -> None:
+        rule = copy.deepcopy(body["rule"])
+        sheet = _sheet(book, rule["ranges"][0]["sheetId"])
+        sheet.setdefault("conditionalFormats", []).insert(body.get("index", 0), rule)
+
+    def _deleteConditionalFormatRule(self, book: Json, body: Mapping[str, Any]) -> None:
+        _sheet(book, body["sheetId"])["conditionalFormats"].pop(body["index"])
+
+    def _addProtectedRange(self, book: Json, body: Mapping[str, Any]) -> None:
+        protected = copy.deepcopy(body["protectedRange"])
+        self._ids += 1
+        protected["protectedRangeId"] = self._ids
+        _sheet(book, protected["range"]["sheetId"]).setdefault("protectedRanges", []).append(
+            protected
+        )
+
+    def _deleteProtectedRange(self, book: Json, body: Mapping[str, Any]) -> None:
+        for sheet in book["sheets"]:
+            ranges = sheet.get("protectedRanges", [])
+            ranges[:] = [p for p in ranges if p["protectedRangeId"] != body["protectedRangeId"]]
+
+    def _addNamedRange(self, book: Json, body: Mapping[str, Any]) -> None:
+        named = copy.deepcopy(body["namedRange"])
+        names = book.setdefault("namedRanges", [])
+        if any(n["name"] == named["name"] for n in names):
+            raise StorageError(f"Google answered 400: the name {named['name']} exists")
+        self._ids += 1
+        named["namedRangeId"] = str(self._ids)
+        names.append(named)
+
+    def _deleteNamedRange(self, book: Json, body: Mapping[str, Any]) -> None:
+        names = book.get("namedRanges", [])
+        names[:] = [n for n in names if n["namedRangeId"] != body["namedRangeId"]]
 
     def _appendDimension(self, book: Json, body: Mapping[str, Any]) -> None:
         grid = _sheet(book, body["sheetId"])["properties"]["gridProperties"]
@@ -216,17 +306,38 @@ def _cell(sheet: Json, r: int, c: int) -> Json:
     return cell
 
 
-def _localized(formula: str) -> str:
-    """An en_US formula in a decimal-comma locale's syntax (no quotes handled: test formulas)."""
-    return formula.replace(",", ";").replace(".", ",")
-
-
 def _typed(value: Json) -> Json:
     """A typed-in cell with the value and format Google would show (formulas: no value)."""
-    entered = value.get("userEnteredValue", {})
-    cell = {"userEnteredValue": dict(entered)} if entered else {}
-    if entered and "formulaValue" not in entered:
-        cell["effectiveValue"] = dict(entered)
-    if form := value.get("userEnteredFormat", {}).get("numberFormat"):
-        cell["effectiveFormat"] = {"numberFormat": dict(form)}
+    cell: Json = {}
+    _set(cell, value, ["userEnteredValue", "userEnteredFormat", "note"])
     return cell
+
+
+def _set(cell: Json, value: Json, fields: Sequence[str]) -> None:
+    """Change the `fields` of a cell to those of `value` (a field `value` lacks is cleared)."""
+    if "userEnteredValue" in fields:
+        entered = value.get("userEnteredValue", {})
+        for key in ("userEnteredValue", "effectiveValue"):
+            cell.pop(key, None)
+        if entered:
+            cell["userEnteredValue"] = dict(entered)
+            if "formulaValue" not in entered:
+                cell["effectiveValue"] = dict(entered)
+    form = value.get("userEnteredFormat", {})
+    if "userEnteredFormat" in fields:
+        cell.pop("userEnteredFormat", None)
+        if form:
+            cell["userEnteredFormat"] = copy.deepcopy(form)
+    elif "userEnteredFormat.numberFormat" in fields:
+        current = cell.setdefault("userEnteredFormat", {})
+        current.pop("numberFormat", None)
+        if "numberFormat" in form:
+            current["numberFormat"] = dict(form["numberFormat"])
+    number_format = cell.get("userEnteredFormat", {}).get("numberFormat")
+    cell.pop("effectiveFormat", None)
+    if number_format:
+        cell["effectiveFormat"] = {"numberFormat": dict(number_format)}
+    if "note" in fields:
+        cell.pop("note", None)
+        if "note" in value:
+            cell["note"] = value["note"]

@@ -50,7 +50,7 @@ ERROR_TITLE = "climblog"
 ERROR_TEXT = "Value outside the allowed range/choices"
 # Scale cells from red (worst) through yellow to green (best), as in the mock-ups.
 RED, YELLOW, GREEN = "F8696B", "FFEB84", "63BE7B"
-_GOOD, _WATCH, _LOW = "C6EFCE", "FFE699", "F8CBAD"  # status cells (mock-ups)
+GOOD, WATCH, LOW = "C6EFCE", "FFE699", "F8CBAD"  # status cells (mock-ups)
 
 _LABEL_FONT = Font(bold=True, color="1F1F1F")
 _KEY_FONT = Font(name="Roboto Mono", size=9, color="404040")
@@ -165,7 +165,7 @@ def _rewrite_rules(sheet: Worksheet, tab: TabLayout) -> None:
             validation.add(cells)
             sheet.add_data_validation(validation)
         if spec.levels:
-            for level, fill in zip(spec.levels, _level_fills(len(spec.levels)), strict=True):
+            for level, fill in zip(spec.levels, level_fills(len(spec.levels)), strict=True):
                 rule = CellIsRule(  # type: ignore[no-untyped-call]
                     operator="equal",
                     formula=[_quoted(level)],
@@ -342,9 +342,9 @@ def top_up(sheet: Worksheet, keys: Mapping[str, int]) -> None:
             target.number_format = source.number_format
 
 
-def _level_fills(n: int) -> list[str]:
+def level_fills(n: int) -> list[str]:
     """Status colours, best first: green … amber … red (the mock-ups' GOOD/WATCH/LOW)."""
-    return [_GOOD if i == 0 else _LOW if i == n - 1 else _WATCH for i in range(n)]
+    return [GOOD if i == 0 else LOW if i == n - 1 else WATCH for i in range(n)]
 
 
 def _quoted(text: str) -> str:

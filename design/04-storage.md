@@ -28,9 +28,9 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
   row 2. Formulas are generated from the YAML (`03-module-framework.md` §2.2b) and return `""`
   while the row's key is empty. Statuses get conditional formatting (GOOD/WATCH/LOW,
   GREEN/YELLOW/RED colours: the first level green, the last red, the others amber). Every
-  column gets the number format of its result type (D-054). On Google Sheets the columns
-  will be protected with a *warning only* (M2); `.xlsx` has no warning-only protection, so
-  there the drift check is the guard.
+  column gets the number format of its result type (D-054). On Google Sheets the columns, and
+  the two header rows, are protected with a *warning only* (D-065); `.xlsx` has no warning-only
+  protection, so there the drift check is the guard.
 - **Hidden key column** (D-031): tabs with a composite key get a hidden computed column
   `auto:_key` = date serial × 10 + session # (blank = 1), so cross-tab formulas (session
   checks, child counts, maxima) need a single, locale-proof criterion. Placed last in the
@@ -208,9 +208,28 @@ are picked up by change polling.
 - Concurrency: Google has no "write only if unchanged", so a hand edit made in the second
   between the write's read and the write itself is not seen; edits by hand are occasional
   (D-027) and backups cover the rest.
-- Formulas: the API takes them in en_US syntax in any locale, but gives them back in the
-  sheet's (`=IF(A3="";"";B3*1,5)` in it_IT): the backend turns them back into en_US syntax for
-  decimal-comma locales, so the drift check compares like with like.
+- Formulas: the API takes cell formulas in en_US syntax in any locale, and gives each back in
+  the syntax it was entered in: the app's as written, one typed by hand in an it_IT sheet as
+  `=IF(A3="";"";B3*1,5)`. A formula with `;` outside strings in a decimal-comma locale is turned
+  back into en_US syntax, so the drift check compares like with like. **Rules are different**:
+  the values and formulas of validation and colour rules are read in the sheet's locale, so
+  sync writes them that way (`5,5`, `=AND(ISNUMBER(B3);B3=INT(B3))`; Google stores the latter
+  with Italian function names). Measured on 2026-10-30.
+- Schema sync (D-065, `storage/gsheets_sync.py`): the changes of `xlsx_sync.py` as requests from
+  one read of the sheet (cells, rules, protections, named ranges), sent in one `batchUpdate`.
+  Headers styled and frozen (rows 1–2, columns A–B), a note on A2, column widths (7 px per
+  character), the hidden key column; dropdowns (`ONE_OF_LIST`, `strict: false` for
+  `allow_other`), number ranges, whole numbers as a custom formula (Google has no whole-number
+  rule), dates from 1990 (ISO date), times as numbers 0–0.999988; colour scales as gradient
+  rules and statuses as `TEXT_EQ` rules. Rules on the module's columns are made again on every
+  sync, others kept (a spanning rule is cut). Warning-only protected ranges named
+  `climb-log: …` on the header rows and each `auto:` column, made again on every sync. A named
+  range per setting, re-pointed on every sync. The grid gets more rows or columns when the
+  buffer or new columns need them. A backend without an ID creates its spreadsheet on the
+  first sync: an empty file in the app's Drive folder (`[google] folder`, default `climb-log`,
+  made if missing), then in the same batch its locale and time zone (`[google] locale`,
+  `time_zone`, default it_IT and Europe/Rome, so the phone reads `7,5` and `24/10/2026`), the
+  module's tabs, and Google's first tab removed; if anything fails the file is trashed.
 - Backups: periodic export of the spreadsheet as `.xlsx` into the local backups folder
   (Drive export), so a Google-hosted module is also backed up locally.
 - Offline: if Google is unreachable, the UI is read-only from cache, and *optionally*
