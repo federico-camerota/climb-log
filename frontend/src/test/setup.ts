@@ -18,6 +18,15 @@ Object.defineProperty(window, "matchMedia", {
   }),
 });
 
+// Nor ResizeObserver and scrollIntoView, which Mantine's layout and dropdowns use.
+class ResizeObserver {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+window.ResizeObserver = ResizeObserver;
+Element.prototype.scrollIntoView = () => undefined;
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();

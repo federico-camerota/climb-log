@@ -6,6 +6,16 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 
 ## [Unreleased]
 
+### Added
+- App shell (#70, D-073): a sidebar with Today, Log, Records, Dashboards and Settings,
+  pages per module and entity in the URL (`/records/journal/session`), a light/dark toggle,
+  Settings listing the modules (and what is wrong with one that doesn't load), and on Records
+  the count of records and data issues with when they were read (an *offline* warning when
+  only the snapshot is available). Today, Log and Dashboards are placeholders for their
+  issues. Data is refetched when the window regains focus.
+- `make api-types` generates the frontend's API types from the backend's OpenAPI schema;
+  `make lint` checks they are up to date.
+
 ### Changed
 - M3 re-scoped (`design/07-roadmap.md`): logging mainly in the app on the computer, Google
   Sheets on the phone as the fallback; LAN mode moved to the backlog (D-069). Frontend

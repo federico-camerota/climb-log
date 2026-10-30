@@ -14,6 +14,9 @@ The full workflow is in [`design/08-workflow.md`](design/08-workflow.md); the sh
   when `soffice` works (or `CLIMBLOG_SOFFICE="snap run libreoffice"` with
   `CLIMBLOG_SOFFICE_TMP=build/lo-parity` for a snap) and are skipped otherwise, CI included.
   Run them before a pull request that changes formulas, expressions or schema sync.
+- **API types**: the frontend's types of the API (`frontend/src/api/schema.ts`) are generated
+  from the backend's OpenAPI schema. After changing an API model, run `make api-types` and
+  commit the file; `make lint` fails while it is out of date (D-073).
 - **Storage tests**: what every backend must do goes in the contract tests
   (`tests/test_backend_*.py`, which use a backend only through `Repository` and the harness in
   `tests/backends.py`); what is particular to one backend (file formats, locks, styles) goes

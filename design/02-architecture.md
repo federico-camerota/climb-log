@@ -128,7 +128,8 @@ backend/climblog/
   importers/
     legacy_journal.py legacy_fear.py legacy_shoulder.py
 frontend/src/
-  api/ forms/ widgets/ pages/ lib/
+  api/                 # client.ts, queries.ts (TanStack Query), schema.ts (generated, D-073)
+  layout/ pages/ components/ lib/ forms/ widgets/
 modules/               # module YAML definitions (user-editable)
   journal.yaml fear-of-falling.yaml shoulder.yaml
 ```

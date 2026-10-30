@@ -55,6 +55,7 @@ through `pnpm --dir frontend`. Node 22 via fnm (`.node-version`). `make help` li
   so run them locally when a change touches formulas, expressions or sync, and say so in the PR
 - `make lint`: ruff, mypy `--strict`, `tsc`, eslint, prettier check (changes nothing)
 - `make fixtures`: write the fictional journal workbooks (legacy and new layout) to `tests/fixtures/`
+- `make api-types`: regenerate `frontend/src/api/schema.ts` from the backend's OpenAPI schema (after an API change; `make lint` checks it)
 - `make fmt`: apply ruff, prettier and eslint auto-fixes
 - `uv run pre-commit run --all-files`: run the commit hooks (data check, lint) on every file
 - `uv run climblog module validate FILE...`: check module YAML files (`module schema` prints the JSON Schema)
