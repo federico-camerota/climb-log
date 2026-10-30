@@ -78,6 +78,7 @@ _DATE_TIME = {"type": "DATE_TIME", "pattern": "dd/mm/yyyy hh:mm:ss"}
 _TIME = {"type": "TIME", "pattern": "hh:mm"}
 _DURATION = {"type": "TIME", "pattern": "[h]:mm"}
 _TEXT = {"type": "TEXT"}
+_FIELDS = "userEnteredValue,userEnteredFormat.numberFormat"  # what a write sets in each cell
 _KINDS = {"DATE": "date", "DATE_TIME": "date", "TIME": "date", "NUMBER": "number",
           "PERCENT": "number", "CURRENCY": "number", "SCIENTIFIC": "number"}  # fmt: skip
 
@@ -442,10 +443,10 @@ class _Tab:
         if last > self.row_count:
             more = {"sheetId": self.sheet_id, "dimension": "ROWS", "length": last - self.row_count}
             requests.append({"appendDimension": more})
-        for (number, column), value in sorted(self.cells.items()):
-            cell, fields = _cell_data(value, self._format(number, column))
+        for number, column, values in self._runs():  # one request per run of adjacent cells
+            cells = [_cell_data(v, self._format(number, column + i)) for i, v in enumerate(values)]
             start = {"sheetId": self.sheet_id, "rowIndex": number - 1, "columnIndex": column}
-            update = {"rows": [{"values": [cell]}], "start": start, "fields": fields}
+            update = {"rows": [{"values": cells}], "start": start, "fields": _FIELDS}
             requests.append({"updateCells": update})
         for column, source, end in top_up:
             requests.append({"copyPaste": {
@@ -454,6 +455,16 @@ class _Tab:
                 "pasteType": "PASTE_NORMAL",
             }})  # fmt: skip
         return requests
+
+    def _runs(self) -> list[tuple[int, int, list[RawCell]]]:
+        """The cells to write as (row, first column, values) for each run of adjacent ones."""
+        runs: list[tuple[int, int, list[RawCell]]] = []
+        for (number, column), value in sorted(self.cells.items()):
+            if runs and runs[-1][0] == number and runs[-1][1] + len(runs[-1][2]) == column:
+                runs[-1][2].append(value)
+            else:
+                runs.append((number, column, [value]))
+        return runs
 
     def _top_up(self) -> list[tuple[int, int, int]]:
         """(column, last formula row, buffer end) for each formula column to extend (D-054)."""
@@ -486,12 +497,12 @@ def _is_formula(values: tuple[RawCell, ...], i: int) -> bool:
     return i < len(values) and isinstance(values[i], str) and str(values[i]).startswith("=")
 
 
-def _cell_data(value: RawCell, current: Json | None) -> tuple[Json, str]:
-    """The API's `CellData` for a value, and the fields to set: a string is a text cell (never a
-    formula), a date or time a serial with a date format, unless the cell's own format is
-    already of that kind; None clears the value."""
+def _cell_data(value: RawCell, current: Json | None) -> Json:
+    """The API's `CellData` for a value, with its number format (`_FIELDS`): a string is a text
+    cell (never a formula), a date or time a serial with a date format, unless the cell's own
+    format is already of that kind; None clears the value and keeps the format."""
     if value is None:
-        return {}, "userEnteredValue"
+        return {"userEnteredFormat": {"numberFormat": current}} if current else {}
     if isinstance(value, str):
         entered: Json = {"stringValue": value}
         form: Json | None = _TEXT
@@ -504,11 +515,11 @@ def _cell_data(value: RawCell, current: Json | None) -> tuple[Json, str]:
         serial_number, form = serial(value)
         entered, kind = {"numberValue": serial_number}, "date"
     if current is not None and _KINDS.get(current.get("type", "")) == kind:
-        return {"userEnteredValue": entered}, "userEnteredValue"  # the sheet's format is kept
+        form = current  # the sheet's format is kept
     cell: Json = {"userEnteredValue": entered}
     if form is not None:
         cell["userEnteredFormat"] = {"numberFormat": form}
-    return cell, "userEnteredValue,userEnteredFormat.numberFormat"
+    return cell
 
 
 def serial(value: dt.date | dt.time | dt.timedelta) -> tuple[float, Json]:

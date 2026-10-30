@@ -54,7 +54,8 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
 - Schema sync on Google: headers, dropdowns, colours, formulas, warning-only protection; a new
   sheet in the app's Drive folder (→ done, D-065, #53).
 - `climblog module create --google` / "move module to Google" (copy a local workbook into a
-  new Google Sheet with headers, dropdowns, colours).
+  new Google Sheet with headers, dropdowns, colours). → done (D-067, #54): `module create FILE
+  --google`, `module move MODULE --to-google`; the owner moves the real journal.
 - Verify hand entry on the phone (Google Sheets app): dropdowns work, dates parse, blank
   `session_no`/`id` are accepted, rows are picked up by the app.
 - **Done when**: the journal works identically from local and Google, with the backend

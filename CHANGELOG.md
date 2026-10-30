@@ -29,6 +29,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   goes into a `climb-log` Drive folder, in the it_IT locale and Europe/Rome time zone (`[google]
   folder`, `locale`, `time_zone`) (D-065, #53). The drift check works there too, and an opt-in
   live test checks that every value Google computes is the app's (D-066, #53).
+- `climblog module move MODULE --to-google` copies a local module into a new Google Sheet, raw
+  cells and all, checks the copy (records, settings, data issues, formulas computed by Google)
+  and prints the config line; the workbook is only read. `climblog module create FILE --google`
+  makes a new module's sheet (D-067, #54).
 - `PRIVACY.md`: the privacy policy Google asks for before an OAuth app can be published; the
   README setup steps now include it and the home page link.
 

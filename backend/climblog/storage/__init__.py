@@ -20,6 +20,7 @@ from climblog.storage.drift import Drift, find_drift
 from climblog.storage.gsheets import GSheetsBackend
 from climblog.storage.layout import WorkbookLayout, workbook_layout
 from climblog.storage.load import EntityData, ModuleData, load_data
+from climblog.storage.move import MoveReport, move_to_google
 from climblog.storage.snapshot import (
     CachedRepository,
     Snapshot,
@@ -43,6 +44,7 @@ __all__ = [
     "EntityData",
     "GSheetsBackend",
     "ModuleData",
+    "MoveReport",
     "RawCell",
     "RecordNotFound",
     "RecordWriter",
@@ -66,6 +68,7 @@ __all__ = [
     "check_schema",
     "find_drift",
     "load_data",
+    "move_to_google",
     "parse_cell",
     "sync_module",
     "workbook_layout",

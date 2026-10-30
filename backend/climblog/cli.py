@@ -22,7 +22,7 @@ from climblog.config import (
 from climblog.importers.legacy_journal import import_legacy, parity, read_legacy
 from climblog.modules import Module, ModuleError, load_module
 from climblog.modules.formulas import formula_columns
-from climblog.storage import StorageError, check_schema, sync_module
+from climblog.storage import StorageError, check_schema, move_to_google, sync_module
 from climblog.storage.drift import drift_differences, find_drift
 
 # Localhost only: LAN access needs the PIN (D-010), which does not exist yet.
@@ -187,7 +187,9 @@ def import_legacy_command(
         raise typer.Exit(1)
 
 
-module_app = typer.Typer(help="Check module definition files (YAML).", no_args_is_help=True)
+module_app = typer.Typer(
+    help="Module definition files (YAML), and where modules live.", no_args_is_help=True
+)
 app.add_typer(module_app, name="module")
 
 
@@ -213,6 +215,107 @@ def validate(
                 typer.echo(f"  note: {entry}")
     if failed:
         raise typer.Exit(1)
+
+
+@module_app.command()
+def create(
+    definition: Annotated[
+        Path, typer.Argument(help="The module's YAML.", exists=True, dir_okay=False)
+    ],
+    google: Annotated[bool, typer.Option("--google", help="Make it a Google Sheet.")] = False,
+    config: Annotated[
+        Path | None,
+        typer.Option(
+            help="Config file (default: $CLIMBLOG_CONFIG, ~/.config/climblog/config.toml)."
+        ),
+    ] = None,
+) -> None:
+    """Make a new Google Sheet for a module, synced with its YAML, and print its config lines.
+
+    A local workbook needs no command: name it in the config and run `climblog check --apply`.
+    """
+    if not google:
+        _fail(["only --google: a local workbook is made by `climblog check MODULE --apply`"])
+    try:
+        app_config = load_config(config_path(config))
+        module = load_module(definition)
+    except ConfigError as error:
+        _fail(error.lines())
+    except ModuleError as error:
+        _fail(error.lines())
+    if module.module in app_config.modules:
+        where = app_config.modules[module.module].location
+        _fail([f"module '{module.module}' is already in the config ({where})"])
+    repo = app_config.google_sheet(None)
+    try:
+        sync_module(module, repo)
+    except StorageError as error:
+        _fail([f"error: {error}"])
+    assert repo.spreadsheet_id is not None
+    folder = app_config.google.folder
+    typer.echo(f"created Google Sheet '{module.name}' in your Drive folder '{folder}':")
+    typer.echo(f"  {_sheet_url(repo.spreadsheet_id)}")
+    typer.echo("Add this to the config:")
+    typer.echo(_config_block(module.module, definition.resolve(), repo.spreadsheet_id))
+
+
+@module_app.command()
+def move(
+    module: Annotated[str, typer.Argument(help="The module, as named in the config.")],
+    to_google: Annotated[
+        bool, typer.Option("--to-google", help="Move it to a new Google Sheet.")
+    ] = False,
+    config: Annotated[
+        Path | None,
+        typer.Option(
+            help="Config file (default: $CLIMBLOG_CONFIG, ~/.config/climblog/config.toml)."
+        ),
+    ] = None,
+) -> None:
+    """Copy a module's local workbook into a new Google Sheet and check the copy (D-067).
+
+    The workbook is only read. When the check passes, put the printed `google_sheet` line in
+    the config instead of `workbook`; until then the module stays local.
+    """
+    if not to_google:
+        _fail(["only --to-google: a module moves from a local workbook to Google Sheets"])
+    try:
+        app_config = load_config(config_path(config))
+    except ConfigError as error:
+        _fail(error.lines())
+    if module not in app_config.modules:
+        _fail([f"not in the config: {module}"])
+    settings = app_config.modules[module]
+    if settings.workbook is None:
+        _fail([f"{module} is already on Google ({settings.location})"])
+    google = app_config.google_sheet(None)
+    typer.echo(f"{module}: copying {settings.workbook} to a new Google Sheet")
+    try:
+        report = move_to_google(app_config.module(module), app_config.repository(module), google)
+    except (ModuleError, ValueError, StorageError) as error:
+        lines = error.lines() if isinstance(error, ModuleError) else [f"error: {error}"]
+        _fail(lines)
+    typer.echo(f"  created {google.label}: {_sheet_url(report.spreadsheet_id)}")
+    copied = ", ".join(f"{tab} {rows}" for tab, rows in report.copied.items())
+    typer.echo(f"  rows copied: {copied}")
+    for line in report.not_copied:
+        typer.echo(f"  not copied (not in the module): {line}")
+    if report.differences:
+        typer.echo("  the copy differs; the sheet is kept for a look, the module stays local:")
+        for line in report.differences:
+            typer.echo(f"    {line}")
+        raise typer.Exit(1)
+    typer.echo("  checked: the same records, settings and data issues; formulas give the app's")
+    typer.echo(f"Replace `workbook = ...` under [modules.{module}] in the config with:")
+    typer.echo(f'google_sheet = "{report.spreadsheet_id}"')
+
+
+def _sheet_url(spreadsheet_id: str) -> str:
+    return f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit"
+
+
+def _config_block(module: str, definition: Path, spreadsheet_id: str) -> str:
+    return f'[modules.{module}]\ndefinition = "{definition}"\ngoogle_sheet = "{spreadsheet_id}"'
 
 
 @module_app.command()

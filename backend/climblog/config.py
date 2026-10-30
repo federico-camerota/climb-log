@@ -28,7 +28,7 @@ from pydantic import (
 from climblog.modules import Module, load_module
 from climblog.modules.schema import Key
 from climblog.storage import Backups, GSheetsBackend, Repository, StorageError, XlsxBackend
-from climblog.storage.google_client import RestSheetsClient, Session
+from climblog.storage.google_client import RestSheetsClient, Session, SheetsClient
 from climblog.storage.gsheets import NEW_SHEETS, NewSheets
 from climblog.storage.snapshot import CachedRepository, Snapshots
 
@@ -142,14 +142,23 @@ class AppConfig(_Strict):
         """The module's workbook (with its backups, taken only on writes) or Google Sheet."""
         module = self.modules[name]
         if module.google_sheet is not None:
-            return GSheetsBackend(
-                module.google_sheet,
-                RestSheetsClient(self.google_session),
-                max_age=dt.timedelta(seconds=self.google.max_age_seconds),
-                new_sheets=self.google.new_sheets(),
-            )
+            return self.google_sheet(module.google_sheet)
         assert module.workbook is not None
         return XlsxBackend(module.workbook, backups=self.backups.for_module(name))
+
+    def google_sheet(self, spreadsheet_id: str | None) -> GSheetsBackend:
+        """A Google Sheet with the saved login; without an ID, a new one that schema sync makes
+        in the app's Drive folder (D-065)."""
+        return GSheetsBackend(
+            spreadsheet_id,
+            self.sheets_client(),
+            max_age=dt.timedelta(seconds=self.google.max_age_seconds),
+            new_sheets=self.google.new_sheets(),
+        )
+
+    def sheets_client(self) -> SheetsClient:
+        """Google's Sheets and Drive APIs, logged in on first use."""
+        return RestSheetsClient(self.google_session)
 
     def google_session(self) -> Session:
         """A session with the saved Google login (made when the sheet is first read)."""

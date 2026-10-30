@@ -101,23 +101,36 @@ uv run climblog google logout   # revokes the access and deletes the token
 The app asks for Google Sheets and for the Drive files it creates itself, nothing else. The
 token is saved readable by you only, and is never printed or logged.
 
-A module then names its sheet instead of a workbook (the ID, or the URL as the browser shows
-it). Reading, writing and `climblog check --apply` work on it; a command to create a module's
-sheet, or move a local module to Google, is coming (M2). Google lets the app see when a sheet
-changes only if the app created it. Sheets the app creates go into a `climb-log` folder of
-your Drive and read hand-typed values the Italian way (`7,5`, `24/10/2026`); to change that:
+A module on Google names its sheet instead of a workbook (the ID, or the URL as the browser
+shows it). Let the app create the sheet: Google lets it see when a sheet changes only if it
+made the sheet. Two commands do that, and print the config lines to add:
+
+```sh
+uv run climblog module create modules/shoulder.yaml --google   # a new, empty module
+uv run climblog module move journal --to-google                 # a local module, with its data
+```
+
+`module move` reads the local workbook (it must check clean: run `climblog check journal
+--apply` first), copies every row into a new sheet, and checks the copy: the same records,
+settings and data issues, and every formula computed by Google giving the app's value. The
+workbook is never changed; the module moves when you replace `workbook = …` with the printed
+`google_sheet = …` line. Columns the module doesn't know (and retired fields) are listed as not
+copied.
+
+```toml
+[modules.journal]
+definition = "~/climb-log/modules/journal.yaml"
+google_sheet = "<ID>"   # or the URL: https://docs.google.com/spreadsheets/d/<ID>/edit
+```
+
+Sheets the app creates go into a `climb-log` folder of your Drive and read hand-typed values the
+Italian way (`7,5`, `24/10/2026`); to change that:
 
 ```toml
 [google]
 # folder = "climb-log"
 # locale = "it_IT"          # e.g. "en_GB" for 7.5
 # time_zone = "Europe/Rome"
-```
-
-```toml
-[modules.journal]
-definition = "~/climb-log/modules/journal.yaml"
-google_sheet = "https://docs.google.com/spreadsheets/d/<ID>/edit"
 ```
 
 ## Documentation

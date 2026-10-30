@@ -237,6 +237,18 @@ are picked up by change polling.
   made if missing), then in the same batch its locale and time zone (`[google] locale`,
   `time_zone`, default it_IT and Europe/Rome, so the phone reads `7,5` and `24/10/2026`), the
   module's tabs, and Google's first tab removed; if anything fails the file is trashed.
+- Moving a module (D-067, `storage/move.py`): `climblog module move MODULE --to-google` reads the
+  local workbook (it must check clean, `info` aside, so both are read alike), makes a new sheet
+  by schema sync, copies every row of the module's columns and system columns as raw cells in
+  one `batchUpdate` (data issues, soft-deleted rows and `updated_at` included; other columns
+  and retired fields are listed as not copied), and the `_settings` values. Then it checks the
+  copy: each tab holds as many rows, the app reads the same records (retired fields aside),
+  settings and data issues (row numbers aside), the sheet checks clean, and no drift (every
+  value Google computes is the app's). It prints the `google_sheet` line; on a difference the
+  sheet is kept and the module stays local. The workbook is never written. `climblog module
+  create FILE --google` makes an empty module's sheet the same way. A write sends one
+  `updateCells` per run of adjacent cells in a row, each cell with its number format, so a
+  move of hundreds of records stays a few thousand requests in one call.
 - Backups: periodic export of the spreadsheet as `.xlsx` into the local backups folder
   (Drive export), so a Google-hosted module is also backed up locally.
 - Offline: if Google is unreachable, the UI is read-only from cache, and *optionally*
