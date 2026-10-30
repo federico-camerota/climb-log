@@ -286,6 +286,25 @@ def test_a_write_is_one_batch_on_a_fresh_read(client: FakeSheetsClient) -> None:
     assert client.calls == ["get_grid", "batch_update"]
 
 
+def test_adjacent_cells_go_in_one_request(client: FakeSheetsClient) -> None:
+    repo = book(client, ["a", "b", "c", "d"])
+    sent: list[list[Json]] = []
+    send = client.batch_update
+
+    def spy(spreadsheet_id: str, requests: list[Json]) -> Json:
+        sent.append(requests)
+        return send(spreadsheet_id, requests)
+
+    client.batch_update = spy  # type: ignore[method-assign,assignment]
+    repo.apply([Append("T", {"a": 1, "b": 2, "d": 4}), Append("T", {"a": 5})])
+    (requests,) = sent
+    updates = [r["updateCells"] for r in requests if "updateCells" in r]
+    starts = [(u["start"]["rowIndex"], u["start"]["columnIndex"]) for u in updates]
+    assert starts == [(2, 0), (2, 3), (3, 0)]  # a3:b3, d3, a4
+    assert [len(u["rows"][0]["values"]) for u in updates] == [2, 1, 1]
+    assert [r.cells for r in repo.read_table("T").rows] == [{"a": 1, "b": 2, "d": 4}, {"a": 5}]
+
+
 def test_reads_see_a_write_at_once(client: FakeSheetsClient) -> None:
     clock = Clock()
     repo = book(client, ["a"], [1])
