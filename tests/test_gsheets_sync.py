@@ -78,6 +78,21 @@ def test_a_new_sheet_is_made_in_the_apps_folder(
     assert created.label == "Google Sheet 'Test sync'"
 
 
+def test_formulas_are_written_in_the_sheets_syntax(
+    client: FakeSheetsClient, load: LoadYaml
+) -> None:
+    repo = GSheetsBackend(None, client)
+    sync_module(load(FORMULA_MODULE), repo)
+    rows = sheet(client, repo, "Session")["data"][0]["rowData"]
+    formulas = [v for row in rows[2:4] for v in row.get("values", [])
+                if "formulaValue" in v.get("userEnteredValue", {})]  # fmt: skip
+    assert len(formulas) > 40
+    assert all("errorValue" not in v.get("effectiveValue", {}) for v in formulas)  # parsed
+    assert formulas[0]["userEnteredValue"]["formulaValue"].startswith('=IF(A3="";"";')
+    formula = repo.read_formulas("Session").rows[0].cells["auto:load"]
+    assert formula == '=IF(A3="","",IF(OR(D3="",E3=""),"",D3*E3))'  # read back in en_US syntax
+
+
 def test_the_folder_locale_and_time_zone_come_from_the_config(
     client: FakeSheetsClient, module: Module
 ) -> None:

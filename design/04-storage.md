@@ -208,13 +208,14 @@ are picked up by change polling.
 - Concurrency: Google has no "write only if unchanged", so a hand edit made in the second
   between the write's read and the write itself is not seen; edits by hand are occasional
   (D-027) and backups cover the rest.
-- Formulas: the API takes cell formulas in en_US syntax in any locale, and gives each back in
-  the syntax it was entered in: the app's as written, one typed by hand in an it_IT sheet as
-  `=IF(A3="";"";B3*1,5)`. A formula with `;` outside strings in a decimal-comma locale is turned
-  back into en_US syntax, so the drift check compares like with like. **Rules are different**:
-  the values and formulas of validation and colour rules are read in the sheet's locale, so
-  sync writes them that way (`5,5`, `=AND(ISNUMBER(B3);B3=INT(B3))`; Google stores the latter
-  with Italian function names). Measured on 2026-10-30.
+- Formulas and locales (measured on 2026-10-30): **what `batchUpdate` sends is read in the
+  sheet's locale**, cell formulas and the values and formulas of validation and colour rules
+  alike. In an it_IT sheet that is `=IF(A3="";"";B3*1,5)` and `5,5` (an en_US formula is a parse
+  error there); only `spreadsheets.create` takes en_US. So schema sync writes formulas and rule
+  values in the sheet's syntax (Google then stores a rule formula with Italian function names),
+  and a formula keeps the syntax it was entered in. Read back, one with `;` outside strings in a
+  decimal-comma locale is turned into en_US syntax, so the drift check compares like with like
+  (the app's formula columns are only ever written by sync, or copied down by the buffer top-up).
 - Schema sync (D-065, `storage/gsheets_sync.py`): the changes of `xlsx_sync.py` as requests from
   one read of the sheet (cells, rules, protections, named ranges), sent in one `batchUpdate`.
   Headers styled and frozen (rows 1–2, columns A–B), a note on A2, column widths (7 px per

@@ -9,10 +9,10 @@ saw the content change if that is later, so the snapshot (D-020) follows the con
 
 Cells become the same raw values openpyxl gives for an `.xlsx`: a number formatted as a date is
 a `datetime`, as a time a `time`, as a duration (`[h]:mm`) a `timedelta`, so the loader reads
-both backends alike. The API takes formulas in en_US syntax, and gives each back in the syntax
-it was entered in: the app's (`updateCells`) as written, one typed by hand (or sent with
-`spreadsheets.create`) in a decimal-comma locale as `=IF(A3="";"";B3*1,5)` (measured on
-2026-10-30). Those are turned back into en_US syntax, so the drift check compares like with like.
+both backends alike. Formulas are kept in the syntax they were entered in: in a decimal-comma
+locale `=IF(A3="";"";B3*1,5)` (typed by hand, or written by schema sync, which must use the
+sheet's syntax: `batchUpdate` reads formulas in the sheet's locale, measured on 2026-10-30).
+Those are turned back into en_US syntax, so the drift check compares like with like.
 
 A write reads the sheet again first (the cached copy may be a minute old), checks the edits on
 it as the xlsx backend does (free rows, conflicts, columns), and sends them all in one
@@ -343,8 +343,8 @@ def _outside_quotes(formula: str) -> str:
 
 
 def local_formula(formula: str) -> str:
-    """An en_US formula in a decimal-comma locale's syntax, the inverse of `en_formula`: for
-    the formulas of validation rules, which Google reads in the sheet's locale."""
+    """An en_US formula in a decimal-comma locale's syntax, the inverse of `en_formula`: what
+    `batchUpdate` sends (cell formulas, rule formulas) is read in the sheet's locale."""
     out, quote = [], ""
     for char in formula:
         if quote:

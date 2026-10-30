@@ -105,8 +105,8 @@ class _Tab:
 class _Sync:
     def __init__(self, book: Json, target: str | None) -> None:
         locale = str(book.get("properties", {}).get("locale", "en_US"))
-        # Rule values and rule formulas are read in the sheet's locale (unlike cell formulas):
-        # 5,5 and `;` in it_IT (measured on 2026-10-30).
+        # What `batchUpdate` sends is read in the sheet's locale, cell formulas and rule values
+        # alike: 5,5 and `;` in it_IT (measured on 2026-10-30).
         self.comma = comma_decimal(target or locale)
         self.tabs: dict[str, _Tab] = {}
         for sheet in book.get("sheets", []):
@@ -407,7 +407,8 @@ class _Sync:
                         differs += not isinstance(old, str) or normalize(old) != normalize(formula)
                     elif n in with_data:  # deleted where it is needed
                         deleted += 1
-                    cell: Json = {"userEnteredValue": {"formulaValue": formula}}
+                    written = local_formula(formula) if self.comma else formula
+                    cell: Json = {"userEnteredValue": {"formulaValue": written}}
                     if (form := google_format(spec.number_format)) is not None:
                         cell["userEnteredFormat"] = {"numberFormat": form}
                     cells.append({"values": [cell]})

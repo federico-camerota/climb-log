@@ -14,6 +14,7 @@ syntax (`=IF(A3="";"";B3*1,5)`), those sent with `batch_update` as sent.
 
 import copy
 import datetime as dt
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -169,7 +170,7 @@ class FakeSheetsClient:
         sheet = _sheet(book, start["sheetId"])
         for r, row in enumerate(update["rows"], start=start["rowIndex"]):
             for c, value in enumerate(row["values"], start=start["columnIndex"]):
-                _set(_cell(sheet, r, c), value, str(update["fields"]).split(","))
+                _set(_cell(sheet, r, c), value, str(update["fields"]).split(","), _comma(book))
 
     def _repeatCell(self, book: Json, body: Mapping[str, Any]) -> None:
         cells = body["range"]
@@ -180,7 +181,7 @@ class FakeSheetsClient:
                 cells.get("startColumnIndex", 0), cells.get("endColumnIndex", grid["columnCount"])
             )
             for c in columns:
-                _set(_cell(sheet, r, c), body["cell"], str(body["fields"]).split(","))
+                _set(_cell(sheet, r, c), body["cell"], str(body["fields"]).split(","), _comma(book))
 
     def _addSheet(self, book: Json, body: Mapping[str, Any]) -> None:
         props = copy.deepcopy(dict(body["properties"]))
@@ -306,6 +307,12 @@ def _cell(sheet: Json, r: int, c: int) -> Json:
     return cell
 
 
+def _en_syntax(formula: str) -> bool:
+    """Arguments separated by `,` (not `;`) outside strings: an en_US formula."""
+    outside = re.sub(r'"(?:[^"]|"")*"', "", formula)
+    return "," in outside and ";" not in outside
+
+
 def _typed(value: Json) -> Json:
     """A typed-in cell with the value and format Google would show (formulas: no value)."""
     cell: Json = {}
@@ -313,8 +320,13 @@ def _typed(value: Json) -> Json:
     return cell
 
 
-def _set(cell: Json, value: Json, fields: Sequence[str]) -> None:
-    """Change the `fields` of a cell to those of `value` (a field `value` lacks is cleared)."""
+def _comma(book: Json) -> bool:
+    return comma_decimal(book["properties"].get("locale", "en_US"))
+
+
+def _set(cell: Json, value: Json, fields: Sequence[str], comma: bool = False) -> None:
+    """Change the `fields` of a cell to those of `value` (a field `value` lacks is cleared).
+    With `comma` (a decimal-comma locale), a formula in en_US syntax is Google's parse error."""
     if "userEnteredValue" in fields:
         entered = value.get("userEnteredValue", {})
         for key in ("userEnteredValue", "effectiveValue"):
@@ -323,6 +335,10 @@ def _set(cell: Json, value: Json, fields: Sequence[str]) -> None:
             cell["userEnteredValue"] = dict(entered)
             if "formulaValue" not in entered:
                 cell["effectiveValue"] = dict(entered)
+            elif comma and _en_syntax(entered["formulaValue"]):
+                cell["effectiveValue"] = {
+                    "errorValue": {"type": "ERROR", "message": "Formula parse error."}
+                }
     form = value.get("userEnteredFormat", {})
     if "userEnteredFormat" in fields:
         cell.pop("userEnteredFormat", None)
