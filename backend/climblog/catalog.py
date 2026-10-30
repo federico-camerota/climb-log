@@ -8,8 +8,10 @@ D-055), and its derived values are computed on every read.
 """
 
 import datetime as dt
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from climblog.config import AppConfig, ConfigError, config_path, load_config
 from climblog.expr import Value
@@ -80,3 +82,16 @@ class Catalog:
             entry.repo.as_of,
             entry.repo.offline,
         )
+
+
+_LOADING = threading.Lock()
+
+
+def served(state: Any) -> Catalog:
+    """The app's catalog (`app.state.catalog`), loaded from the app config on first use; the
+    API and the poller share it."""
+    with _LOADING:
+        if getattr(state, "catalog", None) is None:
+            state.catalog = Catalog.from_file()
+        found: Catalog = state.catalog
+        return found

@@ -17,6 +17,7 @@ import gzip
 import json
 import os
 import tempfile
+import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -165,6 +166,7 @@ class CachedRepository:
         self.snapshots = snapshots
         self.offline = False
         self._current: Snapshot | None = None
+        self._lock = threading.RLock()
 
     @property
     def as_of(self) -> dt.datetime | None:
@@ -173,6 +175,10 @@ class CachedRepository:
 
     def refresh(self) -> Snapshot:
         """The current data: from the snapshot if still fresh, else read and saved again."""
+        with self._lock:  # the poller and the API's threads share this (D-068)
+            return self._refresh()
+
+    def _refresh(self) -> Snapshot:
         cached = self._current or self.snapshots.load(self.module)
         try:
             modified = self.source.last_modified()

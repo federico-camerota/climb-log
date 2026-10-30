@@ -12,7 +12,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from climblog.catalog import Catalog, Entry
+from climblog.catalog import Catalog, Entry, served
 from climblog.storage import StorageError
 
 router = APIRouter()
@@ -57,11 +57,7 @@ class Records(BaseModel):
 
 def catalog(request: Request) -> Catalog:
     """The app's catalog, loaded from the app config on first use."""
-    state = request.app.state
-    if getattr(state, "catalog", None) is None:
-        state.catalog = Catalog.from_file()
-    found: Catalog = state.catalog
-    return found
+    return served(request.app.state)
 
 
 @router.get("/modules")

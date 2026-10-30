@@ -85,6 +85,8 @@ class GoogleConfig(_Strict):
     token: Path | None = None  # None: $XDG_CONFIG_HOME/climblog/google-token.json
     # Read a sheet again after this long even if Drive saw no change (it lags ~3 min, D-063).
     max_age_seconds: float = Field(default=60, ge=0)
+    # While `climblog serve` runs, read each Google module again this often (D-068); 0: never.
+    poll_seconds: float = Field(default=60, ge=0)
     # Sheets the app creates (D-065): the Drive folder, and how they read hand-typed values.
     folder: str = NEW_SHEETS.folder
     locale: str = NEW_SHEETS.locale
@@ -142,18 +144,22 @@ class AppConfig(_Strict):
         """The module's workbook (with its backups, taken only on writes) or Google Sheet."""
         module = self.modules[name]
         if module.google_sheet is not None:
-            return self.google_sheet(module.google_sheet)
+            return self.google_sheet(module.google_sheet, self.backups.for_module(name))
         assert module.workbook is not None
         return XlsxBackend(module.workbook, backups=self.backups.for_module(name))
 
-    def google_sheet(self, spreadsheet_id: str | None) -> GSheetsBackend:
+    def google_sheet(
+        self, spreadsheet_id: str | None, backups: Backups | None = None
+    ) -> GSheetsBackend:
         """A Google Sheet with the saved login; without an ID, a new one that schema sync makes
-        in the app's Drive folder (D-065)."""
+        in the app's Drive folder (D-065). `backups`: Drive exports into the module's backups
+        folder (D-068)."""
         return GSheetsBackend(
             spreadsheet_id,
             self.sheets_client(),
             max_age=dt.timedelta(seconds=self.google.max_age_seconds),
             new_sheets=self.google.new_sheets(),
+            backups=backups,
         )
 
     def sheets_client(self) -> SheetsClient:

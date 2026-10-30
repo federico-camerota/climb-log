@@ -123,11 +123,15 @@ definition = "~/climb-log/modules/journal.yaml"
 google_sheet = "<ID>"   # or the URL: https://docs.google.com/spreadsheets/d/<ID>/edit
 ```
 
-Sheets the app creates go into a `climb-log` folder of your Drive and read hand-typed values the
-Italian way (`7,5`, `24/10/2026`); to change that:
+While `climblog serve` runs, Google modules are read again every minute, so a session typed on
+the phone shows up; each change is also exported as `.xlsx` into the backups folder (at most one
+copy every 30 minutes, as for local workbooks). Sheets the app creates go into a `climb-log`
+folder of your Drive and read hand-typed values the Italian way (`7,5`, `24/10/2026`). To change
+these:
 
 ```toml
 [google]
+# poll_seconds = 60         # 0: no polling
 # folder = "climb-log"
 # locale = "it_IT"          # e.g. "en_GB" for 7.5
 # time_zone = "Europe/Rome"

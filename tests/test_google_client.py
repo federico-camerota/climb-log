@@ -18,6 +18,7 @@ from climblog.storage.google_client import (
     RETRY_AFTER,
     SHEETS,
     SPREADSHEET,
+    XLSX,
     GoogleNotFound,
     RestSheetsClient,
 )
@@ -112,6 +113,15 @@ def test_layout_folders_and_new_files() -> None:
             {"name": "Journal", "mimeType": SPREADSHEET, "parents": ["folder-3"]},
         ),
     ]
+
+
+def test_export_as_xlsx() -> None:
+    answer = response()
+    answer._content = b"PK\x03\x04 fictional xlsx bytes"
+    sheets, session = client(answer)
+    assert sheets.export_xlsx(ID) == b"PK\x03\x04 fictional xlsx bytes"
+    ((method, url, kwargs),) = session.requests
+    assert (method, url, kwargs["params"]) == ("GET", f"{DRIVE}/{ID}/export", {"mimeType": XLSX})
 
 
 def test_the_session_is_made_on_first_use_only() -> None:

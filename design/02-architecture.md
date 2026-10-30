@@ -55,7 +55,7 @@ forms and widgets from module schemas and view definitions served by the API.
   of the repo. Each module names its YAML and its workbook; backups default to
   `~/.local/share/climblog/backups/<module>/` (`$XDG_DATA_HOME`). `~` is expanded and relative
   paths are relative to the config file. Unknown keys are errors. `[google]` names the OAuth
-  client file and, optionally, the token (D-062), `max_age_seconds` (D-063) and, for the sheets
+  client file and, optionally, the token (D-062), `max_age_seconds` (D-063), `poll_seconds` (D-068) and, for the sheets
   the app creates, `folder`, `locale` and `time_zone` (D-065); the LAN PIN
   hash (D-010) is added when it is needed.
   ```toml
@@ -83,9 +83,11 @@ forms and widgets from module schemas and view definitions served by the API.
    row edits (appends into free rows, updates checked against the row as read, soft deletes)
    through the backend in one save (D-049); then update the cache and recompute that module's
    derived fields.
-4. **External change detection**: local file `mtime` polling; Google via Drive
-   `modifiedTime` polling (e.g. every 30–60 s while the UI is open) plus a manual
-   "Reload" button. On change, reload the affected module.
+4. **External change detection**: a local file's `mtime` is checked on every read; while
+   `climblog serve` runs, each Google module is read again every `[google] poll_seconds`
+   (default 60) in the background, Drive's `modifiedTime` or the copy's age deciding (D-063,
+   D-068); a manual "Reload" button comes with the UI. On change, the module's snapshot is
+   taken again.
 
 ## Backend package layout (planned)
 ```

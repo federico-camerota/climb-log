@@ -50,7 +50,7 @@ def serve(
     """Start the web app on http://127.0.0.1:PORT."""
     if config is not None:  # the app is built by uvicorn: it reads the file from the environment
         os.environ[ENV_VAR] = str(config.resolve())
-    uvicorn.run("climblog.main:create_app", factory=True, host=HOST, port=port, reload=reload)
+    uvicorn.run("climblog.main:serve_app", factory=True, host=HOST, port=port, reload=reload)
 
 
 @app.command()

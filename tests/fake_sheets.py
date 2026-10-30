@@ -14,16 +14,18 @@ syntax (`=IF(A3="";"";B3*1,5)`), those sent with `batch_update` as sent.
 
 import copy
 import datetime as dt
+import io
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+import openpyxl
 from openpyxl.formula.translate import Translator
 from openpyxl.utils import get_column_letter
 
 from climblog.storage import StorageError
 from climblog.storage.google_client import GoogleNotFound, Json
-from climblog.storage.gsheets import comma_decimal, local_formula
+from climblog.storage.gsheets import comma_decimal, grid_rows, local_formula
 
 _EPOCH = dt.datetime(1899, 12, 30)
 START = dt.datetime(2026, 10, 1, 9, 0)
@@ -275,6 +277,19 @@ class FakeSheetsClient:
             cell = _cell(sheet, r, c)
             cell.clear()
             cell.update(original)
+
+    def export_xlsx(self, spreadsheet_id: str) -> bytes:
+        """An `.xlsx` with each tab's values (formulas as text: the fake computes none)."""
+        self.calls.append("export_xlsx")
+        book = openpyxl.Workbook()
+        book.remove(book.worksheets[0])
+        for sheet in self._book(spreadsheet_id)["sheets"]:
+            tab = book.create_sheet(sheet["properties"]["title"])
+            for row in grid_rows(sheet, formulas=True):
+                tab.append(list(row))
+        out = io.BytesIO()
+        book.save(out)
+        return out.getvalue()
 
     def trash(self, spreadsheet_id: str) -> None:
         self.calls.append("trash")
