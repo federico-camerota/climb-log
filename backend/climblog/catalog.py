@@ -20,6 +20,7 @@ from climblog.expr import Value
 from climblog.modules import Module, ModuleError
 from climblog.modules.checks import recommendation_plan
 from climblog.modules.compute import compute_module
+from climblog.modules.forms import Day, due
 from climblog.modules.recommend import Advice, recommend
 from climblog.storage import CachedRepository, DataIssue, load_data
 
@@ -96,6 +97,22 @@ class Catalog:
         plan = recommendation_plan(module)
         if plan is None:
             return None
+        full, settings = self.full_tables(entry)
+        return recommend(module, plan, full, settings, day)
+
+    def due(self, entry: Entry, day: dt.date) -> Day:
+        """The module's forms on `day`: what is done and what is missing (D-078)."""
+        assert entry.module is not None
+        full, _ = self.full_tables(entry)
+        return due(entry.module, full, day)
+
+    def full_tables(
+        self, entry: Entry
+    ) -> tuple[dict[str, list[dict[str, Value]]], dict[str, Value]]:
+        """Every entity's records with their derived values (one look at the source), and the
+        settings."""
+        assert entry.module is not None and entry.repo is not None
+        module = entry.module
         data = load_data(module, entry.repo.pinned())
         tables = {name: e.records for name, e in data.entities.items()}
         derived = compute_module(module, tables, data.settings)
@@ -103,7 +120,7 @@ class Catalog:
             name: [{**row, **values} for row, values in zip(rows, derived[name], strict=True)]
             for name, rows in tables.items()
         }
-        return recommend(module, plan, full, data.settings, day)
+        return full, data.settings
 
     def record(
         self, entry: Entry, entity: str, key: Sequence[Value]

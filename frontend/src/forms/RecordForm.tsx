@@ -110,6 +110,7 @@ function Editor({
       queryClient.setQueryData(["record", module.id, form.entity, recordKey], written);
       void queryClient.invalidateQueries({ queryKey: ["records", module.id, form.entity] });
       void queryClient.invalidateQueries({ queryKey: ["recommendation"] });
+      void queryClient.invalidateQueries({ queryKey: ["today"] });
     },
     onError: (error) => {
       if (error instanceof ApiError && error.field !== undefined && error.field in editor.values) {

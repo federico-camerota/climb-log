@@ -13,6 +13,9 @@ export type Issue = Schemas["Issue"];
 export type Written = Schemas["Written"];
 export type Recommendation = Schemas["Recommendation"];
 export type ModuleAdvice = Schemas["ModuleAdvice"];
+export type Today = Schemas["Today"];
+export type ModuleDay = Schemas["ModuleDay"];
+export type DueForm = Schemas["DueForm"];
 
 /** A record's stored values (or its key's), by field name, as the API reads and writes them. */
 export type Values = Record<string, unknown>;
@@ -135,4 +138,8 @@ export function updateRecord(
 
 export function getRecommendation(date: string): Promise<Recommendation> {
   return getJson<Recommendation>(`/api/recommendation?date=${encodeURIComponent(date)}`);
+}
+
+export function getToday(date: string): Promise<Today> {
+  return getJson<Today>(`/api/today?date=${encodeURIComponent(date)}`);
 }

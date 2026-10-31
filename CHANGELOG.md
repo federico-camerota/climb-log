@@ -15,6 +15,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   issues. Data is refetched when the window regains focus.
 - The sidebar can be hidden on a wide window with the header's burger, and stays as left
   across reloads (D-074).
+- Today page (#74, D-078): the next-session recommendation with its reasons, and the forms due
+  on the chosen day (a session or a rest day when nothing is logged; each session's pre and
+  post forms after), done / partial / missing with what is missing, linking to each form;
+  `GET /api/today?date=`.
 - Log forms (#72, D-077): the journal's pre-session, post-session and rest-day forms, built
   from the module YAML; a session created at pre and completed at post; scales as coloured
   buttons, decimal commas, Italian notes; drafts kept until saved; the statuses after saving.

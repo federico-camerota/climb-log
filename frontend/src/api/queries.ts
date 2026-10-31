@@ -11,6 +11,7 @@ import {
   getRecommendation,
   getRecord,
   getRecords,
+  getToday,
   type Values,
 } from "./client";
 
@@ -51,4 +52,8 @@ export function useRecord(module: string, entity: string, key: Values) {
 
 export function useRecommendation(date: string) {
   return useQuery({ queryKey: ["recommendation", date], queryFn: () => getRecommendation(date) });
+}
+
+export function useToday(date: string) {
+  return useQuery({ queryKey: ["today", date], queryFn: () => getToday(date) });
 }
