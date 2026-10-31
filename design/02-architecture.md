@@ -159,7 +159,7 @@ Both backends implement it. Analytics and the engine never know which one is in 
 | POST | `/api/modules/{m}/{entity}` | add a record (D-075: done) |
 | GET/PATCH/DELETE | `/api/modules/{m}/{entity}/record?<key>` | read, change, soft delete one record (D-075: done) |
 | GET | `/api/today?date=` | composed "Today" flow: which forms are due, prefilled values |
-| GET | `/api/recommendation?date=` | next-session recommendation + reasons (D-071) |
+| GET | `/api/recommendation?date=` | next-session recommendation + reasons (D-071; D-076: done per module) |
 | GET | `/api/modules/{m}/views/{view}` | each widget's data for a module view, computed in Python (D-072) |
 | POST | `/api/analytics/query` | generic metric query (metric(s), range, grouping, filters) |
 | GET | `/api/analytics/correlations` | correlation matrix / pair with lags |

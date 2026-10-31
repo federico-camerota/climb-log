@@ -18,7 +18,9 @@ from typing import Any
 from climblog.config import AppConfig, ConfigError, config_path, load_config
 from climblog.expr import Value
 from climblog.modules import Module, ModuleError
+from climblog.modules.checks import recommendation_plan
 from climblog.modules.compute import compute_module
+from climblog.modules.recommend import Advice, recommend
 from climblog.storage import CachedRepository, DataIssue, load_data
 
 
@@ -85,6 +87,23 @@ class Catalog:
             entry.repo.as_of,
             entry.repo.offline,
         )
+
+    def advice(self, entry: Entry, day: dt.date) -> Advice | None:
+        """The module's recommendation for `day` (D-076), if it has one. Raises `StorageError`
+        when neither the workbook nor a snapshot can be read."""
+        assert entry.module is not None and entry.repo is not None
+        module = entry.module
+        plan = recommendation_plan(module)
+        if plan is None:
+            return None
+        data = load_data(module, entry.repo.pinned())
+        tables = {name: e.records for name, e in data.entities.items()}
+        derived = compute_module(module, tables, data.settings)
+        full = {
+            name: [{**row, **values} for row, values in zip(rows, derived[name], strict=True)]
+            for name, rows in tables.items()
+        }
+        return recommend(module, plan, full, data.settings, day)
 
     def record(
         self, entry: Entry, entity: str, key: Sequence[Value]

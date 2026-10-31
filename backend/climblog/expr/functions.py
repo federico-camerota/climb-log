@@ -94,7 +94,10 @@ def _check_aggregate(keeps_scale: bool) -> CheckFn:
 
 def _check_count(call: Call, args: Sequence[Kind], kwargs: Mapping[str, Kind]) -> Kind:
     _arity(call, 1)
-    _keywords(call)
+    _keywords(call, frozenset({"equals"}))
+    equals = kwargs.get("equals")
+    if equals is not None and equals.many:
+        raise ExprError("equals must be a single value", dict(call.kwargs)["equals"].at)
     return Kind("number")
 
 
@@ -264,6 +267,10 @@ def _run_sum(args: Sequence[Arg], kwargs: Mapping[str, Value], call: Call) -> Va
 
 
 def _run_count(args: Sequence[Arg], kwargs: Mapping[str, Value], call: Call) -> Value:
+    """The values present, or with `equals=` those equal to it (a blank `equals`: none)."""
+    if "equals" in kwargs:
+        wanted = kwargs["equals"]
+        return sum(1 for value in _flat(args) if value is not None and value == wanted)
     return sum(1 for value in _flat(args) if value is not None)
 
 

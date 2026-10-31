@@ -19,6 +19,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   (`POST /api/modules/{m}/{entity}`, `GET`/`PATCH`/`DELETE …/record?date=…&session_no=…`), with
   conflicts detected against the values the client read, and clear errors (the field at fault,
   a locked workbook, offline).
+- Next-session recommendation (#73, D-071, D-076): a `recommendation:` block in the module YAML
+  (values for a day, rules, reasons) with the journal's legacy rule (RECOVER / MODERATE /
+  GREEN LIGHT) and messages, `GET /api/recommendation?date=`, and its sheet formulas, checked
+  with LibreOffice against the app and the legacy Summary. New expression forms:
+  `window(e.x, days=n, until=d)`, `last(e.x, until=d)` and `count(…, equals=v)`.
 - `make api-types` generates the frontend's API types from the backend's OpenAPI schema;
   `make lint` checks they are up to date.
 

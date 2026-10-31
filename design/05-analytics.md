@@ -128,7 +128,11 @@ Combines the module rules into one card. **The most conservative signal wins**, 
 input is listed as a reason:
 
 1. Journal readiness rule (parity): RECOVER / MODERATE / GREEN LIGHT from the latest overall
-   status and LOW sessions in the last 14 days, declared in the module YAML (D-071).
+   status and LOW sessions in the last 14 days, declared in the module YAML (D-071; done,
+   D-076: `recommendation:` in `modules/journal.yaml`, `GET /api/recommendation?date=` gives each
+   module's advice with its reasons). Combining several modules' advice comes with the second
+   one (M5): each block already says its headline, so "the most conservative wins" can order
+   them.
 2. Shoulder: latest status / review flag (RED or REVIEW NOW → recover / avoid provocative climbing).
 3. Training load: ACWR above the upper zone → suggest moderate (soft signal).
 4. Fear program: what is planned this week (target rungs not yet cleared, the rung to repeat

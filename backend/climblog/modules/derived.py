@@ -91,14 +91,21 @@ class DerivedPlan:
 
 
 def check_derived(
-    module: Module, e_name: str, derived: Mapping[str, Derived], env: Env, *, defer_fields: bool
+    module: Module,
+    e_name: str,
+    derived: Mapping[str, Derived],
+    env: Env,
+    *,
+    defer_fields: bool,
+    base: YamlPath | None = None,
 ) -> tuple[DerivedPlan, list[Problem]]:
     """Check the entries against `env` (the entity's stored fields and the settings).
 
     `defer_fields`: the entity has fields from a reference table (M5), so `fields(...)` cannot
-    see all its fields yet.
+    see all its fields yet. `base`: where the entries are in the YAML, for problems (default
+    the entity's `derived`).
     """
-    base: YamlPath = ("entities", e_name, "derived")
+    base = base or ("entities", e_name, "derived")
     problems: list[Problem] = []
 
     later: set[str] = set()

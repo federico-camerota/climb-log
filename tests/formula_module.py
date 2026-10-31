@@ -123,3 +123,38 @@ entities:
       since_climb: "days_between(last(session.date, before=date), date)"
       last_effort: "last(session.effort, before=date)"
 """
+
+# The cross-record forms of a recommendation, as record columns (D-076): `last(..., until=)`
+# and `window(...)` in each compiled form, counts of numbers, of text and of a value, and an
+# *IFS aggregate (sum, min and max compile as mean does). A module of its own: the one above
+# already takes LibreOffice most of its time limit.
+WINDOW_MODULE = """\
+module: test_window
+name: Test window
+version: 1
+kind: journal
+entities:
+  session:
+    label: Session
+    tab: Sessions
+    key: [date, session_no]
+    fields:
+      date: {type: date, required: true}
+      session_no: {type: integer, min: 1, default: 1}
+      kind: {type: choice, choices: [Climb, Board, Rest]}
+      minutes: {type: number, min: 0, max: 300}
+      effort: {type: integer, min: 1, max: 10}
+  rest:
+    label: Rest day
+    tab: Rest
+    key: [date]
+    fields:
+      date: {type: date, required: true}
+    derived:
+      effort_today: "last(session.effort, until=date)"
+      week_sessions: "count(window(session.date, days=7, until=date))"
+      week_kinds: "count(window(session.kind, days=7, until=date))"
+      week_boards: "count(window(session.kind, days=7, until=date), equals='Board')"
+      week_eights: "count(window(session.effort, days=7, until=date), equals=8)"
+      week_mean: "mean(window(session.effort, days=7, until=date))"
+"""

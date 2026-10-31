@@ -37,11 +37,12 @@ from climblog.expr.nodes import (
     Setting,
     Unary,
     ValueType,
+    Window,
 )
 from climblog.expr.parse import parse
 
 _SELECTORS = ("section", "tag", "type")
-_SPECIAL = ("fields", "prev", "children", "last")  # forms checked here, not in FUNCTIONS
+_SPECIAL = ("fields", "prev", "children", "last", "window")  # forms checked here, not in FUNCTIONS
 
 
 @dataclass(frozen=True)
@@ -182,6 +183,8 @@ class _Checker:
                 return self.children(node, None)
             case Call(func="last"):
                 return self.last(node)
+            case Call(func="window"):
+                return self.window(node)
             case Call():
                 return self.call(node)
         raise ExprError(f"unexpected {type(node).__name__}", node.at)  # pragma: no cover
@@ -353,8 +356,40 @@ class _Checker:
         return Children(node.at, entity, name), kind
 
     def last(self, node: Call) -> tuple[Node, Kind]:
-        """`last(e.x, before=d)`: x in the latest record of entity e dated before d."""
-        usage = "last() takes an entity's field and a date, e.g. last(session.date, before=date)"
+        """`last(e.x, before=d)`: x in the latest record of entity e dated before d; with
+        `until=d`, dated on or before d."""
+        usage = (
+            "last() takes an entity's field and a date, e.g. last(session.date, before=date) "
+            "or last(session.date, until=date)"
+        )
+        entity, name, info = self.entity_field(node, usage)
+        options = dict(node.kwargs)
+        if set(options) not in ({"before"}, {"until"}):
+            raise ExprError(usage, node.at)
+        option = "until" if "until" in options else "before"
+        day, _ = self.single(options[option], ("date",), f"`{option}`")
+        return Last(node.at, entity, name, day, inclusive=option == "until"), _kind(info)
+
+    def window(self, node: Call) -> tuple[Node, Kind]:
+        """`window(e.x, days=n, until=d)`: x in every record of entity e dated from n days
+        before d to d, for an aggregate (`count(window(...), equals='LOW')`)."""
+        usage = (
+            "window() takes an entity's field, a number of days and a date, e.g. "
+            "window(session.overall_status, days=14, until=date)"
+        )
+        entity, name, info = self.entity_field(node, usage)
+        options = dict(node.kwargs)
+        if set(options) != {"days", "until"}:
+            raise ExprError(usage, node.at)
+        days = options["days"]
+        if not (isinstance(days, Literal) and type(days.value) is int and days.value >= 0):
+            raise ExprError("days must be a whole number of days, e.g. days=14", days.at)
+        until, _ = self.single(options["until"], ("date",), "`until`")
+        kind = replace(_kind(info), many=True)
+        return Window(node.at, entity, name, days.value, until), kind
+
+    def entity_field(self, node: Call, usage: str) -> tuple[str, str, NameInfo]:
+        """The `e.x` that `last` and `window` take: an entity and one of its fields."""
         target = node.args[0] if len(node.args) == 1 else None
         if not (isinstance(target, Attr) and isinstance(target.obj, Name)):
             raise ExprError(usage, node.at)
@@ -368,12 +403,7 @@ class _Checker:
             raise ExprError(
                 f"'{entity}' has no field '{name}'{_suggest(name, list(fields))}", target.at
             )
-        options = dict(node.kwargs)
-        if set(options) != {"before"}:
-            raise ExprError(usage, node.at)
-        before, _ = self.single(options["before"], ("date",), "`before`")
-        kind = _kind(info)
-        return Last(node.at, entity, name, before), kind
+        return entity, name, info
 
 
 def _selector_names(value: Node) -> list[tuple[str, int]]:

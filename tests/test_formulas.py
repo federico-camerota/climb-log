@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from conftest import LoadYaml
-from formula_module import MODULE
+from formula_module import MODULE, WINDOW_MODULE
 from typer.testing import CliRunner
 
 from climblog import cli
@@ -353,8 +353,8 @@ def test_entries_without_a_translation_are_app_only(load: LoadYaml) -> None:
         "session.cell_name": "setting 'a1' looks like a cell, not a name",
         "session.back_two": "prev() further back than one record",
         "session.by_choice": "prev() with a choice in the key (the app orders it by name)",
-        "session.mixed": "children(...) mixed with other values",
-        "session.filled": "missing_as with children(...)",
+        "session.mixed": "children(...) or window(...) mixed with other values",
+        "session.filled": "missing_as or equals with children(...)",
         "session.plugin_entry": "a plugin",
         "session.reads_plugin": "needs program, reference tables or another app-only value",
         "set.before": "prev() on a child entity (its key column is its parent's)",
@@ -578,3 +578,14 @@ def test_month_and_incomplete_formulas(load: LoadYaml) -> None:
     assert f["Rest!auto:todo"] == (
         '=IF(A3="","",MID(IF(NOT(B3<>""),", Numbers","")&IF(NOT(C3<>""),", Notes",""),3,999))'
     )
+
+
+def test_window_counts_and_aggregates_the_rows_of_its_days(load: LoadYaml) -> None:
+    f = formulas(load(WINDOW_MODULE))
+    days = 'Sessions!$A:$A,">="&(INT(A3)-7),Sessions!$A:$A,"<="&INT(A3),Sessions!$H:$H,""'
+    boards = f'COUNTIFS({days},Sessions!$C:$C,"="&"Board")'
+    assert f["Rest!auto:week_boards"] == f'=IF(A3="","",IF(A3="",0,{boards}))'
+    assert f"AVERAGEIFS(Sessions!$E:$E,{days})" in f["Rest!auto:week_mean"]
+    # last() reads the sessions by key: they get auto:_key (a day can have two)
+    until = '_xlfn.MAXIFS(Sessions!$F:$F,Sessions!$A:$A,"<="&INT(A3),Sessions!$H:$H,"")'
+    assert until in f["Rest!auto:effort_today"]

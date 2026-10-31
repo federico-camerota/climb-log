@@ -320,7 +320,10 @@ column** in the sheet:
   `INDEX/MATCH`: fields on another section tab, `parent.x`; `prev(x)` takes the largest key below
   the row's; `children(e)` are `COUNTIFS`/`SUMIFS`/`MAXIFS`/… on the child's key column; soft-
   deleted rows are left out (`deleted` blank). `last(e.x, before=d)` takes the latest row dated
-  before `d`, ordered by `auto:_key` when the entity has one.
+  before `d` (`until=d`: on or before), ordered by `auto:_key`, which an entity read by `last`
+  gets when its key has more than the date (D-076). `window(e.x, days=n, until=d)` inside
+  `count` (with or without `equals=`), `sum`, `min`, `max` and `mean` is `COUNTIFS`/`SUMIFS`/…
+  on the date column (from `d - n` to `d`) and `deleted` blank.
 - **App only** (no column, listed by `climblog module validate` as notes): plugins and entries
   of later milestones (unless they have a hand-written `sheet_formula`), `sheet_formula: false`,
   `prev(x, n)` with n > 1, `prev` on a child or with a choice in the key (the app orders it by
@@ -355,14 +358,37 @@ column** in the sheet:
     an empty list (`count` 0, `max`/`sum` blank).
   - `last(e.x, before=d)`: `x` in the latest record of entity `e` dated strictly before `d`
     (e.g. days since the last climb on the rest-day tab:
-    `days_between(last(session.date, before=date), date)`). None → blank.
+    `days_between(last(session.date, before=date), date)`). None → blank. `last(e.x, until=d)`:
+    dated on or before `d`. Records of one day are ordered by key (a day's second session is
+    later than its first).
+  - `window(e.x, days=n, until=d)`: `x` in every record of `e` dated from `n` days before `d` to
+    `d` itself (`days=14`: 15 calendar days, as the legacy `>= TODAY()-14`), for an aggregate:
+    `count(window(session.overall_status, days=14, until=date), equals='LOW')`, `max(window(…))`.
+    `count(…, equals=v)` counts the values equal to `v` (D-076).
   - What they read: `prev` and `children(e).x` read stored and derived values; `parent.x` and
-    `last(e.x, ...)` read stored fields only. So child entities are computed before their
-    parents, and an entity's rows in date order (`climblog/modules/compute.py`).
-  - `window(field, days=14).count(status == LOW)` (counts over recent records) comes with the
-    Summary and the recommendation (M3). The recommendation is a `recommendation:` block of
-    conditions on such values, not a plugin, so the app and the sheet's Summary tab share one
-    definition (D-071).
+    `last(e.x, ...)` and `window(e.x, ...)` read stored fields only. So child entities are
+    computed before their parents, and an entity's rows in date order
+    (`climblog/modules/compute.py`). The recommendation, computed after every entity, reads
+    derived values too.
+- **Recommendation** (`recommendation:`, D-071, D-076): the next-session advice for a day, so the
+  app and the sheet's Summary tab share one definition (no plugin).
+  ```yaml
+  recommendation:
+    label: Suggested next session
+    values:                       # derived entries of the day asked: `date` (TODAY() in the sheet)
+      latest_status: "last(session.overall_status, until=date)"
+      low_sessions: "count(window(session.overall_status, days=14, until=date), equals='LOW')"
+    rules:                        # the first that holds; the last may leave out `if`
+      - {if: "latest_status == 'LOW' or low_sessions >= 2", headline: RECOVER, message: rest…}
+      - {message: Fill in the remaining tabs…}
+    reasons: {low_sessions: LOW sessions in the last 14 days}   # shown with it, in order
+  ```
+  `values` are ordinary derived entries (`expr`, `when`, `bands`, …) that read the records with
+  `last` and `window` (stored and derived values); `rules[].if` reads them and `date`. The app
+  answers `GET /api/recommendation?date=` (`modules/recommend.py`); the sheet formulas come from
+  `recommendation_formulas` (each value, `headline`, and `text` = "RECOVER — …", as the legacy
+  cell), checked by `tests/test_recommend_parity.py` with LibreOffice, also against the legacy
+  Summary formulas.
 - **Plugin**: `{plugin: module.rule_name}`, a Python function
   `(records: DataFrame, ctx) -> Series | list[Flag]`. Example: fall-ladder advancement
   (two consecutive falls on the same rung with BERP ≥ 3, fear ≤ 5, soft catch).
@@ -471,8 +497,9 @@ problem (unknown scale, key field that does not exist), e.g.
 - `climblog module schema` prints the JSON Schema. It is committed as `modules/module.schema.json`
   (a test keeps it current); a first line `# yaml-language-server: $schema=<path to it>` gives
   autocompletion and inline errors in VS Code (YAML extension).
-- Blocks of later milestones (`program`, `reference`, `forms`, `views`, `aggregates`,
-  `recommendation`, `rules`) are accepted as they are until their issue adds the checks.
+- Blocks of later milestones (`program`, `reference`, `forms`, `views`, `aggregates`, `rules`)
+  are accepted as they are until their issue adds the checks; `recommendation` is checked
+  (D-076).
   Templates, split and child entities are checked (§2.1b), and so are derived fields (§2.2),
   except the deferred ones.
 

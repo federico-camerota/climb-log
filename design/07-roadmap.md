@@ -74,7 +74,8 @@ away from home (D-069). Issues in the milestone "M3 · Journal app", in this ord
 - Write API (a session write is split across the section tabs, `storage/write.py`).
 - Schema-driven forms (pre-session, post-session, rest day; a record created at pre and
   completed at post).
-- `window()` and a declarative readiness recommendation (D-071).
+- `window()` and a declarative readiness recommendation (D-071). → done (D-076, #73):
+  `recommendation:` block, `GET /api/recommendation`, formulas checked against the legacy Summary.
 - Today page: due forms, log check, recommendation.
 - Records page with search and the data issues (orphan section rows, bad values); editing and
   fixing records, including those typed on the phone.

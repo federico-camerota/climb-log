@@ -1803,6 +1803,110 @@
       "title": "PluginDerived",
       "type": "object"
     },
+    "Recommendation": {
+      "additionalProperties": false,
+      "description": "The next-session recommendation (D-076): values computed for a day, then the first rule\nthat holds. The app and the sheet's Summary tab share this one definition (D-071).",
+      "properties": {
+        "label": {
+          "default": "Suggested next session",
+          "title": "Label",
+          "type": "string"
+        },
+        "values": {
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/ExprDerived"
+                },
+                {
+                  "$ref": "#/$defs/BandsDerived"
+                },
+                {
+                  "$ref": "#/$defs/WhenDerived"
+                },
+                {
+                  "$ref": "#/$defs/MapDerived"
+                },
+                {
+                  "$ref": "#/$defs/PluginDerived"
+                },
+                {
+                  "$ref": "#/$defs/ReferenceGroupDerived"
+                }
+              ]
+            }
+          },
+          "title": "Values",
+          "type": "object"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/RecommendationRule"
+          },
+          "minItems": 1,
+          "title": "Rules",
+          "type": "array"
+        },
+        "reasons": {
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "type": "string"
+            }
+          },
+          "title": "Reasons",
+          "type": "object"
+        }
+      },
+      "required": [
+        "rules"
+      ],
+      "title": "Recommendation",
+      "type": "object"
+    },
+    "RecommendationRule": {
+      "additionalProperties": false,
+      "properties": {
+        "if": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "If"
+        },
+        "headline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Headline"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "RecommendationRule",
+      "type": "object"
+    },
     "RefField": {
       "additionalProperties": false,
       "properties": {
@@ -2699,15 +2803,13 @@
     "recommendation": {
       "anyOf": [
         {
-          "additionalProperties": true,
-          "type": "object"
+          "$ref": "#/$defs/Recommendation"
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
-      "title": "Recommendation"
+      "default": null
     }
   },
   "required": [

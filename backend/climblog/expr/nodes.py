@@ -3,7 +3,7 @@
 
 `parse` builds the tree from the text; `check` resolves names and returns a tree where
 `settings.x` is a `Setting`, `fields(...)` a `Fields` node with the matched fields, and the
-cross-record forms (`prev`, `parent.x`, `children(...)`, `last`) nodes of their own.
+cross-record forms (`prev`, `parent.x`, `children(...)`, `last`, `window`) nodes of their own.
 Every node keeps `at`, its position in the expression text, for error messages.
 """
 
@@ -173,8 +173,21 @@ class Children(Node):
 
 @dataclass(frozen=True)
 class Last(Node):
-    """`last(entity.field, before=date)`: the field in the latest earlier record of `entity`."""
+    """`last(entity.field, before=date)`: the field in the latest earlier record of `entity`;
+    with `until=date` (`inclusive`), the latest dated on or before that day."""
 
     entity: str
     field: str
     before: Node
+    inclusive: bool = False
+
+
+@dataclass(frozen=True)
+class Window(Node):
+    """`window(entity.field, days=n, until=date)`: the field in every record of `entity` dated
+    from `n` days before the day to the day itself, in date order (a list for an aggregate)."""
+
+    entity: str
+    field: str
+    days: int
+    until: Node
