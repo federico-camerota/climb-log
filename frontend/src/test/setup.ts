@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import "@testing-library/jest-dom/vitest";
+import "../lib/dayjs";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 
@@ -26,6 +27,10 @@ class ResizeObserver {
 }
 window.ResizeObserver = ResizeObserver;
 Element.prototype.scrollIntoView = () => undefined;
+// Nor document.fonts, which an autosizing Textarea listens to.
+Object.defineProperty(document, "fonts", {
+  value: { addEventListener: () => undefined, removeEventListener: () => undefined },
+});
 
 afterEach(() => {
   cleanup();

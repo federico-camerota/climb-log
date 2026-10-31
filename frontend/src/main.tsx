@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import "@mantine/core/styles.css";
+import "@mantine/dates/styles.css";
+import "./lib/dayjs";
 
 import { MantineProvider } from "@mantine/core";
 import { QueryClientProvider } from "@tanstack/react-query";

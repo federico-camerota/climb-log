@@ -4,7 +4,15 @@
 
 import { QueryClient, useQuery } from "@tanstack/react-query";
 
-import { ApiError, getHealth, getModules, getRecords } from "./client";
+import {
+  ApiError,
+  getHealth,
+  getModules,
+  getRecommendation,
+  getRecord,
+  getRecords,
+  type Values,
+} from "./client";
 
 export function makeQueryClient(): QueryClient {
   return new QueryClient({
@@ -31,4 +39,16 @@ export function useRecords(module: string, entity: string) {
     queryKey: ["records", module, entity],
     queryFn: () => getRecords(module, entity),
   });
+}
+
+/** One record by its key (null: none yet). */
+export function useRecord(module: string, entity: string, key: Values) {
+  return useQuery({
+    queryKey: ["record", module, entity, key],
+    queryFn: () => getRecord(module, entity, key),
+  });
+}
+
+export function useRecommendation(date: string) {
+  return useQuery({ queryKey: ["recommendation", date], queryFn: () => getRecommendation(date) });
 }

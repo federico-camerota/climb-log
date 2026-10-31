@@ -73,7 +73,7 @@ away from home (D-069). Issues in the milestone "M3 · Journal app", in this ord
   routes, sidebar, light/dark, Settings → modules, record counts; API types generated.
 - Write API (a session write is split across the section tabs, `storage/write.py`).
 - Schema-driven forms (pre-session, post-session, rest day; a record created at pre and
-  completed at post).
+  completed at post). → done (D-077, #72).
 - `window()` and a declarative readiness recommendation (D-071). → done (D-076, #73):
   `recommendation:` block, `GET /api/recommendation`, formulas checked against the legacy Summary.
 - Today page: due forms, log check, recommendation.
