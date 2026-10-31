@@ -58,6 +58,11 @@ export function getRecords(module: string, entity: string): Promise<Records> {
   return getJson<Records>(path);
 }
 
+/** Whether the module's YAML loaded (it then has a schema; otherwise `problems` say why). */
+export function isLoaded(module: ModuleInfo): boolean {
+  return module.module_schema != null;
+}
+
 /** The entities of a module, in YAML order (from its schema; none if it didn't load). */
 export function entityNames(module: ModuleInfo): string[] {
   const entities = module.module_schema?.entities;

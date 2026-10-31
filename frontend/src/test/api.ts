@@ -6,13 +6,11 @@ import type { ModuleInfo, ModuleList, Records } from "../api/client";
 
 type Answer = object | (() => Promise<Response>);
 
-/** Stub `fetch` with JSON answers by path; unknown paths are 404. Returns the paths asked. */
-export function stubApi(answers: Record<string, Answer>): string[] {
-  const asked: string[] = [];
+/** Stub `fetch` with JSON answers by path; unknown paths are 404. */
+export function stubApi(answers: Record<string, Answer>): void {
   vi.stubGlobal(
     "fetch",
     vi.fn((path: string) => {
-      asked.push(path);
       const answer = answers[path];
       if (answer === undefined) {
         return Promise.resolve(Response.json({ detail: "Not Found" }, { status: 404 }));
@@ -22,7 +20,6 @@ export function stubApi(answers: Record<string, Answer>): string[] {
         : Promise.resolve(Response.json(answer));
     }),
   );
-  return asked;
 }
 
 export const HEALTH = { status: "ok", version: "0.0.0" };

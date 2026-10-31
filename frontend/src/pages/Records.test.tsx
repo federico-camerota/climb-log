@@ -50,6 +50,18 @@ describe("Records", () => {
     expect(screen.getByText("2 records · 1 data issue")).toBeInTheDocument();
   });
 
+  it("leaves out when the data was read if the API doesn't say", async () => {
+    stubApi({
+      ...API,
+      "/api/modules/journal/session": records(2, { offline: true, as_of: null }),
+    });
+    renderApp("/records/journal/session");
+    expect(
+      await screen.findByText("The workbook can't be reached: this is the last snapshot."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/As of/)).not.toBeInTheDocument();
+  });
+
   it("shows the API's message when the records can't be read", async () => {
     stubApi({
       ...API,

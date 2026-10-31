@@ -3,7 +3,7 @@ import { Alert, Loader, Stack, Text } from "@mantine/core";
 import type { ReactNode } from "react";
 import { Navigate, useParams } from "react-router";
 
-import { entityNames, type ModuleInfo } from "../api/client";
+import { entityNames, isLoaded, type ModuleInfo } from "../api/client";
 import { useModules } from "../api/queries";
 import { ModulePicker } from "./ModulePicker";
 
@@ -32,7 +32,7 @@ export function WithModule({ base, perEntity = false, children }: Props) {
       </Alert>
     );
   }
-  const modules = query.data.modules.filter((m) => m.module_schema != null);
+  const modules = query.data.modules.filter(isLoaded);
   const first = modules[0];
   if (first === undefined) {
     return (

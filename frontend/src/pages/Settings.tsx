@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { Alert, Badge, Card, Group, List, Loader, Stack, Text, Title } from "@mantine/core";
 
-import type { ModuleInfo } from "../api/client";
+import { isLoaded, type ModuleInfo } from "../api/client";
 import { useModules } from "../api/queries";
 
 function ModuleCard({ module }: { module: ModuleInfo }) {
-  const ok = module.problems.length === 0;
+  const ok = isLoaded(module);
   return (
     <Card withBorder>
       <Group justify="space-between">
@@ -17,7 +17,7 @@ function ModuleCard({ module }: { module: ModuleInfo }) {
         {module.version != null && ` · version ${String(module.version)}`}
         {module.kind != null && ` · ${module.kind}`}
       </Text>
-      {!ok && (
+      {module.problems.length > 0 && (
         <List size="sm" c="red">
           {module.problems.map((problem) => (
             <List.Item key={problem}>{problem}</List.Item>
