@@ -279,3 +279,40 @@ def test_formulas_come_from_the_workbook(path: Path, snapshots: Snapshots) -> No
     cached.refresh()  # offline: the snapshot taken above
     with pytest.raises(SnapshotReadOnly):
         cached.read_formulas("Sessions")
+
+
+def test_a_pinned_view_looks_at_the_workbook_once(
+    path: Path, snapshots: Snapshots, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = XlsxBackend(path)
+    looks: list[dt.datetime] = []
+    real = source.last_modified
+
+    def look() -> dt.datetime:
+        looks.append(real())
+        return looks[-1]
+
+    monkeypatch.setattr(source, "last_modified", look)
+    cached = CachedRepository("test_snapshot", source, snapshots)
+    pinned = cached.pinned()
+    seen = len(looks)
+    for _ in range(3):
+        assert len(pinned.read_table("Sessions").rows) == 2
+    assert pinned.read_kv("_settings") == {"low_max": 3}
+    assert len(looks) == seen  # the reads of one request: no new look at the workbook
+    pinned.apply([Append("Sessions", {"date": D20, "kg": 1})])  # writes go through
+    assert len(cached.read_table("Sessions").rows) == 3
+
+
+def test_a_google_snapshot_asks_drive_once() -> None:
+    from backends import GSheets
+    from fake_sheets import FakeSheetsClient
+
+    client = FakeSheetsClient()
+    repo = GSheets(client, live=False).make(
+        {"Sessions": tab(COLUMNS, [D20, None, None, 12.5, "Yes", None]), "Other": [["x"]]}
+    )
+    client.calls.clear()
+    snapshot = take("test_snapshot", repo)
+    assert set(snapshot.tables) == {"Sessions", "Other"}
+    assert client.calls.count("modified_time") == 1  # not one per tab

@@ -4,7 +4,8 @@
 A record is found by its natural key in the loaded data (`load.py`) and written as row edits,
 one per tab it has a row in, applied in one save. Values are checked as if read back from the
 sheet (`parse_cell`), so a write never creates a data issue. Every row written gets
-`updated_at`; a soft delete fills `deleted` on the record's rows and on its children's.
+`updated_at`; a soft delete fills `deleted` on the record's rows and on its children's. An
+update can carry the values the caller read: one that changed since is a conflict (D-027).
 """
 
 import datetime as dt
@@ -12,7 +13,7 @@ from collections.abc import Callable, Mapping, Sequence
 
 from climblog.expr import Value
 from climblog.modules.schema import NEXT, BaseField, Entity, Module
-from climblog.storage.base import Append, Edit, Repository, StorageError, Update
+from climblog.storage.base import Append, Edit, Repository, StorageError, Update, WriteConflict
 from climblog.storage.cells import CellError, RawCell, parse_cell
 from climblog.storage.load import DELETED, Key, ModuleData, describe_key, load_data
 
@@ -20,7 +21,16 @@ UPDATED_AT = "updated_at"
 
 
 class WriteError(StorageError):
-    """A write that doesn't fit the module or the data (unknown field, existing key, …)."""
+    """A write that doesn't fit the module or the data (unknown field, bad value, …); `field`
+    names the field at fault, when there is one."""
+
+    def __init__(self, message: str, field: str | None = None) -> None:
+        super().__init__(message)
+        self.field = field
+
+
+class KeyTaken(WriteError):
+    """A new record whose key is already in the workbook."""
 
 
 class RecordNotFound(WriteError):
@@ -41,9 +51,10 @@ class RecordWriter:
         self.repo = repo
         self.clock = clock
 
-    def add(self, entity: str, values: Mapping[str, Value]) -> None:
-        """A new record. Its key (with defaults) must be complete and not taken; a child needs
-        its parent. A section tab of a split entity gets a row only when it has a value."""
+    def add(self, entity: str, values: Mapping[str, Value]) -> Key:
+        """A new record, and its key. The key (with defaults) must be complete and not taken; a
+        child needs its parent. A section tab of a split entity gets a row only when it has a
+        value."""
         ent = self._entity(entity)
         record = self._check(ent, values)
         key = self._complete_key(ent, record)
@@ -52,6 +63,7 @@ class RecordWriter:
         data = load_data(self.module, self.repo)
         self._check_parent(ent, record, data)
         self.repo.apply(self._appends(ent, record, self._now()))
+        return key
 
     def add_many(self, records: Sequence[tuple[str, Mapping[str, Value]]]) -> None:
         """Several new records, `(entity, values)`, in one save, all or none (an import): each
@@ -68,7 +80,7 @@ class RecordWriter:
             record.update(zip(_key(ent), key, strict=True))
             if (entity, key) in taken:
                 described = describe_key(_key(ent), key)
-                raise WriteError(f"{ent.label} {described} is in the batch twice")
+                raise KeyTaken(f"{ent.label} {described} is in the batch twice")
             self._check_free(ent, key)
             taken.add((entity, key))
             added.setdefault(entity, []).append(record)
@@ -91,16 +103,33 @@ class RecordWriter:
                 edits.append(Append(tab, self._stamped(tab, cells, now)))
         return edits
 
-    def update(self, entity: str, key: Mapping[str, Value], values: Mapping[str, Value]) -> None:
-        """New values for some fields of a record. A tab it has no row in yet gets one; a row
-        changed in the sheet since it was read is a conflict. Key fields can't change."""
+    def update(
+        self,
+        entity: str,
+        key: Mapping[str, Value],
+        values: Mapping[str, Value],
+        expected: Mapping[str, Value] | None = None,
+    ) -> Key:
+        """New values for some fields of a record, and its key. A tab it has no row in yet gets
+        one; a row changed in the sheet since it was read is a conflict, and so is a field of
+        `expected` (the values as the caller read them) that no longer holds. Key fields can't
+        change."""
         ent = self._entity(entity)
         changes = self._check(ent, values)
         data = load_data(self.module, self.repo)
         record, places = self._find(entity, key, data)
+        if expected is not None:
+            for name, value in self._check(ent, expected).items():
+                if record.get(name) != value:
+                    raise WriteConflict(
+                        f"{name} has changed since it was read (now {_show(record.get(name))}):"
+                        " reload the record and try again"
+                    )
         for part in _key(ent):
             if part in changes and changes[part] != record.get(part):
-                raise WriteError(f"{part} can't be changed: delete the record and add it again")
+                raise WriteError(
+                    f"{part} can't be changed: delete the record and add it again", part
+                )
         self._check_parent(ent, record | changes, data)
 
         now = self._now()
@@ -110,13 +139,20 @@ class RecordWriter:
             if not cells:
                 continue
             if tab in places:
-                expected = self._row(tab, places[tab])
-                edits.append(Update(tab, places[tab], self._stamped(tab, cells, now), expected))
+                as_read = self._row(tab, places[tab])
+                edits.append(Update(tab, places[tab], self._stamped(tab, cells, now), as_read))
             else:
                 keys = {part: _cell(record[part]) for part in _key(ent)}
                 edits.append(Append(tab, self._stamped(tab, keys | cells, now)))
         if edits:
             self.repo.apply(edits)
+        return tuple(record.get(part) for part in _key(ent))
+
+    def key_of(self, entity: str, key: Mapping[str, Value]) -> Key:
+        """The full key of the record with this key (blank parts take their defaults); raises
+        `RecordNotFound` when there is none."""
+        record, _ = self._find(entity, key, load_data(self.module, self.repo))
+        return tuple(record.get(part) for part in _key(self._entity(entity)))
 
     def delete(self, entity: str, key: Mapping[str, Value]) -> None:
         """Soft delete: `deleted` filled on every row of the record and of its children."""
@@ -144,13 +180,13 @@ class RecordWriter:
         """The values as the sheet would read them back; an unknown field or bad value fails."""
         unknown = [name for name in values if name not in entity.fields]
         if unknown:
-            raise WriteError(f"{entity.label} has no field {', '.join(unknown)}")
+            raise WriteError(f"{entity.label} has no field {', '.join(unknown)}", unknown[0])
         checked = {}
         for name, value in values.items():
             try:
                 checked[name] = parse_cell(self.module, _field(entity, name), _cell(value))
             except CellError as error:
-                raise WriteError(f"{name}: {error.message}") from None
+                raise WriteError(f"{name}: {error.message}", name) from None
         return checked
 
     def _complete_key(self, entity: Entity, values: Mapping[str, Value]) -> Key:
@@ -158,7 +194,7 @@ class RecordWriter:
         key = tuple(self._or_default(entity, part, values.get(part)) for part in _key(entity))
         if None in key:
             blank = _key(entity)[key.index(None)]
-            raise WriteError(f"no {blank}: a {entity.label.lower()} needs one")
+            raise WriteError(f"no {blank}: a {entity.label.lower()} needs one", blank)
         return key
 
     def _or_default(self, entity: Entity, name: str, value: Value) -> Value:
@@ -178,7 +214,9 @@ class RecordWriter:
         given = self._check(entity, key)
         unknown = [part for part in given if part not in parts]
         if unknown:
-            raise WriteError(f"{', '.join(unknown)} is not part of the {entity.label.lower()} key")
+            raise WriteError(
+                f"{', '.join(unknown)} is not part of the {entity.label.lower()} key", unknown[0]
+            )
         wanted = self._complete_key(entity, given)
         records = data.entities[name]
         for record, places in zip(records.records, records.places, strict=True):
@@ -204,7 +242,7 @@ class RecordWriter:
                 except CellError:
                     continue  # a bad key cell: already a data issue, it can't match
                 if found == key:
-                    raise WriteError(
+                    raise KeyTaken(
                         f"{tab} already has a row for {describe_key(parts, key)} (row {row.number})"
                     )
 
@@ -271,6 +309,10 @@ def _field(entity: Entity, name: str) -> BaseField:
     field = entity.fields[name]
     assert isinstance(field, BaseField)  # templates are expanded at load
     return field
+
+
+def _show(value: Value) -> str:
+    return "blank" if value is None else repr(str(value))
 
 
 def _cell(value: Value) -> RawCell:

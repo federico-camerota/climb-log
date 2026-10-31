@@ -156,7 +156,8 @@ Both backends implement it. Analytics and the engine never know which one is in 
 |---|---|---|
 | GET | `/api/modules` | module list + full schemas (fields, forms, views, settings) (D-058: done) |
 | GET | `/api/modules/{m}/{entity}` | records (+ derived fields), filters, paging (D-058: done without filters and paging) |
-| POST/PATCH/DELETE | `/api/modules/{m}/{entity}[/{id}]` | write records |
+| POST | `/api/modules/{m}/{entity}` | add a record (D-075: done) |
+| GET/PATCH/DELETE | `/api/modules/{m}/{entity}/record?<key>` | read, change, soft delete one record (D-075: done) |
 | GET | `/api/today?date=` | composed "Today" flow: which forms are due, prefilled values |
 | GET | `/api/recommendation?date=` | next-session recommendation + reasons (D-071) |
 | GET | `/api/modules/{m}/views/{view}` | each widget's data for a module view, computed in Python (D-072) |
@@ -179,6 +180,20 @@ reads through the module's snapshot (`CachedRepository`, D-055) and computes the
 on every request. Errors: an unknown module or entity is 404, a module whose YAML doesn't load
 409 with its problems, a workbook that can't be read with no snapshot 503. Dates are ISO
 (`2026-10-14`, times `18:30:00`).
+
+The write API (D-075, `api/modules.py` through `RecordWriter`): `POST /api/modules/{m}/{entity}`
+with `{"values": {…}}` adds a record; `GET`, `PATCH` (`{"values": {…}, "expected": {…}}`) and
+`DELETE` on `/api/modules/{m}/{entity}/record?date=2026-10-30&session_no=2` read, change and
+soft delete one, the key given as one query parameter per key field (blank parts take their
+defaults, as on read). Values are checked as if typed in the sheet (ISO or day-first dates,
+`h:mm` durations, decimal commas). `expected` holds the fields as the client read them: one
+that changed since (a hand edit on the phone, another window) is a 409, so a form never
+overwrites what it didn't show. A write answers with the record as read back (`values`,
+`derived`, `rows`) and `as_of`; a delete with 204. Errors carry `{message, field}`: 404 unknown
+module, entity or record; 409 a taken key, a changed record, or a module that doesn't load; 422 an
+unknown field or a bad value (`field` names it); 423 a local workbook open in Excel or
+LibreOffice; 503 the workbook can't be reached (the snapshot is read-only). Writes to one module
+go one at a time. Each request looks at the source once (`CachedRepository.pinned()`).
 ## Security and privacy
 - Binds to localhost. LAN mode (backlog, D-069) would require a PIN.
 - Google OAuth token is stored under `~/.config/climblog/` with 0600 permissions and

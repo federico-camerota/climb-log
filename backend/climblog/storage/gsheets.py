@@ -31,7 +31,8 @@ locale and time zone of `NewSheets` (D-065).
 import datetime as dt
 import logging
 import os
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -130,6 +131,7 @@ class GSheetsBackend:
         self.backups = backups
         self._clock = clock
         self._copy: _Copy | None = None
+        self._held = False
 
     @property
     def label(self) -> str:
@@ -295,8 +297,19 @@ class GSheetsBackend:
 
     # ---- Reading ----
 
+    @contextmanager
+    def held(self) -> Iterator[None]:
+        """Reads use the copy as it is, without asking Drive again: for reading every tab of one
+        snapshot right after `last_modified` (`take`), all from that one grid read (D-075)."""
+        self._held = True
+        try:
+            yield
+        finally:
+            self._held = False
+
     def _sheets(self) -> list[Json]:
-        self.last_modified()  # reads the sheet again when due
+        if not (self._held and self._copy is not None):
+            self.last_modified()  # reads the sheet again when due
         assert self._copy is not None
         sheets: list[Json] = self._copy.grid.get("sheets", [])
         return sorted(sheets, key=lambda sheet: sheet["properties"].get("index", 0))

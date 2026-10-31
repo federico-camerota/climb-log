@@ -29,7 +29,7 @@ from climblog.storage.snapshot import (
     Snapshots,
 )
 from climblog.storage.sync import SyncRefused, sync_module
-from climblog.storage.write import RecordNotFound, RecordWriter, WriteError
+from climblog.storage.write import KeyTaken, RecordNotFound, RecordWriter, WriteError
 from climblog.storage.xlsx import XlsxBackend
 
 __all__ = [
@@ -43,6 +43,7 @@ __all__ = [
     "Edit",
     "EntityData",
     "GSheetsBackend",
+    "KeyTaken",
     "ModuleData",
     "MoveReport",
     "RawCell",
