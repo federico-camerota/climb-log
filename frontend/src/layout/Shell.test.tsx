@@ -40,6 +40,35 @@ describe("Shell", () => {
     expect(screen.getByRole("heading", { name: "Page not found" })).toBeInTheDocument();
   });
 
+  it("hides and shows the sidebar on a wide window, and remembers it", async () => {
+    stubApi({ "/api/health": HEALTH });
+    const { unmount } = renderApp("/");
+    const sidebar = screen.getByRole("button", { name: "Sidebar" });
+    expect(sidebar).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(sidebar);
+    expect(sidebar).toHaveAttribute("aria-expanded", "false");
+    unmount();
+    renderApp("/"); // a reload
+    expect(screen.getByRole("button", { name: "Sidebar" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("closes the sidebar after a link on a narrow window, not on a wide one", async () => {
+    stubApi({ "/api/health": HEALTH, "/api/modules": MODULES });
+    renderApp("/");
+    const menu = screen.getByRole("button", { name: "Menu" });
+    await userEvent.click(menu);
+    expect(menu).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(screen.getByRole("link", { name: "Settings" }));
+    expect(menu).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Sidebar" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+
   it("switches between light and dark", async () => {
     stubApi({ "/api/health": HEALTH });
     renderApp("/");

@@ -13,6 +13,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   the count of records and data issues with when they were read (an *offline* warning when
   only the snapshot is available). Today, Log and Dashboards are placeholders for their
   issues. Data is refetched when the window regains focus.
+- The sidebar can be hidden on a wide window with the header's burger, and stays as left
+  across reloads (D-074).
 - `make api-types` generates the frontend's API types from the backend's OpenAPI schema;
   `make lint` checks they are up to date.
 

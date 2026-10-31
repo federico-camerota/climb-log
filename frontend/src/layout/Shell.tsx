@@ -9,7 +9,7 @@ import {
   useComputedColorScheme,
   useMantineColorScheme,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { Link, Outlet, useLocation } from "react-router";
 
 import { ServerStatus } from "../components/ServerStatus";
@@ -35,20 +35,48 @@ function ColourToggle() {
   );
 }
 
-/** Desktop-first layout: header and a sidebar, collapsed behind a burger on narrow windows. */
+/** Desktop-first layout: header and a sidebar with a burger each for narrow and wide windows.
+ * On a narrow window the sidebar covers the page, so a link closes it; on a wide one it stays
+ * as left, and whether it is open is remembered across reloads (D-074). */
 export function Shell() {
-  const [opened, { toggle, close }] = useDisclosure();
+  const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure();
+  const [desktopOpened, setDesktopOpened] = useLocalStorage({
+    key: "climblog-sidebar",
+    defaultValue: true,
+    getInitialValueInEffect: false, // read before the first paint: no flash of the sidebar
+  });
   const { pathname } = useLocation();
   return (
     <AppShell
       header={{ height: 56 }}
-      navbar={{ width: 200, breakpoint: "sm", collapsed: { mobile: !opened } }}
+      navbar={{
+        width: 200,
+        breakpoint: "sm",
+        collapsed: { mobile: !mobileOpened, desktop: !desktopOpened },
+      }}
       padding="md"
     >
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group>
-            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" aria-label="Menu" />
+            <Burger
+              opened={mobileOpened}
+              onClick={toggleMobile}
+              hiddenFrom="sm"
+              size="sm"
+              aria-label="Menu"
+              aria-expanded={mobileOpened}
+            />
+            <Burger
+              opened={desktopOpened}
+              onClick={() => {
+                setDesktopOpened(!desktopOpened);
+              }}
+              visibleFrom="sm"
+              size="sm"
+              aria-label="Sidebar"
+              aria-expanded={desktopOpened}
+            />
             <Title order={3}>climb-log</Title>
           </Group>
           <Group>
@@ -65,7 +93,7 @@ export function Shell() {
             to={page.path}
             label={page.label}
             active={isActive(page.path, pathname)}
-            onClick={close}
+            onClick={closeMobile}
           />
         ))}
       </AppShell.Navbar>

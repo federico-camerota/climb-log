@@ -29,5 +29,6 @@ Element.prototype.scrollIntoView = () => undefined;
 
 afterEach(() => {
   cleanup();
+  localStorage.clear(); // the theme and the sidebar's state
   vi.unstubAllGlobals();
 });
