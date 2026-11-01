@@ -15,6 +15,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   issues. Data is refetched when the window regains focus.
 - The sidebar can be hidden on a wide window with the header's burger, and stays as left
   across reloads (D-074).
+- Records page (#75, D-079): a sortable table of each entity's records, newest first, with a
+  column picker, search that ignores accents, data issues marked in their cell and listed in a
+  panel, and CSV export for an Italian spreadsheet.
 - Today page (#74, D-078): the next-session recommendation with its reasons, and the forms due
   on the chosen day (a session or a rest day when nothing is logged; each session's pre and
   post forms after), done / partial / missing with what is missing, linking to each form;

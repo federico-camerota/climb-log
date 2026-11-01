@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { Alert, Loader, Stack, Text, Title } from "@mantine/core";
 
+import type { ModuleInfo } from "../api/client";
 import { useRecords } from "../api/queries";
 import { DataStatus } from "../components/DataStatus";
+import { IssuesPanel } from "../components/IssuesPanel";
+import { RecordsTable } from "../components/RecordsTable";
 import { WithModule } from "../components/WithModule";
-import { Placeholder } from "./Placeholder";
 
-function Summary({ module, entity }: { module: string; entity: string }) {
-  const query = useRecords(module, entity);
+function Summary({ module, entity }: { module: ModuleInfo; entity: string }) {
+  const query = useRecords(module.id, entity);
   if (query.isPending) return <Loader />;
   if (query.isError) {
     return (
@@ -24,7 +26,8 @@ function Summary({ module, entity }: { module: string; entity: string }) {
         {records.length} {records.length === 1 ? "record" : "records"} · {issues.length} data{" "}
         {issues.length === 1 ? "issue" : "issues"}
       </Text>
-      <Placeholder text="The records table comes" issue={75} />
+      <IssuesPanel issues={issues} />
+      <RecordsTable key={`${module.id}:${entity}`} module={module} data={query.data} />
     </Stack>
   );
 }
@@ -34,7 +37,7 @@ export function Records() {
     <Stack>
       <Title order={2}>Records</Title>
       <WithModule base="/records" perEntity>
-        {({ module, entity }) => <Summary module={module.id} entity={entity} />}
+        {({ module, entity }) => <Summary module={module} entity={entity} />}
       </WithModule>
     </Stack>
   );
