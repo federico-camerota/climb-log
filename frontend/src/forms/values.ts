@@ -59,6 +59,15 @@ export function problem(field: FieldDef, value: InputValue): string | null {
   return null;
 }
 
+/** A numeric scale's steps, best first (D-078): 10 → 1 when higher is better, 1 → 10 when
+ * lower is better or neutral (no best). */
+export function scaleSteps(scale: ScaleDef): number[] {
+  const min = scale.min ?? 1;
+  const max = scale.max ?? 10;
+  const steps = Array.from({ length: Math.floor(max - min) + 1 }, (_, i) => min + i);
+  return scale.direction === "higher_better" ? steps.reverse() : steps;
+}
+
 const HINTS = ["red", "orange", "yellow", "lime", "green"];
 
 /** The colour of a scale value: red for the worst end, green for the best (06-ui). */

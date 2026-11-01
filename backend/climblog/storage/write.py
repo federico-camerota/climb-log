@@ -22,11 +22,21 @@ UPDATED_AT = "updated_at"
 
 class WriteError(StorageError):
     """A write that doesn't fit the module or the data (unknown field, bad value, …); `field`
-    names the field at fault, when there is one."""
+    names the field at fault, when there is one. `problems` lists every field at fault with
+    its message (all the bad values of a write, not just the first), `field` and the message
+    being the first of them."""
 
-    def __init__(self, message: str, field: str | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        field: str | None = None,
+        problems: Sequence[tuple[str, str]] | None = None,
+    ) -> None:
         super().__init__(message)
         self.field = field
+        self.problems = list(problems) if problems is not None else []
+        if not self.problems and field is not None:
+            self.problems = [(field, message)]
 
 
 class KeyTaken(WriteError):
@@ -177,16 +187,23 @@ class RecordWriter:
         return entity
 
     def _check(self, entity: Entity, values: Mapping[str, Value]) -> dict[str, Value]:
-        """The values as the sheet would read them back; an unknown field or bad value fails."""
+        """The values as the sheet would read them back; an unknown field or bad value fails,
+        with every one of them in the error's `problems` (a form shows each under its field)."""
         unknown = [name for name in values if name not in entity.fields]
-        if unknown:
-            raise WriteError(f"{entity.label} has no field {', '.join(unknown)}", unknown[0])
+        problems = [(name, f"{entity.label} has no field {name}") for name in unknown]
         checked = {}
         for name, value in values.items():
+            if name in unknown:
+                continue
             try:
                 checked[name] = parse_cell(self.module, _field(entity, name), _cell(value))
             except CellError as error:
-                raise WriteError(f"{name}: {error.message}", name) from None
+                problems.append((name, f"{name}: {error.message}"))
+        if unknown:
+            message = f"{entity.label} has no field {', '.join(unknown)}"
+            raise WriteError(message, unknown[0], problems)
+        if problems:
+            raise WriteError(problems[0][1], problems[0][0], problems)
         return checked
 
     def _complete_key(self, entity: Entity, values: Mapping[str, Value]) -> Key:

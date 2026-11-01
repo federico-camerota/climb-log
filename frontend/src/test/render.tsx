@@ -15,7 +15,7 @@ function testClient(): QueryClient {
 /** Render inside the providers main.tsx sets up, outside the router. */
 export function renderWithProviders(ui: ReactElement): RenderResult {
   return render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={testClient()}>{ui}</QueryClientProvider>
     </MantineProvider>,
   );
@@ -25,7 +25,7 @@ export function renderWithProviders(ui: ReactElement): RenderResult {
 export function renderApp(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   const result = render(
-    <MantineProvider>
+    <MantineProvider env="test">
       <QueryClientProvider client={testClient()}>
         <RouterProvider router={router} />
       </QueryClientProvider>

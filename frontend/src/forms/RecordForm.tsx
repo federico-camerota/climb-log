@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import {
   addRecord,
   ApiError,
+  type FieldProblem,
   updateRecord,
   type ModuleInfo,
   type Values,
@@ -83,12 +84,14 @@ function Editor({
   const editor = useForm<Record<string, InputValue>>({
     mode: "controlled",
     initialValues: { ...initial, ...(draft ?? {}) },
+    // a draft comes back with the errors it had (D-079): the API's are known only on save
+    initialErrors: draft === null ? {} : loadDraftErrors(draftKey),
     validate: Object.fromEntries(
       fields.map(([name, field]) => [name, (value: InputValue) => problem(field, value)]),
     ),
   });
   useEffect(() => {
-    if (editor.isDirty()) saveDraft(draftKey, editor.values);
+    if (editor.isDirty()) saveDraft(draftKey, editor.values, editor.errors);
   }, [editor, draftKey]);
 
   const queryClient = useQueryClient();
@@ -113,9 +116,8 @@ function Editor({
       void queryClient.invalidateQueries({ queryKey: ["today"] });
     },
     onError: (error) => {
-      if (error instanceof ApiError && error.field !== undefined && error.field in editor.values) {
-        editor.setFieldError(error.field, error.message);
-      }
+      const [onForm] = splitProblems(error, editor.getValues());
+      for (const problem of onForm) editor.setFieldError(problem.field, problem.message);
     },
   });
 
@@ -128,6 +130,9 @@ function Editor({
   });
   const error = save.error;
   const conflict = error instanceof ApiError && error.status === 409;
+  // each problem on a field of the form shows under it; the rest (or a problem with no field)
+  // in the "Not saved" alert
+  const [onForm, elsewhere] = splitProblems(error, editor.getValues());
 
   return (
     <form onSubmit={submit} noValidate>
@@ -143,6 +148,7 @@ function Editor({
                   dropDraft(draftKey);
                   editor.setValues(initial);
                   editor.resetDirty(initial);
+                  editor.clearErrors();
                   setRestored(false);
                 }}
               >
@@ -181,13 +187,11 @@ function Editor({
             </Stack>
           </Alert>
         )}
-        {error !== null &&
-          !conflict &&
-          !(error instanceof ApiError && error.field !== undefined) && (
-            <Alert color="red" title="Not saved">
-              {error.message}
-            </Alert>
-          )}
+        {error !== null && !conflict && (onForm.length === 0 || elsewhere.length > 0) && (
+          <Alert color="red" title="Not saved">
+            {elsewhere.length > 0 ? elsewhere.map((p) => p.message).join("; ") : error.message}
+          </Alert>
+        )}
         {nothing && <Text c="dimmed">Nothing changed.</Text>}
         <Group>
           <Button type="submit" loading={save.isPending}>
@@ -230,9 +234,32 @@ function loadDraft(key: string): Record<string, InputValue> | null {
   }
 }
 
-function saveDraft(key: string, values: Record<string, InputValue>): void {
+/** The errors the draft's fields showed (kept apart, so older drafts still load). */
+function loadDraftErrors(key: string): Record<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(`${key}:errors`) ?? "{}");
+    if (typeof parsed !== "object" || parsed === null) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, string] => {
+        return typeof entry[1] === "string";
+      }),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function saveDraft(
+  key: string,
+  values: Record<string, InputValue>,
+  errors: Record<string, unknown>,
+): void {
+  const shown = Object.entries(errors).filter(([, error]) => typeof error === "string");
   try {
     localStorage.setItem(key, JSON.stringify(values));
+    if (shown.length > 0)
+      localStorage.setItem(`${key}:errors`, JSON.stringify(Object.fromEntries(shown)));
+    else localStorage.removeItem(`${key}:errors`);
   } catch {
     // storage off or full: the form still works, without a draft
   }
@@ -241,7 +268,24 @@ function saveDraft(key: string, values: Record<string, InputValue>): void {
 function dropDraft(key: string): void {
   try {
     localStorage.removeItem(key);
+    localStorage.removeItem(`${key}:errors`);
   } catch {
     // nothing to drop
   }
+}
+
+/** A failed save's problems: those on a field of the form, and the others. A 422 lists every
+ * field at fault (D-079); an older answer names only `field`. */
+function splitProblems(
+  error: Error | null,
+  values: Record<string, unknown>,
+): [FieldProblem[], FieldProblem[]] {
+  if (!(error instanceof ApiError)) return [[], []];
+  const all =
+    error.problems.length > 0
+      ? error.problems
+      : error.field !== undefined
+        ? [{ field: error.field, message: error.message }]
+        : [];
+  return [all.filter((p) => p.field in values), all.filter((p) => !(p.field in values))];
 }

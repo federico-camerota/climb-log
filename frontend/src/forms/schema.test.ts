@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { DIARY } from "../test/api";
 import { entityOf, fieldLabel, formGroups, formsOf, keyOf, scaleOf } from "./schema";
-import { problem, scaleColour, toApi, toInput, unchanged } from "./values";
+import { problem, scaleColour, scaleSteps, toApi, toInput, unchanged } from "./values";
 
 const session = entityOf(DIARY, "session");
 const restDay = entityOf(DIARY, "rest_day");
@@ -92,5 +92,13 @@ describe("values", () => {
     expect([scaleColour(1, up), scaleColour(10, up)]).toEqual(["red", "green"]);
     expect([scaleColour(1, down), scaleColour(10, down)]).toEqual(["green", "red"]);
     expect(scaleColour(5, { ...up, direction: "neutral" })).toBe("blue");
+  });
+
+  it("lists a scale's steps best first (neutral: from the lowest)", () => {
+    const up = { min: 1, max: 5, direction: "higher_better" as const };
+    expect(scaleSteps(up)).toEqual([5, 4, 3, 2, 1]);
+    expect(scaleSteps({ ...up, direction: "lower_better" })).toEqual([1, 2, 3, 4, 5]);
+    expect(scaleSteps({ ...up, direction: "neutral" })).toEqual([1, 2, 3, 4, 5]);
+    expect(scaleSteps({ min: 0, max: 2 })).toEqual([0, 1, 2]); // no direction: as neutral
   });
 });
