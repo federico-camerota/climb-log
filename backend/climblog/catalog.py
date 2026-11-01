@@ -101,7 +101,7 @@ class Catalog:
         return recommend(module, plan, full, settings, day)
 
     def due(self, entry: Entry, day: dt.date) -> Day:
-        """The module's forms on `day`: what is done and what is missing (D-078)."""
+        """The module's forms on `day`: what is done and what is missing (D-080)."""
         assert entry.module is not None
         full, _ = self.full_tables(entry)
         return due(entry.module, full, day)

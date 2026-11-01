@@ -76,7 +76,7 @@ away from home (D-069). Issues in the milestone "M3 · Journal app", in this ord
   completed at post). → done (D-077, #72).
 - `window()` and a declarative readiness recommendation (D-071). → done (D-076, #73):
   `recommendation:` block, `GET /api/recommendation`, formulas checked against the legacy Summary.
-- Today page: due forms, log check, recommendation. → done (D-078, #74).
+- Today page: due forms, log check, recommendation. → done (D-080, #74).
 - Records page with search and the data issues (orphan section rows, bad values); editing and
   fixing records, including those typed on the phone.
 - Journal dashboard at parity (D-072): status board, last N sessions, monthly averages,

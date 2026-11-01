@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""What to log on a day (D-078): `GET /api/today?date=2026-10-30` (default today).
+"""What to log on a day (D-080): `GET /api/today?date=2026-10-30` (default today).
 
 For each module with forms: each form due on the day (done / partial / missing, with what is
 missing and the record's own log check), whether the items are alternatives (nothing logged
