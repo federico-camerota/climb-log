@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { Button, Group, Input, Select, Textarea, TextInput } from "@mantine/core";
+import { ColorSwatch, Group, Select, Text, Textarea, TextInput } from "@mantine/core";
 import { DateInput, TimeInput } from "@mantine/dates";
 
 import { fieldLabel, type FieldDef, type ScaleDef } from "./schema";
-import { isScale, scaleColour, type InputValue } from "./values";
+import { isScale, scaleColour, scaleSteps, type InputValue } from "./values";
 
 interface Props {
   name: string;
@@ -124,31 +124,40 @@ interface ScaleProps {
   onChange: (value: number | null) => void;
 }
 
-/** A 1–10 scale as buttons; the chosen one again clears it. */
+/** A 1–10 scale as a dropdown that starts blank, its best value first and marked (D-078), each
+ * value with its colour hint; the × clears it. */
 function ScaleInput({ label, description, error, required, scale, value, onChange }: ScaleProps) {
-  const min = scale.min ?? 1;
-  const max = scale.max ?? 10;
-  const steps = Array.from({ length: Math.floor(max - min) + 1 }, (_, i) => min + i);
+  const steps = scaleSteps(scale);
+  const best = scale.direction === "neutral" ? undefined : steps[0];
+  const swatch = (step: number) => (
+    <ColorSwatch color={`var(--mantine-color-${scaleColour(step, scale)}-filled)`} size={12} />
+  );
   return (
-    <Input.Wrapper label={label} description={description} error={error} required={required}>
-      <Group gap={4} role="group" aria-label={label}>
-        {steps.map((step) => (
-          <Button
-            key={step}
-            size="compact-md"
-            w={36}
-            px={0}
-            color={scaleColour(step, scale)}
-            variant={step === value ? "filled" : "light"}
-            aria-pressed={step === value}
-            onClick={() => {
-              onChange(step === value ? null : step);
-            }}
-          >
-            {step}
-          </Button>
-        ))}
-      </Group>
-    </Input.Wrapper>
+    <Select
+      label={label}
+      description={description}
+      error={error}
+      required={required}
+      data={steps.map(String)}
+      value={value === null ? null : String(value)}
+      onChange={(next) => {
+        onChange(next === null ? null : Number(next));
+      }}
+      leftSection={value === null ? undefined : swatch(value)}
+      renderOption={({ option }) => (
+        <Group gap="xs">
+          {swatch(Number(option.value))}
+          {option.value}
+          {Number(option.value) === best && (
+            <Text size="xs" c="dimmed">
+              best
+            </Text>
+          )}
+        </Group>
+      )}
+      clearable
+      allowDeselect
+      maw={160}
+    />
   );
 }

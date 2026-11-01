@@ -20,21 +20,45 @@ export type DueForm = Schemas["DueForm"];
 /** A record's stored values (or its key's), by field name, as the API reads and writes them. */
 export type Values = Record<string, unknown>;
 
+/** A field at fault and its message (a write's 422 lists every one, D-079). */
+export interface FieldProblem {
+  field: string;
+  message: string;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     path: string,
     readonly detail?: string,
-    readonly field?: string, // the field at fault (a write's 422)
+    readonly field?: string, // the (first) field at fault (a write's 422)
     method = "GET",
+    readonly problems: FieldProblem[] = [], // every field at fault
   ) {
     super(detail ?? `${method} ${path} failed with HTTP ${String(status)}`);
     this.name = "ApiError";
   }
 }
 
-/** The API's own message: FastAPI's `detail`, a string or `{message, field}`. */
-async function detailOf(response: Response): Promise<{ message?: string; field?: string }> {
+interface Detail {
+  message?: string;
+  field?: string;
+  problems?: FieldProblem[];
+}
+
+function isFieldProblem(item: unknown): item is FieldProblem {
+  return (
+    typeof item === "object" &&
+    item !== null &&
+    "field" in item &&
+    typeof item.field === "string" &&
+    "message" in item &&
+    typeof item.message === "string"
+  );
+}
+
+/** The API's own message: FastAPI's `detail`, a string or `{message, field, problems}`. */
+async function detailOf(response: Response): Promise<Detail> {
   try {
     const body = (await response.json()) as { detail?: unknown };
     const detail = body.detail;
@@ -42,7 +66,10 @@ async function detailOf(response: Response): Promise<{ message?: string; field?:
     if (typeof detail === "object" && detail !== null && "message" in detail) {
       const field =
         "field" in detail && typeof detail.field === "string" ? detail.field : undefined;
-      return { message: String(detail.message), field };
+      // a module that doesn't load lists its problems as text: not fields
+      const listed = "problems" in detail && Array.isArray(detail.problems) ? detail.problems : [];
+      const problems = (listed as unknown[]).filter(isFieldProblem);
+      return { message: String(detail.message), field, problems };
     }
   } catch {
     // not JSON: keep the generic message
@@ -60,8 +87,8 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   if (!response.ok) {
-    const { message, field } = await detailOf(response);
-    throw new ApiError(response.status, path, message, field, method);
+    const { message, field, problems } = await detailOf(response);
+    throw new ApiError(response.status, path, message, field, method, problems);
   }
   return (response.status === 204 ? undefined : await response.json()) as T;
 }

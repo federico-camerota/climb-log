@@ -148,6 +148,13 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** FieldProblem */
+        FieldProblem: {
+            /** Field */
+            field: string;
+            /** Message */
+            message: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -345,6 +352,11 @@ export interface components {
             field?: string | null;
             /** Message */
             message: string;
+            /**
+             * Problems
+             * @default []
+             */
+            problems: components["schemas"]["FieldProblem"][];
         };
         /** Written */
         Written: {

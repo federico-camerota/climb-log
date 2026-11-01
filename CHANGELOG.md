@@ -20,8 +20,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   post forms after), done / partial / missing with what is missing, linking to each form;
   `GET /api/today?date=`.
 - Log forms (#72, D-077): the journal's pre-session, post-session and rest-day forms, built
-  from the module YAML; a session created at pre and completed at post; scales as coloured
-  buttons, decimal commas, Italian notes; drafts kept until saved; the statuses after saving.
+  from the module YAML; a session created at pre and completed at post; scales as compact
+  dropdowns that start blank with the best value first (D-078), decimal commas, Italian notes;
+  drafts kept until saved; every bad value shown under its field at once (D-079); the
+  statuses after saving.
 - Write API (#71, D-075): add, read one, change and soft delete records over HTTP
   (`POST /api/modules/{m}/{entity}`, `GET`/`PATCH`/`DELETE …/record?date=…&session_no=…`), with
   conflicts detected against the values the client read, and clear errors (the field at fault,
