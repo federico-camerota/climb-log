@@ -15,10 +15,16 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   issues. Data is refetched when the window regains focus.
 - The sidebar can be hidden on a wide window with the header's burger, and stays as left
   across reloads (D-074).
+- Write API (#71, D-075): add, read one, change and soft delete records over HTTP
+  (`POST /api/modules/{m}/{entity}`, `GET`/`PATCH`/`DELETE …/record?date=…&session_no=…`), with
+  conflicts detected against the values the client read, and clear errors (the field at fault,
+  a locked workbook, offline).
 - `make api-types` generates the frontend's API types from the backend's OpenAPI schema;
   `make lint` checks they are up to date.
 
 ### Changed
+- Reading a module asks its source whether it changed once per request, and a Google snapshot
+  reads every tab from one copy: fewer Drive calls (a read after a change about twice as fast).
 - M3 re-scoped (`design/07-roadmap.md`): logging mainly in the app on the computer, Google
   Sheets on the phone as the fallback; LAN mode moved to the backlog (D-069). Frontend
   libraries, the declarative readiness rule and backend-computed dashboards decided

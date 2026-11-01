@@ -366,6 +366,10 @@ stored on disk (`~/.local/share/climblog/snapshots/<module>.json.gz`, folder set
   read again and a new snapshot saved. Writes and schema sync go to the source; the next read
   takes a new snapshot. When the source can't be reached, the snapshot is used **read-only**
   (`offline`; a write raises `SnapshotReadOnly`), and `as_of` gives "data as of HH:MM".
+- **One look per request** (D-075): `CachedRepository.pinned()` refreshes once and serves the
+  request's many reads (a module's tabs, a write's checks) from that snapshot; writes still go
+  to the source. Taking a snapshot reads every tab from one copy of the source (Google:
+  `GSheetsBackend.held()`, no Drive call per tab).
 - On startup the app loads the snapshot immediately, then refreshes it from the source in the
   background (and on change polling, the Reload button, and after every write) (#25). For
   Google modules the poller does this from the start of `climblog serve` (D-068).

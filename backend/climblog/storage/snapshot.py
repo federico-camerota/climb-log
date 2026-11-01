@@ -19,6 +19,7 @@ import os
 import tempfile
 import threading
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -64,15 +65,23 @@ def take(
     modified = repo.last_modified()
     tables: dict[str, Table] = {}
     kv: dict[str, dict[str, RawCell]] = {}
-    for name in repo.list_tables():
-        try:
-            if name in KV_TABS:
-                kv[name] = repo.read_kv(name)
-            else:
-                tables[name] = repo.read_table(name)
-        except StorageError:
-            continue  # a broken header row: `climblog check` reports it
+    with _held(repo):
+        for name in repo.list_tables():
+            try:
+                if name in KV_TABS:
+                    kv[name] = repo.read_kv(name)
+                else:
+                    tables[name] = repo.read_table(name)
+            except StorageError:
+                continue  # a broken header row: `climblog check` reports it
     return Snapshot(module, modified, clock(), tables, kv)
+
+
+def _held(repo: Repository) -> AbstractContextManager[None]:
+    """The source's `held()`, when it has one: its tabs are read from the copy it just checked,
+    not checked again each (on Google, a Drive call per tab, D-075)."""
+    held: Callable[[], AbstractContextManager[None]] | None = getattr(repo, "held", None)
+    return held() if held is not None else nullcontext()
 
 
 class SnapshotRepository:
@@ -234,6 +243,47 @@ class CachedRepository:
         done = self.source.sync_schema(layout, meta)
         self._current = None
         return done
+
+    def pinned(self) -> "PinnedRepository":
+        """The data as of one refresh, for the reads of one request (D-075)."""
+        return PinnedRepository(self)
+
+
+class PinnedRepository:
+    """A `CachedRepository` as of one refresh: reads come from that snapshot, so the many reads
+    of one request (loading a module, a write's checks) ask the source whether it changed once,
+    not once per tab (on Google, a Drive call each). Writes go through to the workbook."""
+
+    def __init__(self, cached: CachedRepository) -> None:
+        self.cached = cached
+        self._view = SnapshotRepository(cached.refresh())
+
+    def list_tables(self) -> list[str]:
+        return self._view.list_tables()
+
+    def read_table(self, name: str) -> Table:
+        return self._view.read_table(name)
+
+    def read_kv(self, name: str) -> dict[str, RawCell]:
+        return self._view.read_kv(name)
+
+    def last_modified(self) -> dt.datetime:
+        return self._view.last_modified()
+
+    def apply(self, edits: Sequence[Edit]) -> list[int]:
+        return self.cached.apply(edits)
+
+    def write_kv(self, name: str, values: Mapping[str, RawCell]) -> None:
+        self.cached.write_kv(name, values)
+
+    def read_formulas(self, name: str) -> Table:
+        return self.cached.read_formulas(name)
+
+    def exists(self) -> bool:
+        return self.cached.exists()
+
+    def sync_schema(self, layout: WorkbookLayout, meta: Mapping[str, RawCell]) -> list[str]:
+        return self.cached.sync_schema(layout, meta)
 
 
 # ---- JSON ----

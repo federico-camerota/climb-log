@@ -4,11 +4,13 @@
 Loaded on the first API request, not when the app is built, so the app starts (and its tests
 run) without a config. A module whose YAML doesn't load is listed with its problems; reading its
 records is refused. Data is read through each module's local snapshot (`CachedRepository`,
-D-055), and its derived values are computed on every read.
+D-055), and its derived values are computed on every read. Writes to one module go one at a time
+(`Entry.lock`).
 """
 
 import datetime as dt
 import threading
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -38,6 +40,7 @@ class Entry:
     module: Module | None
     problems: list[str] = field(default_factory=list)
     repo: CachedRepository | None = None
+    lock: threading.Lock = field(default_factory=threading.Lock)  # one write at a time
 
 
 class Catalog:
@@ -69,7 +72,7 @@ class Catalog:
         the workbook nor a snapshot can be read."""
         assert entry.module is not None and entry.repo is not None
         module = entry.module
-        data = load_data(module, entry.repo)
+        data = load_data(module, entry.repo.pinned())  # one look at the source
         tables = {name: e.records for name, e in data.entities.items()}
         derived = compute_module(module, tables, data.settings)
         tabs = set(module.entities[entity].tab_fields())
@@ -82,6 +85,18 @@ class Catalog:
             entry.repo.as_of,
             entry.repo.offline,
         )
+
+    def record(
+        self, entry: Entry, entity: str, key: Sequence[Value]
+    ) -> tuple[EntityRecords, int] | None:
+        """The entity's records and the index of the one with this key, if it is there."""
+        assert entry.module is not None
+        parts = entry.module.entities[entity].key or []
+        found = self.records(entry, entity)
+        for index, values in enumerate(found.records):
+            if tuple(values.get(part) for part in parts) == tuple(key):
+                return found, index
+        return None
 
 
 _LOADING = threading.Lock()

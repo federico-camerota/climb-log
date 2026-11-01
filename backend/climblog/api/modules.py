@@ -4,16 +4,29 @@
 `GET /api/modules`: every configured module with its schema (or the problems of its YAML).
 `GET /api/modules/{module}/{entity}`: the entity's records with their derived values and the
 data issues of its tabs, read through the local snapshot. Paging and filters come with the UI.
+`POST` there adds a record; `GET`, `PATCH` and `DELETE` on `…/{entity}/record?<key>` read, change
+and soft delete one (D-075), through `RecordWriter`.
 """
 
 import datetime as dt
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from climblog.catalog import Catalog, Entry, served
-from climblog.storage import StorageError
+from climblog.catalog import Catalog, EntityRecords, Entry, served
+from climblog.expr import Value
+from climblog.storage import (
+    KeyTaken,
+    RecordNotFound,
+    RecordWriter,
+    StorageError,
+    WorkbookLocked,
+    WriteConflict,
+    WriteError,
+)
 
 router = APIRouter()
 
@@ -72,6 +85,107 @@ def list_modules(request: Request) -> ModuleList:
 @router.get("/modules/{module}/{entity}")
 def list_records(request: Request, module: str, entity: str) -> Records:
     current = catalog(request)
+    entry = _entry(current, module, entity)
+    try:
+        data = current.records(entry, entity)
+    except StorageError as error:
+        raise HTTPException(503, str(error)) from None
+    return Records(
+        module=module,
+        entity=entity,
+        records=[_record(data, index) for index in range(len(data.records))],
+        issues=[Issue(tab=i.tab, row=i.row, field=i.field, message=i.message) for i in data.issues],
+        as_of=data.as_of,
+        offline=data.offline,
+    )
+
+
+# ---- Writing (D-075) ----
+
+
+class NewRecord(BaseModel):
+    values: dict[str, Any]  # stored fields; the key's blank parts take their defaults
+
+
+class RecordChanges(BaseModel):
+    values: dict[str, Any]  # the fields to change; null clears one
+    # The fields as the caller read them: a 409 when one has changed since (a hand edit in the
+    # sheet, another window), D-027. Leave out to write regardless.
+    expected: dict[str, Any] | None = None
+
+
+class Written(BaseModel):
+    record: Record  # as read back from the workbook
+    as_of: dt.datetime | None
+
+
+class WriteProblem(BaseModel):
+    message: str
+    field: str | None = None  # the field at fault, when there is one
+
+
+_WRITE_ERRORS: dict[int | str, dict[str, Any]] = {
+    status: {"model": WriteProblem, "description": text}
+    for status, text in [
+        (404, "No such module, entity or record"),
+        (409, "The key is taken, the record changed since it was read, or the module doesn't load"),
+        (422, "An unknown field or a bad value"),
+        (423, "The workbook is open in Excel or LibreOffice"),
+        (503, "The workbook can't be reached: offline, read-only"),
+    ]
+}
+
+# The record's key goes in the query string, one parameter per key field (D-075):
+# `/api/modules/journal/session/record?date=2026-10-30&session_no=2`.
+KEY_HELP = "One query parameter per key field, e.g. ?date=2026-10-30&session_no=2"
+
+
+@router.post("/modules/{module}/{entity}", status_code=201, responses=_WRITE_ERRORS)
+def add_record(request: Request, module: str, entity: str, body: NewRecord) -> Written:
+    """Add a record."""
+    current = catalog(request)
+    entry = _entry(current, module, entity)
+    with entry.lock, _write_errors():
+        key = _writer(entry).add(entity, body.values)
+    return _written(current, entry, entity, key)
+
+
+@router.get("/modules/{module}/{entity}/record", responses=_WRITE_ERRORS, description=KEY_HELP)
+def get_record(request: Request, module: str, entity: str) -> Written:
+    """One record, by its key."""
+    current = catalog(request)
+    entry = _entry(current, module, entity)
+    with _write_errors():
+        key = _writer(entry).key_of(entity, dict(request.query_params))
+    return _written(current, entry, entity, key)
+
+
+@router.patch("/modules/{module}/{entity}/record", responses=_WRITE_ERRORS, description=KEY_HELP)
+def update_record(request: Request, module: str, entity: str, body: RecordChanges) -> Written:
+    """Change some fields of a record."""
+    current = catalog(request)
+    entry = _entry(current, module, entity)
+    with entry.lock, _write_errors():
+        key = _writer(entry).update(entity, dict(request.query_params), body.values, body.expected)
+    return _written(current, entry, entity, key)
+
+
+@router.delete(
+    "/modules/{module}/{entity}/record",
+    status_code=204,
+    responses=_WRITE_ERRORS,
+    description=KEY_HELP,
+)
+def delete_record(request: Request, module: str, entity: str) -> None:
+    """Soft delete a record (and its children): `deleted` is filled on its rows."""
+    current = catalog(request)
+    entry = _entry(current, module, entity)
+    with entry.lock, _write_errors():
+        _writer(entry).delete(entity, dict(request.query_params))
+
+
+def _entry(current: Catalog, module: str, entity: str) -> Entry:
+    """The module's entry, refused when it is unknown or doesn't load, or has no such entity."""
     entry = current.entries.get(module)
     if entry is None:
         raise HTTPException(404, f"no module '{module}' in the app config")
@@ -81,21 +195,51 @@ def list_records(request: Request, module: str, entity: str) -> Records:
         )
     if entity not in entry.module.entities:
         raise HTTPException(404, f"module '{module}' has no entity '{entity}'")
+    return entry
+
+
+def _writer(entry: Entry) -> RecordWriter:
+    assert entry.module is not None and entry.repo is not None
+    # One look at the source for the writer's checks; the save itself goes to the workbook.
+    return RecordWriter(entry.module, entry.repo.pinned())
+
+
+@contextmanager
+def _write_errors() -> Iterator[None]:
+    """A storage error as the HTTP status a client can act on."""
     try:
-        data = current.records(entry, entity)
+        yield
+    except RecordNotFound as error:
+        raise _problem(404, error) from None
+    except (KeyTaken, WriteConflict) as error:
+        raise _problem(409, error) from None
+    except WriteError as error:
+        raise _problem(422, error) from None
+    except WorkbookLocked as error:
+        raise _problem(423, error) from None
+    except StorageError as error:  # offline (the snapshot is read-only), unreachable
+        raise _problem(503, error) from None
+
+
+def _problem(status: int, error: StorageError) -> HTTPException:
+    field = error.field if isinstance(error, WriteError) else None
+    return HTTPException(status, WriteProblem(message=str(error), field=field).model_dump())
+
+
+def _written(current: Catalog, entry: Entry, entity: str, key: Sequence[Value]) -> Written:
+    """The record as read back: the next read after a write takes a new snapshot."""
+    try:
+        found = current.record(entry, entity, key)
     except StorageError as error:
-        raise HTTPException(503, str(error)) from None
-    return Records(
-        module=module,
-        entity=entity,
-        records=[
-            Record(values=values, derived=derived, rows=rows)
-            for values, derived, rows in zip(data.records, data.derived, data.rows, strict=True)
-        ],
-        issues=[Issue(tab=i.tab, row=i.row, field=i.field, message=i.message) for i in data.issues],
-        as_of=data.as_of,
-        offline=data.offline,
-    )
+        raise _problem(503, error) from None
+    if found is None:  # pragma: no cover - written, then deleted by hand at once
+        raise HTTPException(404, WriteProblem(message="the record is gone").model_dump())
+    data, index = found
+    return Written(record=_record(data, index), as_of=data.as_of)
+
+
+def _record(data: EntityRecords, index: int) -> Record:
+    return Record(values=data.records[index], derived=data.derived[index], rows=data.rows[index])
 
 
 def _info(entry: Entry) -> ModuleInfo:
