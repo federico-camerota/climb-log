@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -14,6 +14,12 @@ const READ = { date: "2026-10-30", session_no: 1, venue: "[ESEMPIO] Palestra", w
 
 function api(extra: Record<string, object | ((body: unknown) => Promise<Response>)> = {}) {
   return stubApi({ "/api/health": HEALTH, "/api/modules": LIST, ...extra });
+}
+
+/** Opens a scale's dropdown and picks a value. */
+async function pick(label: string, value: string) {
+  await userEvent.click(screen.getByRole("combobox", { name: label }));
+  await userEvent.click(await screen.findByRole("option", { name: value }));
 }
 
 function failing(status: number, detail: object) {
@@ -40,8 +46,7 @@ describe("Log", () => {
       "[[ESEMPIO] Più su",
     );
     await userEvent.type(screen.getByRole("textbox", { name: "Sleep hours" }), "7,5");
-    const mood = screen.getByRole("group", { name: "Mood" });
-    await userEvent.click(within(mood).getByRole("button", { name: "7" }));
+    await pick("Mood", "7");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Saved")).toBeInTheDocument();
@@ -65,8 +70,8 @@ describe("Log", () => {
       [`PATCH ${RECORD}`]: written({ ...READ, wb_fatigue_post: 3 }),
     });
     renderApp("/log/diary/post_session?date=2026-10-30");
-    const fatigue = await screen.findByRole("group", { name: "Fatigue ↓" });
-    await userEvent.click(within(fatigue).getByRole("button", { name: "3" }));
+    await screen.findByRole("combobox", { name: "Fatigue ↓" });
+    await pick("Fatigue ↓", "3");
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText("Saved")).toBeInTheDocument();
     const patch = calls.find((c) => c.method === "PATCH");
@@ -76,17 +81,46 @@ describe("Log", () => {
     });
   });
 
-  it("shows what it read, and a scale clicked again is cleared", async () => {
+  it("starts scales blank, with the best value first", async () => {
+    api();
+    renderApp("/log/diary/post_session?date=2026-10-30");
+    const fatigue = await screen.findByRole("combobox", { name: "Fatigue ↓" });
+    expect(fatigue).toHaveValue("");
+    await userEvent.click(fatigue);
+    const options = await screen.findAllByRole("option");
+    expect(options.map((o) => o.textContent)).toEqual([
+      "1best",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+    ]);
+  });
+
+  it("lists a higher-is-better scale from 10 down", async () => {
+    api();
+    renderApp(PRE);
+    await userEvent.click(await screen.findByRole("combobox", { name: "Mood" }));
+    const options = await screen.findAllByRole("option");
+    expect(options[0]).toHaveTextContent("10best");
+    expect(options.at(-1)).toHaveTextContent("1");
+  });
+
+  it("shows what it read, and a cleared scale picked again is unchanged", async () => {
     const calls = api({ [RECORD]: written(READ) });
     renderApp(PRE);
     expect(await screen.findByDisplayValue("[ESEMPIO] Palestra")).toBeInTheDocument();
-    const seven = within(screen.getByRole("group", { name: "Mood" })).getByRole("button", {
-      name: "7",
-    });
-    expect(seven).toHaveAttribute("aria-pressed", "true");
-    await userEvent.click(seven);
-    expect(seven).toHaveAttribute("aria-pressed", "false");
-    await userEvent.click(seven);
+    const mood = screen.getByRole("combobox", { name: "Mood" });
+    expect(mood).toHaveValue("7");
+    await pick("Mood", "7"); // the chosen value again clears it (the × does too)
+    expect(mood).toHaveValue("");
+    await pick("Mood", "7");
+    expect(mood).toHaveValue("7");
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText("Nothing changed.")).toBeInTheDocument();
     expect(calls.some((c) => c.method === "PATCH")).toBe(false);
@@ -145,7 +179,7 @@ describe("Log", () => {
     await userEvent.click(screen.getByText("Rest day"));
     expect(router.state.location.pathname).toBe("/log/diary/rest_day");
     expect(router.state.location.search).toBe("?date=2026-10-30");
-    expect(await screen.findByRole("group", { name: "Mood" })).toBeInTheDocument();
+    expect(await screen.findByRole("combobox", { name: "Mood" })).toBeInTheDocument();
   });
 
   it("says when a module has no forms", async () => {
