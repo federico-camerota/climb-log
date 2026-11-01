@@ -189,7 +189,9 @@ defaults, as on read). Values are checked as if typed in the sheet (ISO or day-f
 `h:mm` durations, decimal commas). `expected` holds the fields as the client read them: one
 that changed since (a hand edit on the phone, another window) is a 409, so a form never
 overwrites what it didn't show. A write answers with the record as read back (`values`,
-`derived`, `rows`) and `as_of`; a delete with 204. Errors carry `{message, field}`: 404 unknown
+`derived`, `rows`) and `as_of`; a delete with 204. Errors carry `{message, field,
+problems}` (`problems`: every field at fault with its message, so a form shows each; `message`
+and `field` are the first, D-079): 404 unknown
 module, entity or record; 409 a taken key, a changed record, or a module that doesn't load; 422 an
 unknown field or a bad value (`field` names it); 423 a local workbook open in Excel or
 LibreOffice; 503 the workbook can't be reached (the snapshot is read-only). Writes to one module
