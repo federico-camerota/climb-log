@@ -211,8 +211,36 @@ forms:
   post_session: {entity: session, phase: post, sections: [wb_post, ph_post, mn_post, feel, reflect]}
   rest_day:     {entity: rest_day}
 
+# The legacy "Suggested next session" (Summary – Recent, 00-current-state §1), for the day asked
+# (TODAY() in the sheet): the latest session on or before it, and the LOW sessions of the 14 days
+# before it and on it. The first rule that holds is the recommendation (D-076).
 recommendation:
-  plugin: journal.readiness      # RECOVER / MODERATE / GREEN LIGHT (00-current-state §1)
+  label: Suggested next session
+  values:
+    last_session: "last(session.date, until=date)"
+    latest_status: "last(session.overall_status, until=date)"
+    low_sessions: "count(window(session.overall_status, days=14, until=date), equals='LOW')"
+  rules:
+    - if: "not notnull(last_session)"
+      message: Log a session to get guidance
+    - if: "latest_status == 'LOW' or low_sessions >= 2"
+      headline: RECOVER
+      message: >-
+        rest day or easy technical climbing. No limit attempts or max hangs until your
+        recovery scores come back up.
+    - if: "latest_status == 'WATCH'"
+      headline: MODERATE
+      message: >-
+        train as planned but cap the intensity; re-check your pre-session wellbeing before
+        you start.
+    - if: "latest_status == 'GOOD'"
+      headline: GREEN LIGHT
+      message: "good window for quality work: project attempts, limit boulders or strength."
+    - message: Fill in the remaining tabs for your latest session to get guidance
+  reasons:
+    last_session: Last session
+    latest_status: Latest overall status
+    low_sessions: LOW sessions in the last 14 days
 
 views:
   overview:

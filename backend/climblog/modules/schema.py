@@ -531,6 +531,30 @@ _MODEL_TAGS: dict[type, str] = {
 }
 
 
+class RecommendationRule(Strict):
+    if_: str | None = Field(None, alias="if")  # None: the last rule, when no other holds
+    headline: str | None = None  # e.g. RECOVER; the message alone when there is none
+    message: str
+
+
+class Recommendation(Strict):
+    """The next-session recommendation (D-076): values computed for a day, then the first rule
+    that holds. The app and the sheet's Summary tab share this one definition (D-071)."""
+
+    label: str = "Suggested next session"
+    # Derived entries of the day asked: `date` is that day (TODAY() in the sheet); they read
+    # the records with last(e.x, until=date) and window(e.x, days=n, until=date).
+    values: dict[Key, Derived] = {}
+    rules: list[RecommendationRule] = Field(min_length=1)
+    reasons: dict[Key, str] = {}  # value → its label, shown with the result in this order
+
+    @model_validator(mode="after")
+    def _shape(self) -> Self:
+        if any(rule.if_ is None for rule in self.rules[:-1]):
+            raise ValueError("only the last rule can leave out `if`")
+        return self
+
+
 class Module(Strict):
     # Extra top-level keys are allowed only as named level lists (`reflect_levels`);
     # `cross_check` reports any other one as unknown.
@@ -551,4 +575,4 @@ class Module(Strict):
     forms: Unchecked | None = None  # M3
     views: Unchecked | None = None  # M3, M4
     aggregates: Unchecked | None = None  # M5
-    recommendation: Unchecked | None = None  # M3
+    recommendation: Recommendation | None = None  # M3 (D-076)

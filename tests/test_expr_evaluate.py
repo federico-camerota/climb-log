@@ -202,8 +202,13 @@ class FakeRelated:
     def children(self, entity: str) -> Sequence[Mapping[str, Value]]:
         return [{"kg": 10, "volume": 50}, {"kg": None, "volume": 30}]
 
-    def last(self, entity: str, name: str, before: dt.date) -> Value:
-        return 6 if before > dt.date(2026, 10, 20) else None
+    def last(self, entity: str, name: str, day: dt.date, inclusive: bool = False) -> Value:
+        start = dt.date(2026, 10, 13)
+        return 6 if day > start or (inclusive and day == start) else None
+
+    def window(self, entity: str, name: str, start: dt.date, end: dt.date) -> list[Value]:
+        days = {dt.date(2026, 10, d): v for d, v in [(6, 1), (10, 4), (15, None), (20, 4)]}
+        return [v for d, v in days.items() if start <= d <= end]
 
 
 @pytest.mark.parametrize(
@@ -218,6 +223,14 @@ class FakeRelated:
         ("sum(children(set).volume)", 80),
         ("last(rest_day.sleep, before=date)", 6),
         ("last(rest_day.sleep, before=settings.start)", None),
+        ("last(rest_day.sleep, until=settings.start)", 6),  # dated on the day itself
+        ("count(window(rest_day.sleep, days=10, until=date))", 1),  # 12-22 Oct, blanks out
+        ("count(window(rest_day.sleep, days=14, until=date))", 2),  # from the 8th
+        ("count(window(rest_day.sleep, days=16, until=date))", 3),  # from the 6th, included
+        ("count(window(rest_day.sleep, days=16, until=date), equals=4)", 2),
+        ("count(window(rest_day.sleep, days=0, until=date), equals=1)", 0),
+        ("max(window(rest_day.sleep, days=16, until=date))", 4),
+        ("mean(window(rest_day.sleep, days=16, until=date))", 3),
     ],
 )
 def test_other_records(source: str, expected: Value) -> None:
@@ -233,6 +246,8 @@ def test_other_records(source: str, expected: Value) -> None:
         ("max(children(set).kg)", None),
         ("last(rest_day.sleep, before=date)", None),
         ("last(rest_day.sleep, before=prev(date))", None),  # a blank date
+        ("count(window(rest_day.sleep, days=14, until=date))", 0),
+        ("count(window(rest_day.sleep, days=14, until=prev(date)))", 0),  # a blank date
     ],
 )
 def test_a_record_on_its_own(source: str, expected: Value) -> None:

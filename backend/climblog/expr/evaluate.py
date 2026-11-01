@@ -34,6 +34,7 @@ from climblog.expr.nodes import (
     Setting,
     Unary,
     Value,
+    Window,
 )
 
 _ORDER: dict[str, Callable[[Any, Any], bool]] = {
@@ -59,8 +60,13 @@ class Related(Protocol):
         """The rows of a child entity that belong to this record (stored and derived values)."""
         ...
 
-    def last(self, entity: str, name: str, before: dt.date) -> Value:
-        """`name` in the latest record of `entity` dated before `before`; blank if none."""
+    def last(self, entity: str, name: str, day: dt.date, inclusive: bool = False) -> Value:
+        """`name` in the latest record of `entity` dated before `day` (or on it, `inclusive`);
+        blank if none."""
+        ...
+
+    def window(self, entity: str, name: str, start: dt.date, end: dt.date) -> list[Value]:
+        """`name` in every record of `entity` dated from `start` to `end`, in date order."""
         ...
 
 
@@ -76,8 +82,11 @@ class _Alone:
     def children(self, entity: str) -> Sequence[Mapping[str, Value]]:
         return ()
 
-    def last(self, entity: str, name: str, before: dt.date) -> Value:
+    def last(self, entity: str, name: str, day: dt.date, inclusive: bool = False) -> Value:
         return None
+
+    def window(self, entity: str, name: str, start: dt.date, end: dt.date) -> list[Value]:
+        return []
 
 
 ALONE: Related = _Alone()
@@ -143,13 +152,14 @@ class _Evaluator:
                 return [True for _ in self.related.children(entity)]  # one item per row
             case Children(entity=entity, field=str() as name):
                 return [row.get(name) for row in self.related.children(entity)]
-            case Last(entity=entity, field=name, before=before):
-                day = self.one(before)
-                if isinstance(day, dt.datetime):
-                    day = day.date()
-                if not isinstance(day, dt.date):
-                    return None
-                return self.related.last(entity, name, day)
+            case Last(entity=entity, field=name, before=before, inclusive=inclusive):
+                day = self.day(before)
+                return None if day is None else self.related.last(entity, name, day, inclusive)
+            case Window(entity=entity, field=name, days=days, until=until):
+                end = self.day(until)
+                if end is None:
+                    return []
+                return self.related.window(entity, name, end - dt.timedelta(days=days), end)
             case Call(func="flip_all", args=(Fields() as fields,)):
                 return self.fields(fields, flip=node)
             case Call():
@@ -157,6 +167,12 @@ class _Evaluator:
                 kwargs = {key: self.one(value) for key, value in node.kwargs}
                 return FUNCTIONS[node.func].run(args, kwargs, node)
         raise TypeError(f"cannot evaluate {type(node).__name__}")  # pragma: no cover
+
+    def day(self, node: Node) -> dt.date | None:
+        value = self.one(node)
+        if isinstance(value, dt.datetime):
+            return value.date()
+        return value if isinstance(value, dt.date) else None
 
     def binary(self, node: Binary) -> Value:
         left, right = self.one(node.left), self.one(node.right)

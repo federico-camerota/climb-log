@@ -24,7 +24,7 @@ from dataclasses import dataclass
 
 from openpyxl.utils import get_column_letter
 
-from climblog.expr import Checked, Kind, Value
+from climblog.expr import Checked, Kind, NameInfo, Value
 from climblog.expr.nodes import (
     Binary,
     BoolOp,
@@ -41,8 +41,9 @@ from climblog.expr.nodes import (
     Prev,
     Setting,
     Unary,
+    Window,
 )
-from climblog.modules.checks import derived_plan
+from climblog.modules.checks import derived_plan, recommendation_plan
 from climblog.modules.derived import BandsStep, ExprStep, MapStep, Step, WhenStep
 from climblog.modules.schema import (
     NEXT,
@@ -166,6 +167,33 @@ def default_columns(module: Module) -> dict[str, dict[str, int]]:
     return tabs
 
 
+def recommendation_formulas(
+    module: Module, columns: ColumnMap, refs: Mapping[str, str], dialect: Dialect = XLSX
+) -> dict[str, str]:
+    """The sheet formulas of the module's recommendation (D-076): one per value, then
+    `headline` and `text` (as the legacy sheet shows it, "RECOVER — …"; blank when no rule
+    holds). `refs` gives the cell of the day (`date`, e.g. `TODAY()` or `A3`) and of each value,
+    where a value's formula reads the earlier ones. Raises `Unsupported` for what has no
+    formula."""
+    plan = recommendation_plan(module)
+    if plan is None:
+        return {}
+    names = {"date": NameInfo("date"), **plan.values.names}
+    compiler = _DayCompiler(module, _Plans(module), columns, refs, names, dialect)
+    result = {step.key: "=" + compiler.value_of(step) for step in plan.values.steps}
+    headline, text = '""', '""'
+    for condition, head, message in reversed(plan.rules):
+        shown = f"{head} — {message}" if head is not None else message
+        if condition is None:
+            headline, text = _text(head), _text(shown)
+        else:
+            test = compiler.condition(condition)
+            headline = f"IF({test},{_text(head)},{headline})"
+            text = f"IF({test},{_text(shown)},{text})"
+    result["headline"], result["text"] = "=" + headline, "=" + text
+    return result
+
+
 # ---- Per entity ----
 
 
@@ -176,6 +204,12 @@ class _Plans:
 
     def __init__(self, module: Module) -> None:
         self.plans = {name: derived_plan(module, name) for name in module.entities}
+        steps = [step for plan in self.plans.values() for step in plan.steps]
+        recommendation = recommendation_plan(module)
+        trees = [node for step in steps for node in _walk(step)]
+        if recommendation is not None:
+            trees += [node for step in recommendation.values.steps for node in _walk(step)]
+        self.read_by_last = {node.entity for node in trees if isinstance(node, Last)}
         self.dry: dict[str, dict[str, int]] = {}
         for entity in module.entities.values():
             autos = [AUTO + key for key in entity.derived]
@@ -229,7 +263,11 @@ class _Entity:
             for other in self.module.entities.values()
         )
         uses_prev = any(_has(step, Prev) for step in self.plan.steps)
-        return entity.is_split or is_parent or entity.parent is not None or uses_prev
+        # last() takes the latest row of a day by its key: needed when a day can have several.
+        read_by_last = len(entity.key or []) > 1 and self.name in self.plans.read_by_last
+        return (
+            entity.is_split or is_parent or entity.parent is not None or uses_prev or read_by_last
+        )
 
     def placement(self) -> tuple[list[FormulaColumn], list[AppOnly]]:
         placed, app_only = self._placed()
@@ -587,11 +625,11 @@ class _Compiler:
                 return self.prev(name, n)
             case ParentRef(name=name):
                 return self.parent(name)
-            case Last(entity=entity, field=name, before=before):
-                return self.last(entity, name, self.node(before))
+            case Last(entity=entity, field=name, before=before, inclusive=inclusive):
+                return self.last(entity, name, self.node(before), inclusive)
             case Call():
                 return self.call(node)
-            case Fields() | Children():  # pragma: no cover - `check` allows lists in calls only
+            case Fields() | Children() | Window():  # pragma: no cover - lists only in calls
                 raise Unsupported("a list of values outside an aggregate")
         raise Unsupported(f"no formula for {type(node).__name__}")  # pragma: no cover
 
@@ -717,23 +755,73 @@ class _Compiler:
         assert isinstance(field, BaseField)
         return _field_value(field, found)
 
-    def last(self, e_name: str, name: str, before: F) -> F:
-        """The field in the latest record dated before the day. Records of one day are told
-        apart by `auto:_key` (date, then key), as the app orders them, when it has one."""
+    def last(self, e_name: str, name: str, before: F, inclusive: bool = False) -> F:
+        """The field (or derived value) in the latest record dated before the day, or on it
+        (`inclusive`). Records of one day are told apart by `auto:_key` (date, then key), as the
+        app orders them, when it has one."""
         other = _Entity(self.module, e_name, self.e.plans)
-        tab = other.field_tab.get(name, other.main)
+        tab, key = self._column_of(other, name)
         dates = self.column(tab, other.entity.date_field)
         order = dates
         if other.needs_key() and other.key_code.reason is None and not other.key_code.choices:
             order = self.column(tab, KEY_COLUMN)
         day = f"INT({_wrap(before.core)})"
         deleted = self.column(tab, DELETED)
-        latest = f'{self.dialect.fn("MAXIFS")}({order},{dates},"<"&{day},{deleted},"")'
-        found = self.index(tab, name, f"MATCH({latest},{order},0)")
-        field = other.entity.fields[name]
-        assert isinstance(field, BaseField)
-        value = _field_value(field, found)
+        op = "<=" if inclusive else "<"
+        latest = f'{self.dialect.fn("MAXIFS")}({order},{dates},"{op}"&{day},{deleted},"")'
+        value = self._value_of(other, name, self.index(tab, key, f"MATCH({latest},{order},0)"))
         return F(value.core, _either(before.test, value.test), value.type)
+
+    def window(self, node: Window, func: str, equals: F | None) -> F:
+        """`count/sum/min/max/mean` of `window(e.x, days=n, until=d)`: the *IFS functions over
+        the rows dated from d - n to d; `count(..., equals=v)` counts the values equal to v."""
+        other = _Entity(self.module, node.entity, self.e.plans)
+        tab, key = self._column_of(other, node.field)
+        until = self.node(node.until)
+        dates = self.column(tab, other.entity.date_field)
+        end = f"INT({_wrap(until.core)})"
+        criteria = (
+            f'{dates},">="&({end}-{node.days}),{dates},"<="&{end},{self.column(tab, DELETED)},""'
+        )
+        values = self.column(tab, key)
+        numbers = f"COUNTIFS({criteria},{values},{_NUMBER})"
+        if func == "count":
+            if equals is not None:  # "=" & the value: a text like ">5" is not a condition
+                core = f'COUNTIFS({criteria},{values},"="&{_wrap(equals.core)})'
+                if equals.test is not None:  # a blank equals nothing (as in the app)
+                    core = f"IF({equals.test},0,{core})"
+            else:
+                kind = self._type_of(other, node.field)
+                if kind not in ("number", "date"):
+                    text = '"<>"' if key == node.field else '"?*"'
+                    numbers = f"COUNTIFS({criteria},{values},{text})"
+                core = numbers
+            if until.test is not None:  # no day: no rows (as in the app)
+                core = f"IF({until.test},0,{core})"
+            return F(core, None, "number")
+        native = {"sum": "SUMIFS", "min": "MINIFS", "max": "MAXIFS", "mean": "AVERAGEIFS"}[func]
+        core = f"{self.dialect.fn(native)}({values},{criteria})"
+        return F(core, _either(until.test, f"{numbers}=0"), "number")
+
+    def _column_of(self, other: "_Entity", name: str) -> tuple[str, str]:
+        """The tab and column key of another entity's field or derived value."""
+        if name in other.entity.fields:
+            return other.field_tab.get(name, other.main), name
+        return self._child_derived_tab(other, name), AUTO + name
+
+    def _type_of(self, other: "_Entity", name: str) -> str:
+        field = other.entity.fields.get(name)
+        return _type(field) if isinstance(field, BaseField) else self._kind(other, name)
+
+    def _value_of(self, other: "_Entity", name: str, found: F) -> F:
+        """A found cell of another entity's field or derived value, typed as the app reads it."""
+        field = other.entity.fields.get(name)
+        if isinstance(field, BaseField):
+            return _field_value(field, found)
+        info = other.plan.names[name]
+        if info.type == "bool":
+            return F(f"({found.core}=TRUE)", None, "bool")
+        return dataclasses.replace(found, type=info.type)
 
     def children(self, node: Children, func: str) -> F:
         """`count/sum/min/max/mean` of `children(e)` or `children(e).x`."""
@@ -783,12 +871,20 @@ class _Compiler:
     def call(self, node: Call) -> F:
         func, args = node.func, node.args
         aggregate = func in ("count", "sum", "min", "max", "mean")
+        options = dict(node.kwargs)
+        if aggregate and len(args) == 1 and isinstance(args[0], Window):
+            if "missing_as" in options:
+                raise Unsupported("missing_as with window(...)")
+            equals = options.get("equals")
+            return self.window(args[0], func, self.node(equals) if equals is not None else None)
         if aggregate and len(args) == 1 and isinstance(args[0], Children):
             if node.kwargs:
-                raise Unsupported("missing_as with children(...)")
+                raise Unsupported("missing_as or equals with children(...)")
             return self.children(args[0], func)
-        if any(isinstance(a, Children) for a in args):
-            raise Unsupported("children(...) mixed with other values")
+        if any(isinstance(a, Children | Window) for a in args):
+            raise Unsupported("children(...) or window(...) mixed with other values")
+        if "equals" in options:
+            raise Unsupported("count(..., equals=) of the record's own values")
         match func:
             case "mean" | "min" | "max" | "sum":
                 fill = dict(node.kwargs).get("missing_as")
@@ -1150,3 +1246,33 @@ def _step_names(step: Step) -> set[str]:
     for checked in _checked(step):
         names |= checked.names
     return names
+
+
+class _DayCompiler(_Compiler):
+    """Formulas for a day rather than a record (the recommendation): its names are cells the
+    caller gives; other records are read with `last` and `window` only."""
+
+    def __init__(
+        self,
+        module: Module,
+        plans: _Plans,
+        columns: ColumnMap,
+        refs: Mapping[str, str],
+        names: Mapping[str, NameInfo],
+        dialect: Dialect,
+    ) -> None:
+        anchor = _Entity(module, next(iter(module.entities)), plans, columns, dialect)
+        super().__init__(anchor, columns, "", {})
+        self.refs = refs
+        self.names = names
+
+    def value_of(self, step: Step) -> str:
+        return self._step(step).text
+
+    def value(self, name: str) -> F:
+        if name not in self.refs:
+            raise Unsupported(f"no cell for '{name}'")
+        return dataclasses.replace(_cell(self.refs[name]), type=self.names[name].type)
+
+    def own_key(self) -> str:
+        raise Unsupported("prev(), parent and children() need a record")

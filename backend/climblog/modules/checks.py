@@ -9,10 +9,10 @@ run on the module as written, so every problem has a path that exists in the YAM
 """
 
 from collections.abc import Iterator, Mapping
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Any
 
-from climblog.expr import Env, ExprError, FieldMeta, NameInfo, prepare
+from climblog.expr import Checked, Env, ExprError, FieldMeta, NameInfo, prepare
 from climblog.expr.nodes import ValueType
 from climblog.grades import SUPPORTED
 from climblog.modules.derived import DerivedPlan, check_derived
@@ -86,6 +86,8 @@ def cross_check(module: Module) -> list[Problem]:
             other = tabs.setdefault(tab.casefold(), (e_name, tab_at))[0]
             if other != e_name:
                 problems.append(Problem(tab_at, f"tab '{tab}' is already used by entity '{other}'"))
+    _, found = _recommendation(module)
+    problems += found
     return problems
 
 
@@ -432,3 +434,69 @@ def _check_tab_name(tab: str, at: YamlPath) -> list[Problem]:
         shown = " ".join(bad) or "'"
         return [Problem(at, f"a tab name cannot contain {shown} (spreadsheet rule)")]
     return []
+
+
+# ---- Recommendation (D-076) ----
+
+
+@dataclass(frozen=True)
+class RecommendationPlan:
+    """A module's checked `recommendation:`, ready to evaluate for a day."""
+
+    label: str
+    values: DerivedPlan
+    rules: tuple[tuple[Checked | None, str | None, str], ...]  # (if, headline, message)
+    reasons: tuple[tuple[str, str], ...]  # (value, label), in order
+
+
+def recommendation_env(module: Module) -> Env:
+    """What the recommendation can use: `date` (the day asked), the settings, and every
+    entity's stored fields and derived values (computed before it, unlike a record's)."""
+    entities: dict[str, dict[str, NameInfo]] = {}
+    for name, entity in module.entities.items():
+        stored = expression_env(module, _fields(module, name), entity.date_field).names
+        plan, _ = _derived_plan(module, name, derived_env(module, name))  # reported for it
+        entities[name] = {**stored, **plan.names}
+    settings = {key: _VALUE_TYPES[s.type] for key, s in module.settings.items()}
+    return Env({"date": NameInfo("date")}, settings, "date", entities=entities)
+
+
+def recommendation_plan(module: Module) -> RecommendationPlan | None:
+    """The recommendation of a loaded module, if it has one."""
+    plan, problems = _recommendation(module)
+    assert not problems, problems  # `load_module` reported them
+    return plan
+
+
+def _recommendation(module: Module) -> tuple[RecommendationPlan | None, list[Problem]]:
+    found = module.recommendation
+    if found is None:
+        return None, []
+    base: YamlPath = ("recommendation",)
+    env = recommendation_env(module)
+    values, problems = check_derived(
+        module, "", found.values, env, defer_fields=False, base=(*base, "values")
+    )
+    scope = replace(env, names={**env.names, **values.names})
+    rules: list[tuple[Checked | None, str | None, str]] = []
+    for i, rule in enumerate(found.rules):
+        at: YamlPath = (*base, "rules", i, "if")
+        if rule.if_ is None:
+            rules.append((None, rule.headline, rule.message))
+            continue
+        try:
+            checked = prepare(rule.if_, scope)
+        except ExprError as error:
+            problems.append(Problem(at, str(error)))
+            continue
+        if checked.kind.type != "bool" or checked.kind.many:
+            problems.append(Problem(at, "`if` must be a condition (true or false)"))
+            continue
+        rules.append((checked, rule.headline, rule.message))
+    for key in found.reasons:
+        if key not in values.names:
+            problems.append(
+                Problem((*base, "reasons", key), f"'{key}' is not a value of the recommendation")
+            )
+    reasons = tuple(found.reasons.items())
+    return RecommendationPlan(found.label, values, tuple(rules), reasons), problems

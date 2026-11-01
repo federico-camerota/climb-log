@@ -52,6 +52,12 @@ def kind(source: str) -> Kind:
         ("children(set).rpe", Kind("number", many=True, scale=S10, lower_better=False)),
         ("max(children(set).volume)", Kind("number")),
         ("last(rest_day.sleep, before=date)", Kind("number", scale=S10, lower_better=False)),
+        ("last(rest_day.sleep, until=date)", Kind("number", scale=S10, lower_better=False)),
+        (
+            "window(rest_day.sleep, days=14, until=date)",
+            Kind("number", many=True, scale=S10, lower_better=False),
+        ),
+        ("count(window(rest_day.sleep, days=14, until=date), equals=8)", Kind("number")),
     ],
 )
 def test_kinds(source: str, expected: Kind) -> None:
@@ -169,6 +175,18 @@ def test_fields_combines_selectors() -> None:
         ("last(sleep, before=date)", "last() takes an entity's field and a date", 0),
         ("last(rest_day.sleep, before=mood)", "`before` needs date, not number", 28),
         ("lats(rest_day.sleep)", "unknown function 'lats' (did you mean 'last'?)", 0),
+        ("last(rest_day.sleep, before=date, until=date)", "last() takes an entity's field", 0),
+        ("window(rest_day.sleep, days=14)", "window() takes an entity's field, a number", 0),
+        ("window(rest_day.slep, days=1, until=date)", "'rest_day' has no field 'slep'", 7),
+        ("window(rest_day.sleep, days=-1, until=date)", "days must be a whole number", 28),
+        ("window(rest_day.sleep, days=1.5, until=date)", "days must be a whole number", 28),
+        ("window(rest_day.sleep, days=1, until=mood)", "`until` needs date, not number", 37),
+        (
+            "count(mood, equals=window(rest_day.sleep, days=1, until=date))",
+            "equals must be a single",
+            19,
+        ),
+        ("mood + window(rest_day.sleep, days=1, until=date)", "`+` takes a single value", 7),
         # fields()
         ("fields()", "fields() needs at least one of section=, tag=, type=", 0),
         ("fields(pre)", "fields() takes only section=, tag= or type=", 7),

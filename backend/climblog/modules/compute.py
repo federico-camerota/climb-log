@@ -3,12 +3,13 @@
 
 Child entities are computed before their parents, so `children(e).x` can read the children's
 derived values. Within an entity, rows are computed in (date, key fields, row) order, so
-`prev(x)` reads rows that are already complete. `parent.x` and `last(e.x, ...)` read stored
-fields only, which need no order.
+`prev(x)` reads rows that are already complete. `parent.x`, `last(e.x, ...)` and
+`window(e.x, ...)` read stored fields only, which need no order (the recommendation, computed
+after every entity, reads derived values too: `recommend.py`).
 """
 
 import datetime as dt
-from bisect import bisect_left
+from bisect import bisect_left, bisect_right
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -41,6 +42,25 @@ def compute_module(
         full[name] = [{**row, **values} for row, values in zip(rows, derived, strict=True)]
         result[name] = derived
     return result
+
+
+class Timeline:
+    """An entity's dated rows in (date, key fields, row) order, for `last` and `window`."""
+
+    def __init__(self, entity: Entity, rows: Table) -> None:
+        order = _dated(entity, rows)
+        self.days = [_row_day(entity, rows[i]) or dt.date.min for i in order]
+        self.rows = [rows[i] for i in order]
+
+    def last(self, name: str, day: dt.date, inclusive: bool = False) -> Value:
+        """`name` in the latest row dated before `day` (on or before, `inclusive`)."""
+        found = (bisect_right if inclusive else bisect_left)(self.days, day)
+        return self.rows[found - 1].get(name) if found else None
+
+    def window(self, name: str, start: dt.date, end: dt.date) -> list[Value]:
+        """`name` in every row dated from `start` to `end`."""
+        low, high = bisect_left(self.days, start), bisect_right(self.days, end)
+        return [row.get(name) for row in self.rows[low:high]]
 
 
 def _day(value: Any) -> dt.date | None:
@@ -81,7 +101,7 @@ class _Table:
             for child, other in module.entities.items()
             if other.parent is not None and other.parent.entity == name
         }
-        self.timelines: dict[str, tuple[list[dt.date], list[Row]]] = {}  # for last()
+        self.timelines: dict[str, Timeline] = {}  # for last() and window()
         self.done: dict[int, dict[str, Value]] = {}  # row index → stored and derived values
         self.current = 0
 
@@ -116,15 +136,18 @@ class _Table:
         key = tuple(_sort_key(row.get(k)) for k in child.parent.key)
         return self.child_rows[entity].get(key, ())
 
-    def last(self, entity: str, name: str, before: dt.date) -> Value:
+    def last(self, entity: str, name: str, day: dt.date, inclusive: bool = False) -> Value:
+        return self.timeline(entity).last(name, day, inclusive)
+
+    def window(self, entity: str, name: str, start: dt.date, end: dt.date) -> list[Value]:
+        return self.timeline(entity).window(name, start, end)
+
+    def timeline(self, entity: str) -> "Timeline":
         if entity not in self.timelines:
-            other, rows = self.module.entities[entity], self.tables.get(entity, ())
-            order = _dated(other, rows)
-            days = [_row_day(other, rows[i]) or dt.date.min for i in order]
-            self.timelines[entity] = (days, [rows[i] for i in order])
-        days, rows = self.timelines[entity]
-        earlier = bisect_left(days, before)  # rows dated strictly before
-        return rows[earlier - 1].get(name) if earlier else None
+            self.timelines[entity] = Timeline(
+                self.module.entities[entity], self.tables.get(entity, ())
+            )
+        return self.timelines[entity]
 
     # ---- Indexes ----
 
