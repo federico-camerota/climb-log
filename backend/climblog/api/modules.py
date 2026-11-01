@@ -119,9 +119,15 @@ class Written(BaseModel):
     as_of: dt.datetime | None
 
 
-class WriteProblem(BaseModel):
+class FieldProblem(BaseModel):
+    field: str
     message: str
-    field: str | None = None  # the field at fault, when there is one
+
+
+class WriteProblem(BaseModel):
+    message: str  # the first problem's, when there are several
+    field: str | None = None  # the (first) field at fault, when there is one
+    problems: list[FieldProblem] = []  # every field at fault, e.g. two bad values (D-079)
 
 
 _WRITE_ERRORS: dict[int | str, dict[str, Any]] = {
@@ -223,7 +229,10 @@ def _write_errors() -> Iterator[None]:
 
 def _problem(status: int, error: StorageError) -> HTTPException:
     field = error.field if isinstance(error, WriteError) else None
-    return HTTPException(status, WriteProblem(message=str(error), field=field).model_dump())
+    found = error.problems if isinstance(error, WriteError) else []
+    problems = [FieldProblem(field=name, message=text) for name, text in found]
+    problem = WriteProblem(message=str(error), field=field, problems=problems)
+    return HTTPException(status, problem.model_dump())
 
 
 def _written(current: Catalog, entry: Entry, entity: str, key: Sequence[Value]) -> Written:

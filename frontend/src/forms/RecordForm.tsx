@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import {
   addRecord,
   ApiError,
+  type FieldProblem,
   updateRecord,
   type ModuleInfo,
   type Values,
@@ -112,9 +113,8 @@ function Editor({
       void queryClient.invalidateQueries({ queryKey: ["recommendation"] });
     },
     onError: (error) => {
-      if (error instanceof ApiError && error.field !== undefined && error.field in editor.values) {
-        editor.setFieldError(error.field, error.message);
-      }
+      const [onForm] = splitProblems(error, editor.getValues());
+      for (const problem of onForm) editor.setFieldError(problem.field, problem.message);
     },
   });
 
@@ -127,6 +127,9 @@ function Editor({
   });
   const error = save.error;
   const conflict = error instanceof ApiError && error.status === 409;
+  // each problem on a field of the form shows under it; the rest (or a problem with no field)
+  // in the "Not saved" alert
+  const [onForm, elsewhere] = splitProblems(error, editor.getValues());
 
   return (
     <form onSubmit={submit} noValidate>
@@ -180,13 +183,11 @@ function Editor({
             </Stack>
           </Alert>
         )}
-        {error !== null &&
-          !conflict &&
-          !(error instanceof ApiError && error.field !== undefined) && (
-            <Alert color="red" title="Not saved">
-              {error.message}
-            </Alert>
-          )}
+        {error !== null && !conflict && (onForm.length === 0 || elsewhere.length > 0) && (
+          <Alert color="red" title="Not saved">
+            {elsewhere.length > 0 ? elsewhere.map((p) => p.message).join("; ") : error.message}
+          </Alert>
+        )}
         {nothing && <Text c="dimmed">Nothing changed.</Text>}
         <Group>
           <Button type="submit" loading={save.isPending}>
@@ -243,4 +244,20 @@ function dropDraft(key: string): void {
   } catch {
     // nothing to drop
   }
+}
+
+/** A failed save's problems: those on a field of the form, and the others. A 422 lists every
+ * field at fault (D-079); an older answer names only `field`. */
+function splitProblems(
+  error: Error | null,
+  values: Record<string, unknown>,
+): [FieldProblem[], FieldProblem[]] {
+  if (!(error instanceof ApiError)) return [[], []];
+  const all =
+    error.problems.length > 0
+      ? error.problems
+      : error.field !== undefined
+        ? [{ field: error.field, message: error.message }]
+        : [];
+  return [all.filter((p) => p.field in values), all.filter((p) => !(p.field in values))];
 }

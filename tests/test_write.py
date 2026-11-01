@@ -183,6 +183,20 @@ def test_deleted_rows_dont_hold_their_key(module: Module, tmp_path: Path) -> Non
     assert [r.get("warm_up") for r in records(module, path, "session")] == [None]
 
 
+def test_every_bad_value_is_reported(writer: RecordWriter) -> None:
+    """All the fields at fault at once, so a form can show each (D-079)."""
+    with pytest.raises(WriteError) as caught:
+        writer.add("session", {"date": D19, "kind": "Yoga", "mood": 11, "readiness": 7})
+    assert [field for field, _ in caught.value.problems] == ["readiness", "kind", "mood"]
+    assert caught.value.field == "readiness"  # the first; unknown fields' message as before
+    assert str(caught.value) == "Session has no field readiness"
+    with pytest.raises(WriteError) as caught:
+        writer.add("session", {"date": D19, "kind": "Yoga", "mood": 11})
+    assert [field for field, _ in caught.value.problems] == ["kind", "mood"]
+    assert caught.value.problems[1] == ("mood", "mood: 11 is above the maximum 10")
+    assert (caught.value.field, str(caught.value)) == caught.value.problems[0]
+
+
 def test_values_must_fit_the_module(writer: RecordWriter) -> None:
     with pytest.raises(WriteError, match="Session has no field mood_post, readiness"):
         writer.add("session", {"date": D19, "mood_post": 5, "readiness": 7})

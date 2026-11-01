@@ -144,6 +144,30 @@ describe("Log", () => {
     expect(await screen.findByText("minutes: 'tanto' is not a duration")).toBeInTheDocument();
   });
 
+  it("shows every problem the API finds, each under its field", async () => {
+    const problems = [
+      { field: "minutes", message: "minutes: 'tanto' is not a duration" },
+      { field: "notes", message: "notes: too long" },
+    ];
+    api({ [`POST ${SESSION}`]: failing(422, { ...problems[0], problems }) });
+    renderApp("/log/diary/post_session?date=2026-10-30");
+    await userEvent.type(await screen.findByRole("textbox", { name: "Minutes" }), "tanto");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("minutes: 'tanto' is not a duration")).toBeInTheDocument();
+    expect(screen.getByText("notes: too long")).toBeInTheDocument();
+    expect(screen.queryByText("Not saved")).not.toBeInTheDocument();
+  });
+
+  it("puts a problem on a field the form doesn't show in the alert", async () => {
+    const problem = { field: "venue", message: "venue: bad" };
+    api({ [`POST ${SESSION}`]: failing(422, { ...problem, problems: [problem] }) });
+    renderApp("/log/diary/post_session?date=2026-10-30");
+    await userEvent.type(await screen.findByRole("textbox", { name: "Minutes" }), "90");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Not saved")).toBeInTheDocument();
+    expect(screen.getByText("venue: bad")).toBeInTheDocument();
+  });
+
   it("says when the sheet changed since the form was opened, and keeps the changes", async () => {
     const changed = { message: "venue has changed since it was read (now 'Altrove')", field: null };
     const calls = api({ [RECORD]: written(READ), [`PATCH ${RECORD}`]: failing(409, changed) });

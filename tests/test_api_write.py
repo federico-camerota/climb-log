@@ -103,6 +103,14 @@ def test_bad_values_name_the_field(
     assert client.get(SESSIONS).json()["records"] == []  # nothing written
 
 
+def test_every_bad_value_is_named(client: TestClient) -> None:
+    values = PRE | {"wb_mood_pre": 11, "session_type": "Yoga"}
+    detail = client.post(SESSIONS, json={"values": values}).json()["detail"]
+    assert [p["field"] for p in detail["problems"]] == ["session_type", "wb_mood_pre"]
+    assert detail["field"] == "session_type"  # the first, as before
+    assert detail["problems"][1]["message"] == "wb_mood_pre: 11 is above the maximum 10"
+
+
 def test_post_completes_the_session(client: TestClient) -> None:
     add(client, wb_mood_pre=7)
     response = client.patch(

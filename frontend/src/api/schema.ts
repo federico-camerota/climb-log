@@ -111,6 +111,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** FieldProblem */
+        FieldProblem: {
+            /** Field */
+            field: string;
+            /** Message */
+            message: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -273,6 +280,11 @@ export interface components {
             field?: string | null;
             /** Message */
             message: string;
+            /**
+             * Problems
+             * @default []
+             */
+            problems: components["schemas"]["FieldProblem"][];
         };
         /** Written */
         Written: {
