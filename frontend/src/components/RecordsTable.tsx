@@ -21,24 +21,35 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
+import type { ComboboxData } from "@mantine/core";
 
 import type { Issue, ModuleInfo, Records } from "../api/client";
-import { entityOf, fieldLabel, keyOf, scaleOf, type EntityDef } from "../forms/schema";
+import { entityOf, keyOf, type EntityDef } from "../forms/schema";
 import { asText } from "../forms/values";
 import { csvOf, download } from "../lib/csv";
 import { formatDateTime } from "../lib/format";
-import { matches } from "../lib/search";
+import { fieldColumns } from "../lib/columns";
+import { fold, matches } from "../lib/search";
 
 interface Row {
   values: Record<string, unknown>; // stored and derived
   issues: Issue[]; // the data issues of its rows
+  matched?: string[]; // while searching: the hidden columns where the query was found
 }
 
 interface Column {
   id: string;
   label: string;
+  group: string | null; // the section, for the picker
   type: string; // the field's type; "derived" for a derived value
 }
+
+const DERIVED = "Computed";
+const MATCHED = "_matched"; // the "Matched in" column, shown while searching
+const SEARCHED = ["text", "choice", "date", "grade"];
+// the viewport less the app header and the page's padding
+const TABLE_HEIGHT =
+  "calc(100dvh - var(--app-shell-header-height, 0px) - 2 * var(--mantine-spacing-md))";
 
 const STATUS_COLOURS: Record<string, string> = {
   GOOD: "green",
@@ -66,34 +77,47 @@ export function RecordsTable({ module, data }: { module: ModuleInfo; data: Recor
   );
 
   const rows = useMemo(() => rowsOf(data), [data]);
+  const searching = query.trim() !== "";
   const searched = useMemo(() => {
-    const texts = columns.filter((c) => ["text", "choice", "date", "grade"].includes(c.type));
-    return rows.filter(
-      (row) =>
-        (!onlyIssues || row.issues.length > 0) &&
-        matches(
-          texts.flatMap((c) => {
-            const value = asText(row.values[c.id]);
-            return c.type === "date" ? [value, formatDateTime(value)] : [value];
-          }),
-          query,
-        ),
-    );
-  }, [rows, columns, query, onlyIssues]);
+    // every text, choice, grade and date field is searched, shown or not; the hidden ones
+    // where the query was found are named in "Matched in"
+    const texts = columns.filter((c) => SEARCHED.includes(c.type));
+    const hidden = texts.filter((c) => !shown.includes(c.id));
+    return rows
+      .filter(
+        (row) =>
+          (!onlyIssues || row.issues.length > 0) &&
+          matches(
+            texts.flatMap((c) => textsOf(row, c)),
+            query,
+          ),
+      )
+      .map((row) => ({ ...row, matched: matchedIn(row, hidden, query) }));
+  }, [rows, columns, shown, query, onlyIssues]);
 
-  const defs = useMemo<ColumnDef<Row>[]>(
-    () =>
-      columns
-        .filter((c) => shown.includes(c.id))
-        .map((c) => ({
-          id: c.id,
-          header: c.label,
-          accessorFn: (row) => row.values[c.id] ?? undefined,
-          sortUndefined: "last",
-          cell: ({ row }) => <Cell column={c} row={row.original} />,
-        })),
-    [columns, shown],
-  );
+  const defs = useMemo<ColumnDef<Row>[]>(() => {
+    const picked: ColumnDef<Row>[] = columns
+      .filter((c) => shown.includes(c.id))
+      .map((c) => ({
+        id: c.id,
+        header: c.label,
+        accessorFn: (row) => row.values[c.id] ?? undefined,
+        sortUndefined: "last",
+        cell: ({ row }) => <Cell column={c} row={row.original} />,
+      }));
+    if (!searching) return picked;
+    const matched: ColumnDef<Row> = {
+      id: MATCHED,
+      header: "Matched in",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <Text size="sm" c="dimmed">
+          {(row.original.matched ?? []).join(", ")}
+        </Text>
+      ),
+    };
+    return [...picked, matched];
+  }, [columns, shown, searching]);
   const table = useReactTable({
     data: searched,
     columns: defs,
@@ -109,7 +133,7 @@ export function RecordsTable({ module, data }: { module: ModuleInfo; data: Recor
     saveColumns(storageKey, ordered);
   };
   const exportCsv = () => {
-    const visible = table.getVisibleLeafColumns();
+    const visible = table.getVisibleLeafColumns().filter((c) => c.id !== MATCHED);
     const header = visible.map((c) => String(c.columnDef.header));
     const body = table.getRowModel().rows.map((r) => visible.map((c) => r.original.values[c.id]));
     download(`${module.id}-${data.entity}.csv`, csvOf(header, body));
@@ -141,7 +165,7 @@ export function RecordsTable({ module, data }: { module: ModuleInfo; data: Recor
       <MultiSelect
         label="Columns"
         placeholder="Add a column"
-        data={columns.map((c) => ({ value: c.id, label: c.label }))}
+        data={pickerData(columns)}
         value={shown}
         onChange={pick}
         searchable
@@ -152,7 +176,9 @@ export function RecordsTable({ module, data }: { module: ModuleInfo; data: Recor
           ? `${String(rows.length)} shown`
           : `${String(searched.length)} of ${String(rows.length)} shown`}
       </Text>
-      <ScrollArea>
+      {/* At most one screen high, so the horizontal scrollbar stays in view however many
+          rows there are, and the header row stays on top */}
+      <ScrollArea.Autosize mah={TABLE_HEIGHT} type="auto" offsetScrollbars>
         <Table striped highlightOnHover stickyHeader withTableBorder>
           <Table.Thead>
             {table.getHeaderGroups().map((group) => (
@@ -188,7 +214,7 @@ export function RecordsTable({ module, data }: { module: ModuleInfo; data: Recor
             ))}
           </Table.Tbody>
         </Table>
-      </ScrollArea>
+      </ScrollArea.Autosize>
     </Stack>
   );
 }
@@ -218,20 +244,53 @@ function Cell({ column, row }: { column: Column; row: Row }) {
 }
 
 function columnsOf(module: ModuleInfo, entity: EntityDef, data: Records): Column[] {
-  // `fields` can be missing in a schema the app didn't load from YAML (tests)
-  const fields = (entity as Partial<EntityDef>).fields ?? {};
-  const stored = Object.entries(fields).map(([id, field]) => ({
-    id,
-    label: fieldLabel(id, field, scaleOf(module, field.scale)),
-    type: field.type,
-  }));
   const derived = new Set<string>();
   for (const record of data.records)
     for (const name of Object.keys(record.derived)) derived.add(name);
   return [
-    ...stored,
-    ...[...derived].map((id) => ({ id, label: id.replaceAll("_", " "), type: "derived" })),
+    ...fieldColumns(module, entity),
+    ...[...derived].map((id) => ({
+      id,
+      label: id.replaceAll("_", " "),
+      group: DERIVED,
+      type: "derived",
+    })),
   ];
+}
+
+/** The column picker's choices, grouped by section (fields without one first). */
+function pickerData(columns: Column[]): ComboboxData {
+  const loose = columns
+    .filter((c) => c.group === null)
+    .map((c) => ({ value: c.id, label: c.label }));
+  const groups = [...new Set(columns.map((c) => c.group).filter((g) => g !== null))];
+  return [
+    ...loose,
+    ...groups.map((group) => ({
+      group,
+      items: columns.filter((c) => c.group === group).map((c) => ({ value: c.id, label: c.label })),
+    })),
+  ];
+}
+
+/** The searched fields of a row, among those not shown, where a word of the query is. */
+function matchedIn(row: Row, columns: Column[], query: string): string[] {
+  const words = fold(query)
+    .split(/\s+/)
+    .filter((word) => word !== "");
+  if (words.length === 0) return [];
+  return columns
+    .filter((c) => {
+      const texts = textsOf(row, c).map(fold);
+      return words.some((word) => texts.some((text) => text.includes(word)));
+    })
+    .map((c) => c.label);
+}
+
+/** What search reads in a cell: dates as stored and as shown (30/10/2026). */
+function textsOf(row: Row, column: Column): string[] {
+  const value = asText(row.values[column.id]);
+  return column.type === "date" ? [value, formatDateTime(value)] : [value];
 }
 
 function defaultColumns(entity: EntityDef, columns: Column[]): string[] {

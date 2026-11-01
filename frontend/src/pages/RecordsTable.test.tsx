@@ -74,6 +74,7 @@ describe("Records table", () => {
       ["20/10/2026", "1"],
     ]);
     expect(screen.getAllByText("LOW")[0]).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Matched in" })).not.toBeInTheDocument();
   });
 
   it("finds a session by a word of its notes, accents ignored, or by its date", async () => {
@@ -82,6 +83,9 @@ describe("Records table", () => {
     const search = await screen.findByRole("textbox", { name: "Search" });
     await userEvent.type(search, "cosi");
     expect(bodyRows().map((r) => r[0])).toEqual(["20/10/2026"]);
+    // the notes aren't shown: the row says where it matched
+    expect(screen.getByRole("columnheader", { name: "Matched in" })).toBeInTheDocument();
+    expect(bodyRows()[0]?.at(-1)).toBe("Notes");
     await userEvent.clear(search);
     await userEvent.type(search, "28/10");
     expect(bodyRows()).toHaveLength(2);
@@ -131,6 +135,7 @@ describe("Records table", () => {
     const text = await files[0]?.text();
     const lines = text?.replace(String.fromCharCode(0xfeff), "").split("\r\n");
     expect(lines?.[0]?.startsWith("Date;Session #;")).toBe(true);
+    expect(lines?.[0]).not.toContain("Matched in"); // shown while searching, not exported
     expect(lines?.[1]?.startsWith("28/10/2026;1;")).toBe(true);
     expect(lines).toHaveLength(3); // the header, one record, the last line break
   });
