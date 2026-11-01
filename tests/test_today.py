@@ -6,7 +6,7 @@ import datetime as dt
 from pathlib import Path
 
 import pytest
-from conftest import LoadYaml
+from conftest import LoadYaml, Problems
 from fastapi.testclient import TestClient
 
 from climblog.catalog import Catalog, Entry
@@ -14,7 +14,7 @@ from climblog.config import AppConfig
 from climblog.expr import Value
 from climblog.main import create_app
 from climblog.modules import Module, load_module
-from climblog.modules.forms import due, form_fields, forms_of
+from climblog.modules.forms import due, field_label, form_fields, forms_of
 from climblog.storage import CachedRepository, RecordWriter, Snapshots, XlsxBackend, sync_module
 
 JOURNAL = load_module(Path(__file__).parent.parent / "modules" / "journal.yaml")
@@ -85,6 +85,33 @@ def test_a_rest_day_instead() -> None:
     assert items(rest_days=(rest,)) == [("rest_day", None, "partial")]
 
 
+def test_missing_fields_without_a_section_are_labelled_as_in_the_form() -> None:
+    rest: Row = {"date": DAY, "rest_type": "Full rest"}
+    found = due(JOURNAL, {"rest_day": [rest]}, DAY).items[0]
+    assert "life_stress" not in found.missing and "mood" not in found.missing
+    assert {"Mood", "Life stress", "Motivation to climb"} <= set(found.missing)
+
+
+def test_optional_fields_may_stay_blank(load: LoadYaml) -> None:
+    module = load(
+        DIARY.replace("unit: h, section: wb_pre}", "unit: h, section: wb_pre, optional: true}")
+    )
+    pre: Row = {"venue": "[ESEMPIO] Palestra", "setting": "Indoor", "wb_mood_pre": 7}
+    found = due(module, {"session": [session(pre)]}, DAY).items[0]
+    assert (found.form, found.status) == ("pre_session", "done")  # no sleep hours
+    found = due(module, {"session": [session({"wb_sleep_hours": 7})]}, DAY).items[0]
+    # only the optional field: none of the others, so still missing
+    assert (found.status, found.missing) == ("missing", ["Session details", "Wellbeing · before"])
+
+
+def test_a_field_cannot_be_required_and_optional(problems: Problems) -> None:
+    text = DIARY.replace(
+        "venue: {type: text, section: info}",
+        "venue: {type: text, section: info, required: true, optional: true}",
+    )
+    assert any("both required and optional" in line for line in problems(text))
+
+
 def test_a_field_tracked_since_a_later_day_is_not_missing() -> None:
     pre = filled(PRE)
     del pre["ph_pre_elbows"]  # tracked since 2026-10-20 (journal.yaml)
@@ -107,6 +134,18 @@ def test_form_fields_as_the_frontend(load: LoadYaml, form: str, expected: set[st
     """The fictional `DIARY` module of `frontend/src/test/api.ts`: the same fields per form."""
     module = load(DIARY)
     assert set(form_fields(module, forms_of(module)[form])) == expected
+
+
+def test_field_labels_as_the_frontend(load: LoadYaml) -> None:
+    """The cases of `frontend/src/forms/schema.test.ts` (`fieldLabel`), without the ↓."""
+    fields = load(DIARY).entities["session"].fields
+    labels = {name: field_label(name, fields[name]) for name in fields}  # type: ignore[arg-type]
+    assert labels["wb_mood_pre"] == "Mood"
+    assert labels["wb_fatigue_post"] == "Fatigue"
+    assert labels["wb_sleep_hours"] == "Sleep hours"
+    assert labels["session_no"] == "Session #"
+    reflect = JOURNAL.entities["session"].fields["rf_good_score"]
+    assert field_label("rf_good_score", reflect) == "Good score"  # type: ignore[arg-type]
 
 
 DIARY = """\

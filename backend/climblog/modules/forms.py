@@ -169,9 +169,14 @@ def due(
 def _status(
     module: Module, form: Form, record: Mapping[str, Value], day: dt.date
 ) -> tuple[str, list[str]]:
-    """Done when every scored field is filled (text is optional), partial when some are."""
+    """Done when every scored field is filled (text and `optional: true` fields may stay
+    blank), partial when some are."""
     entity = module.entities[form.entity]
-    names = [n for n in form_fields(module, form) if _tracked(entity, n, day)]
+    names = [
+        n
+        for n in form_fields(module, form)
+        if _tracked(entity, n, day) and not _optional(entity, n)
+    ]
     scored = [n for n in names if not isinstance(entity.fields[n], TextField)] or names
     empty = [n for n in scored if record.get(n) is None]
     if not empty:
@@ -187,8 +192,35 @@ def _tracked(entity: Entity, name: str, day: dt.date) -> bool:
     return f.since is None or f.since <= day
 
 
+def _optional(entity: Entity, name: str) -> bool:
+    """A field that may stay blank in a done form (`optional: true`)."""
+    f = entity.fields[name]
+    assert isinstance(f, BaseField)
+    return f.optional
+
+
+def field_label(name: str, f: BaseField) -> str:
+    """A field's label as the forms show it (the frontend's `fieldLabel`, without the ↓ of a
+    lower-is-better scale): its own `label`, else its name without the section prefix and
+    phase, capitalized (`wb_mood_pre` in `wb_pre` → "Mood", `life_stress` → "Life stress")."""
+    if f.label is not None:
+        return f.label
+    words = name.split("_")
+    parts = (f.section or "").split("_")
+    prefix = words[0]
+    sectioned = f.section is not None and f.section != "*"
+    if len(words) > 1 and sectioned and (prefix == parts[0] or len(prefix) <= 2):
+        words = words[1:]  # wb_mood_pre in wb_pre, rf_good_score in reflect
+    phase = _phase(f.phase) or (parts[1] if len(parts) > 1 else None)
+    last = len(words) - 1
+    words = [w for i, w in enumerate(words) if not (w == phase and i in (0, last))]
+    joined = " ".join(words)
+    return joined[:1].upper() + joined[1:]
+
+
 def _where(module: Module, entity: Entity, names: list[str]) -> list[str]:
-    """The empty fields' sections, by label, in order (the fields themselves without sections)."""
+    """The empty fields' sections, by label, in order (the fields themselves without sections,
+    labelled as in the form)."""
     sections = entity.sections or {}
     found: list[str] = []
     for name in names:
@@ -197,7 +229,7 @@ def _where(module: Module, entity: Entity, names: list[str]) -> list[str]:
         if f.section is not None and f.section in sections:
             label = sections[f.section].label or f.section
         else:
-            label = f.label or name
+            label = field_label(name, f)
         if label not in found:
             found.append(label)
     return found

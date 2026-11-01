@@ -21,7 +21,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - Today page (#74, D-080): the next-session recommendation with its reasons, and the forms due
   on the chosen day (a session or a rest day when nothing is logged; each session's pre and
   post forms after), done / partial / missing with what is missing, linking to each form;
-  `GET /api/today?date=`.
+  `GET /api/today?date=`. A field marked `optional: true` in the module YAML may stay blank in
+  a done form.
 - Log forms (#72, D-077): the journal's pre-session, post-session and rest-day forms, built
   from the module YAML; a session created at pre and completed at post; scales as compact
   dropdowns that start blank with the best value first (D-078), decimal commas, Italian notes;
