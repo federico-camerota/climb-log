@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""A module's forms (`forms:`, 03 §2.6) and what is due on a day: the Today page (D-078).
+"""A module's forms (`forms:`, 03 §2.6) and what is due on a day: the Today page (D-080).
 
 `form_fields` is the rule the frontend's forms follow (`frontend/src/forms/schema.ts`): a form
 shows the fields of its sections (in its phase), plus fields of other sections whose own

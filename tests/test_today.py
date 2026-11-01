@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""What is due on a day (D-078): the journal's forms, done / partial / missing, and the form
+"""What is due on a day (D-080): the journal's forms, done / partial / missing, and the form
 fields rule shared with the frontend's forms. Fictional data only."""
 
 import datetime as dt

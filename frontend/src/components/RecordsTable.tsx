@@ -49,7 +49,7 @@ const STATUS_COLOURS: Record<string, string> = {
 };
 const SHOWN_FIRST = /(score|status|readiness)$|^log_check$/; // the default columns, with the key
 
-/** An entity's records as a table (06-ui Records, D-079): newest first, sortable, searched
+/** An entity's records as a table (06-ui Records, D-081): newest first, sortable, searched
  * without accents, the data issues marked in their cell; the columns are picked (and
  * remembered); the table as shown is exported to CSV. */
 export function RecordsTable({ module, data }: { module: ModuleInfo; data: Records }) {

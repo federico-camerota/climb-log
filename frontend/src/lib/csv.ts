@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// CSV as Excel and LibreOffice open it in an Italian locale (D-079): semicolons, dates
+// CSV as Excel and LibreOffice open it in an Italian locale (D-081): semicolons, dates
 // dd/mm/yyyy, decimal commas, UTF-8 with a byte-order mark.
 
 import { formatDateTime } from "./format";
