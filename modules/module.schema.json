@@ -235,6 +235,11 @@
           "default": null,
           "title": "Renamed From"
         },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
+        },
         "type": {
           "const": "bool",
           "title": "Type",
@@ -393,6 +398,11 @@
           ],
           "default": null,
           "title": "Renamed From"
+        },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
         },
         "type": {
           "const": "choice",
@@ -576,6 +586,11 @@
           "default": null,
           "title": "Renamed From"
         },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
+        },
         "type": {
           "enum": [
             "date",
@@ -719,6 +734,11 @@
           ],
           "default": null,
           "title": "Renamed From"
+        },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
         },
         "type": {
           "const": "duration",
@@ -1106,6 +1126,11 @@
           "default": null,
           "title": "Renamed From"
         },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
+        },
         "type": {
           "const": "grade",
           "title": "Type",
@@ -1301,6 +1326,11 @@
           "default": null,
           "title": "Renamed From"
         },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
+        },
         "type": {
           "const": "multichoice",
           "title": "Type",
@@ -1454,6 +1484,11 @@
           ],
           "default": null,
           "title": "Renamed From"
+        },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
         },
         "type": {
           "enum": [
@@ -1764,6 +1799,11 @@
           "default": null,
           "title": "Renamed From"
         },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
+        },
         "type": {
           "const": "percent",
           "title": "Type",
@@ -2035,6 +2075,11 @@
           "default": null,
           "title": "Renamed From"
         },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
+        },
         "type": {
           "const": "ref",
           "title": "Type",
@@ -2210,6 +2255,11 @@
           ],
           "default": null,
           "title": "Renamed From"
+        },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
         },
         "type": {
           "const": "scale",
@@ -2494,6 +2544,11 @@
           ],
           "default": null,
           "title": "Renamed From"
+        },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
         },
         "type": {
           "const": "text",

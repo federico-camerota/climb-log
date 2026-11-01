@@ -135,6 +135,13 @@ class BaseField(Strict):
     visible_if: str | None = None  # condition on other fields, checked in checks.py
     retired: bool = False  # hidden from forms; column and data kept (§3)
     renamed_from: Key | None = None
+    optional: bool = False  # left blank, its form still counts as done on Today (D-080)
+
+    @model_validator(mode="after")
+    def _optional(self) -> Self:
+        if self.optional and self.required:
+            raise ValueError("a field cannot be both required and optional")
+        return self
 
 
 class DateField(BaseField):
