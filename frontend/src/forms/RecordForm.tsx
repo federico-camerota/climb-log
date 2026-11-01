@@ -113,6 +113,7 @@ function Editor({
       queryClient.setQueryData(["record", module.id, form.entity, recordKey], written);
       void queryClient.invalidateQueries({ queryKey: ["records", module.id, form.entity] });
       void queryClient.invalidateQueries({ queryKey: ["recommendation"] });
+      void queryClient.invalidateQueries({ queryKey: ["today"] });
     },
     onError: (error) => {
       const [onForm] = splitProblems(error, editor.getValues());

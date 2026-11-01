@@ -107,10 +107,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Today
+         * @description Each module's forms on the day (default today).
+         */
+        get: operations["get_today_api_today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** DueForm */
+        DueForm: {
+            /** Form */
+            form: string;
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            };
+            /** Label */
+            label: string;
+            /** Log Check */
+            log_check?: unknown;
+            /** Missing */
+            missing: string[];
+            /** Status */
+            status: string;
+        };
         /** FieldProblem */
         FieldProblem: {
             /** Field */
@@ -159,6 +196,29 @@ export interface components {
             reasons: components["schemas"]["Reason"][];
             /** Text */
             text: string;
+        };
+        /** ModuleDay */
+        ModuleDay: {
+            /** Any One */
+            any_one: boolean;
+            /** As Of */
+            as_of: string | null;
+            /** Days Since */
+            days_since: number | null;
+            /** Items */
+            items: components["schemas"]["DueForm"][];
+            /** Last */
+            last: string | null;
+            /** Last Label */
+            last_label: string | null;
+            /** Module */
+            module: string;
+            /** Name */
+            name: string;
+            /** Notes */
+            notes: string[];
+            /** Offline */
+            offline: boolean;
         };
         /** ModuleInfo */
         ModuleInfo: {
@@ -260,6 +320,18 @@ export interface components {
             offline: boolean;
             /** Records */
             records: components["schemas"]["Record"][];
+        };
+        /** Today */
+        Today: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Modules */
+            modules: components["schemas"]["ModuleDay"][];
+            /** Problems */
+            problems: string[];
         };
         /** ValidationError */
         ValidationError: {
@@ -669,6 +741,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Recommendation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_today_api_today_get: {
+        parameters: {
+            query?: {
+                date?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Today"];
                 };
             };
             /** @description Validation Error */
