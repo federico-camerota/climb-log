@@ -87,6 +87,46 @@ export interface paths {
         patch: operations["update_record_api_modules__module___entity__record_patch"];
         trace?: never;
     };
+    "/api/modules/{module}/{entity}/row": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Row
+         * @description The row of a data issue, e.g. ?tab=Session&row=6
+         */
+        delete: operations["delete_row_api_modules__module___entity__row_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/modules/{module}/{entity}/row/record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt Row
+         * @description The row of a data issue, e.g. ?tab=Session&row=6
+         */
+        post: operations["adopt_row_api_modules__module___entity__row_record_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recommendation": {
         parameters: {
             query?: never;
@@ -171,12 +211,19 @@ export interface components {
         Issue: {
             /** Field */
             field: string | null;
+            /**
+             * Kind
+             * @default value
+             */
+            kind: string;
             /** Message */
             message: string;
             /** Row */
             row: number | null;
             /** Tab */
             tab: string;
+            /** Value */
+            value?: string | null;
         };
         /** ModuleAdvice */
         ModuleAdvice: {
@@ -669,6 +716,146 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Written"];
+                };
+            };
+            /** @description No such module, entity or record */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The key is taken, the record changed since it was read, or the module doesn't load */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description An unknown field or a bad value */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook is open in Excel or LibreOffice */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook can't be reached: offline, read-only */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+        };
+    };
+    delete_row_api_modules__module___entity__row_delete: {
+        parameters: {
+            query: {
+                tab: string;
+                row: number;
+            };
+            header?: never;
+            path: {
+                module: string;
+                entity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such module, entity or record */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The key is taken, the record changed since it was read, or the module doesn't load */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description An unknown field or a bad value */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook is open in Excel or LibreOffice */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook can't be reached: offline, read-only */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+        };
+    };
+    adopt_row_api_modules__module___entity__row_record_post: {
+        parameters: {
+            query: {
+                tab: string;
+                row: number;
+            };
+            header?: never;
+            path: {
+                module: string;
+                entity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

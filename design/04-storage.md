@@ -85,6 +85,12 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
     missing tab or a missing field column is a data issue (schema sync adds them, D-052), except
     for a retired field.
   - A child row without its parent row is a data issue; the record still loads.
+  - Each data issue has a **kind** (D-082): `value` (a cell that can't be read; the issue
+    carries the cell as typed), `required`, `left_out` (no key, a duplicate key), `orphan` (a
+    section row without its main row), `orphan_child`, `column`, `tab`, `setting`. A
+    `left_out` or orphan row can be soft deleted on its own, an `orphan` row given its main
+    row (`RecordWriter.delete_row`, `adopt_row`); both check first that the row is still
+    reported so (a 409 when the sheet changed since).
 - **Schema sync** (`climblog check --apply`; `storage/layout.py`, `sync.py`, `xlsx_sync.py`,
   D-052) makes the workbook match the YAML, **additively**, in one save (lock check and backup
   as for writes). The expected layout is computed once from the module and also used by
@@ -132,7 +138,7 @@ tabs on `(date, session_no)`, replacing today's fragile join by row position: ta
 sorted or filtered independently, and rows can be in any order.
 - The `Session` tab is the anchor. A section row whose date has no `Session` row is reported
   as a data issue ("no Session row for date 2026-11-03, session_no 1") and left out, with a
-  one-click fix that creates the session row. Required fields are checked once the tabs are
+  one-click fix that creates the session row (D-082: done, or delete the row). Required fields are checked once the tabs are
   joined, on the section rows that exist (a section not filled in yet is not an issue).
 - In the app the session is still edited as one record; the backend splits the write
   across the tabs.

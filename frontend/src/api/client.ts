@@ -163,6 +163,31 @@ export function updateRecord(
   return send<Written>("PATCH", recordPath(module, entity, key), { values, expected });
 }
 
+/** Soft delete a record and its children (D-075). */
+export function deleteRecord(module: string, entity: string, key: Values): Promise<void> {
+  return send<undefined>("DELETE", recordPath(module, entity, key));
+}
+
+function rowPath(module: string, entity: string, tab: string, row: number, suffix = ""): string {
+  const params = new URLSearchParams({ tab, row: String(row) });
+  return `${entityPath(module, entity)}/row${suffix}?${params.toString()}`;
+}
+
+/** Soft delete a row that is no record: left out (no key, a duplicate) or an orphan (D-082). */
+export function deleteRow(module: string, entity: string, tab: string, row: number): Promise<void> {
+  return send<undefined>("DELETE", rowPath(module, entity, tab, row));
+}
+
+/** Give an orphan section row its record: the main-tab row with its key (D-082). */
+export function adoptRow(
+  module: string,
+  entity: string,
+  tab: string,
+  row: number,
+): Promise<Written> {
+  return send<Written>("POST", rowPath(module, entity, tab, row, "/record"));
+}
+
 export function getRecommendation(date: string): Promise<Recommendation> {
   return getJson<Recommendation>(`/api/recommendation?date=${encodeURIComponent(date)}`);
 }

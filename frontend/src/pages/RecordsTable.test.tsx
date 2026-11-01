@@ -31,8 +31,15 @@ const RECORDS = {
     session("2026-10-28", 2, { venue: "Home wall", wb_mood_pre: null }, { wb_status: null }, 5),
   ],
   issues: [
-    { tab: "Wellbeing", row: 5, field: "wb_mood_pre", message: "'tanto' is not a number" },
-    { tab: "Wellbeing", row: 9, field: null, message: "no Session row" }, // an orphan
+    {
+      tab: "Wellbeing",
+      row: 5,
+      field: "wb_mood_pre",
+      message: "'tanto' is not a number",
+      kind: "value",
+      value: "tanto",
+    },
+    { tab: "Wellbeing", row: 9, field: null, message: "no Session row", kind: "orphan" }, // an orphan
   ],
   as_of: "2026-10-30T09:05:00",
   offline: false,

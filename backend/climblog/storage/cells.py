@@ -11,6 +11,7 @@ import datetime as dt
 import re
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
+from dataclasses import field as dc_field
 
 from climblog.expr import Checked, Value, evaluate, prepare
 from climblog.grades import GradeError, parse_grade
@@ -68,6 +69,12 @@ class DataIssue:
     row: int | None  # the sheet's row number (1-based; data starts at row 3); None: whole tab
     field: str | None  # the column's key (row 2); None: whole row or tab
     message: str
+    # What kind of problem, so the app can offer a fix (D-082): `value` a cell that can't be
+    # read, `required` an empty required cell, `left_out` a row that is no record (no key, a
+    # duplicate key), `orphan` a section row without its main row, `orphan_child` a child row
+    # without its parent, `column` / `tab` missing, `setting` a bad setting.
+    kind: str = dc_field(default="value", compare=False)
+    value: RawCell = dc_field(default=None, compare=False)  # a `value` issue's cell, as typed
 
 
 def parse_cell(module: Module, field: BaseField, raw: RawCell) -> Value:
@@ -152,7 +159,7 @@ class RowParser:
                 value = parse_cell(self.module, field, raw.get(key))
             except CellError as error:
                 values[key] = None
-                issues.append(DataIssue(tab, row, key, error.message))
+                issues.append(DataIssue(tab, row, key, error.message, "value", raw.get(key)))
                 continue
             values[key] = self._default(field) if value is None else value
         if required:
@@ -171,7 +178,7 @@ class RowParser:
     ) -> list[DataIssue]:
         """Required fields left empty in a row (`skip`: fields already reported as bad)."""
         return [
-            DataIssue(tab, row, key, "required, but empty")
+            DataIssue(tab, row, key, "required, but empty", "required")
             for key, field in self._fields(fields)
             if field.required
             and values.get(key) is None

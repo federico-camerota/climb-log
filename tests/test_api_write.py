@@ -17,6 +17,7 @@ from climblog.config import AppConfig
 from climblog.main import create_app
 from climblog.modules import load_module
 from climblog.storage import CachedRepository, Repository, Snapshots, XlsxBackend, sync_module
+from climblog.storage.base import Append
 
 CONTRACT = "write"
 JOURNAL = load_module(Path(__file__).parent.parent / "modules" / "journal.yaml")
@@ -216,3 +217,65 @@ def test_offline_is_read_only(local: tuple[Path, TestClient]) -> None:
     assert listed["offline"] is True
     assert len(listed["records"]) == 1
     assert isinstance(dt.datetime.fromisoformat(listed["as_of"]), dt.datetime)
+
+
+# ---- Fixing data issues (D-082) ----
+
+ROW = f"{SESSIONS}/row"
+OCT29 = dt.datetime(2026, 10, 29)
+
+
+def issues(client: TestClient) -> list[dict[str, Any]]:
+    found: list[dict[str, Any]] = client.get(SESSIONS).json()["issues"]
+    return found
+
+
+def test_an_issue_says_its_kind_and_the_bad_value_as_typed(
+    client: TestClient, repo: Repository
+) -> None:
+    repo.apply([Append("Session", {"date": OCT29, "session_no": 1, "duration_min": "boh"})])
+    found = [i for i in issues(client) if i["row"] is not None]
+    assert [(i["field"], i["kind"], i["value"]) for i in found] == [
+        ("duration_min", "value", "boh")
+    ]
+
+
+def test_a_duplicate_row_is_deleted_on_its_own(client: TestClient, repo: Repository) -> None:
+    add(client)
+    repo.apply([Append("Session", {"date": dt.datetime(2026, 10, 30), "session_no": 1})])
+    [left_out] = [i for i in issues(client) if i["kind"] == "left_out"]
+    response = client.delete(ROW, params={"tab": left_out["tab"], "row": left_out["row"]})
+    assert response.status_code == 204, response.text
+    assert [i for i in issues(client) if i["row"] is not None] == []
+    assert len(client.get(SESSIONS).json()["records"]) == 1  # the record itself stays
+
+
+def test_an_orphan_section_row_gets_its_session(client: TestClient, repo: Repository) -> None:
+    repo.apply([Append("Wellbeing", {"date": OCT29, "session_no": 1, "wb_mood_pre": 7})])
+    [orphan] = [i for i in issues(client) if i["kind"] == "orphan"]
+    response = client.post(f"{ROW}/record", params={"tab": "Wellbeing", "row": orphan["row"]})
+    assert response.status_code == 201, response.text
+    record = response.json()["record"]
+    assert (record["values"]["date"], record["values"]["wb_mood_pre"]) == ("2026-10-29", 7)
+    assert [i for i in issues(client) if i["kind"] == "orphan"] == []
+
+
+def test_an_orphan_row_can_be_deleted_instead(client: TestClient, repo: Repository) -> None:
+    repo.apply([Append("Wellbeing", {"date": OCT29, "session_no": 1, "wb_mood_pre": 7})])
+    [orphan] = [i for i in issues(client) if i["kind"] == "orphan"]
+    assert client.delete(ROW, params={"tab": "Wellbeing", "row": orphan["row"]}).status_code == 204
+    assert [i for i in issues(client) if i["row"] is not None] == []
+
+
+def test_a_records_own_row_is_not_deleted_on_its_own(client: TestClient) -> None:
+    row = add(client)["record"]["rows"]["Session"]
+    response = client.delete(ROW, params={"tab": "Session", "row": row})
+    assert response.status_code == 409
+    assert "no longer a row the app leaves out" in response.json()["detail"]["message"]
+    adopt = client.post(f"{ROW}/record", params={"tab": "Session", "row": row})
+    assert adopt.status_code == 409
+    other = client.delete(ROW, params={"tab": "Rest Days", "row": 3})
+    assert (other.status_code, other.json()["detail"]["message"]) == (
+        422,
+        "Rest Days is not a tab of session",
+    )

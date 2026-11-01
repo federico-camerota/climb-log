@@ -158,6 +158,8 @@ Both backends implement it. Analytics and the engine never know which one is in 
 | GET | `/api/modules/{m}/{entity}` | records (+ derived fields), filters, paging (D-058: done without filters and paging) |
 | POST | `/api/modules/{m}/{entity}` | add a record (D-075: done) |
 | GET/PATCH/DELETE | `/api/modules/{m}/{entity}/record?<key>` | read, change, soft delete one record (D-075: done) |
+| DELETE | `/api/modules/{m}/{entity}/row?tab=&row=` | soft delete a row that is no record: left out or orphan (D-082: done) |
+| POST | `/api/modules/{m}/{entity}/row/record?tab=&row=` | an orphan section row's record: its main-tab row (D-082: done) |
 | GET | `/api/today?date=` | which forms are due on a day, done / partial / missing (D-080: done) |
 | GET | `/api/recommendation?date=` | next-session recommendation + reasons (D-071; D-076: done per module) |
 | GET | `/api/modules/{m}/views/{view}` | each widget's data for a module view, computed in Python (D-072) |
