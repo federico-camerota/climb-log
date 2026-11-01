@@ -84,12 +84,14 @@ function Editor({
   const editor = useForm<Record<string, InputValue>>({
     mode: "controlled",
     initialValues: { ...initial, ...(draft ?? {}) },
+    // a draft comes back with the errors it had (D-079): the API's are known only on save
+    initialErrors: draft === null ? {} : loadDraftErrors(draftKey),
     validate: Object.fromEntries(
       fields.map(([name, field]) => [name, (value: InputValue) => problem(field, value)]),
     ),
   });
   useEffect(() => {
-    if (editor.isDirty()) saveDraft(draftKey, editor.values);
+    if (editor.isDirty()) saveDraft(draftKey, editor.values, editor.errors);
   }, [editor, draftKey]);
 
   const queryClient = useQueryClient();
@@ -145,6 +147,7 @@ function Editor({
                   dropDraft(draftKey);
                   editor.setValues(initial);
                   editor.resetDirty(initial);
+                  editor.clearErrors();
                   setRestored(false);
                 }}
               >
@@ -230,9 +233,32 @@ function loadDraft(key: string): Record<string, InputValue> | null {
   }
 }
 
-function saveDraft(key: string, values: Record<string, InputValue>): void {
+/** The errors the draft's fields showed (kept apart, so older drafts still load). */
+function loadDraftErrors(key: string): Record<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(`${key}:errors`) ?? "{}");
+    if (typeof parsed !== "object" || parsed === null) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, string] => {
+        return typeof entry[1] === "string";
+      }),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function saveDraft(
+  key: string,
+  values: Record<string, InputValue>,
+  errors: Record<string, unknown>,
+): void {
+  const shown = Object.entries(errors).filter(([, error]) => typeof error === "string");
   try {
     localStorage.setItem(key, JSON.stringify(values));
+    if (shown.length > 0)
+      localStorage.setItem(`${key}:errors`, JSON.stringify(Object.fromEntries(shown)));
+    else localStorage.removeItem(`${key}:errors`);
   } catch {
     // storage off or full: the form still works, without a draft
   }
@@ -241,6 +267,7 @@ function saveDraft(key: string, values: Record<string, InputValue>): void {
 function dropDraft(key: string): void {
   try {
     localStorage.removeItem(key);
+    localStorage.removeItem(`${key}:errors`);
   } catch {
     // nothing to drop
   }

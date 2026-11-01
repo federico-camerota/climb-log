@@ -158,6 +158,29 @@ describe("Log", () => {
     expect(screen.queryByText("Not saved")).not.toBeInTheDocument();
   });
 
+  it("brings a draft back with its errors, until the field is changed or discarded", async () => {
+    const problems = [
+      { field: "minutes", message: "minutes: 'tanto' is not a duration" },
+      { field: "notes", message: "notes: too long" },
+    ];
+    api({ [`POST ${SESSION}`]: failing(422, { ...problems[0], problems }) });
+    const first = renderApp("/log/diary/post_session?date=2026-10-30");
+    await userEvent.type(await screen.findByRole("textbox", { name: "Minutes" }), "tanto");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("notes: too long");
+    first.unmount();
+
+    renderApp("/log/diary/post_session?date=2026-10-30");
+    expect(await screen.findByText("Unsaved changes restored")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Minutes" })).toHaveValue("tanto");
+    expect(screen.getByText("minutes: 'tanto' is not a duration")).toBeInTheDocument();
+    expect(screen.getByText("notes: too long")).toBeInTheDocument();
+    await userEvent.type(screen.getByRole("textbox", { name: "Minutes" }), "!");
+    expect(screen.queryByText("minutes: 'tanto' is not a duration")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Discard them" }));
+    expect(screen.queryByText("notes: too long")).not.toBeInTheDocument();
+  });
+
   it("puts a problem on a field the form doesn't show in the alert", async () => {
     const problem = { field: "venue", message: "venue: bad" };
     api({ [`POST ${SESSION}`]: failing(422, { ...problem, problems: [problem] }) });
