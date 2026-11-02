@@ -162,7 +162,7 @@ Both backends implement it. Analytics and the engine never know which one is in 
 | POST | `/api/modules/{m}/{entity}/row/record?tab=&row=` | an orphan section row's record: its main-tab row (D-082: done) |
 | GET | `/api/today?date=` | which forms are due on a day, done / partial / missing (D-080: done) |
 | GET | `/api/recommendation?date=` | next-session recommendation + reasons (D-071; D-076: done per module) |
-| GET | `/api/modules/{m}/views/{view}` | each widget's data for a module view, computed in Python (D-072) |
+| GET | `/api/modules/{m}/views/{view}?date=` | each widget's data for a module view, computed in Python (D-072; D-083: done for `kpi`, `status_board`, `line`) |
 | POST | `/api/analytics/query` | generic metric query (metric(s), range, grouping, filters) |
 | GET | `/api/analytics/correlations` | correlation matrix / pair with lags |
 | GET | `/api/search?q=` | full-text search across text fields |

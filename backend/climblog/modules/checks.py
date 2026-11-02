@@ -23,6 +23,8 @@ from climblog.modules.schema import (
     DateField,
     Entity,
     GradeField,
+    KpiWidget,
+    LineWidget,
     Module,
     NumberField,
     NumericScale,
@@ -31,8 +33,12 @@ from climblog.modules.schema import (
     ReferenceTemplateUse,
     RefField,
     ScaleField,
+    StatusBoardWidget,
     TemplateUse,
     YamlPath,
+)
+from climblog.modules.schema import (
+    Band as BandItemModel,
 )
 
 # Columns the app adds to every tab (04-storage.md §1).
@@ -88,6 +94,7 @@ def cross_check(module: Module) -> list[Problem]:
                 problems.append(Problem(tab_at, f"tab '{tab}' is already used by entity '{other}'"))
     _, found = _recommendation(module)
     problems += found
+    problems += _views(module)
     return problems
 
 
@@ -500,3 +507,57 @@ def _recommendation(module: Module) -> tuple[RecommendationPlan | None, list[Pro
             )
     reasons = tuple(found.reasons.items())
     return RecommendationPlan(found.label, values, tuple(rules), reasons), problems
+
+
+# ---- Views (D-083) ----
+
+
+def metric_of(module: Module, text: str) -> tuple[str, str] | str:
+    """`entity.field` as (entity, field), a stored field or a derived value; else the problem."""
+    entity, _, name = text.partition(".")
+    if entity in (module.aggregates or {}) and name:
+        return entity, name  # an aggregate's value (M5): checked when aggregates are
+    if entity not in module.entities or not name:
+        known = ", ".join(module.entities)
+        return f"'{text}' is not entity.field (entities: {known})"
+    found = module.entities[entity]
+    if name not in found.fields and name not in found.derived:
+        return f"'{entity}' has no field or derived value '{name}'"
+    return entity, name
+
+
+def _views(module: Module) -> list[Problem]:
+    problems: list[Problem] = []
+    for view, widgets in (module.views or {}).items():
+        for i, widget in enumerate(widgets):
+            at: YamlPath = ("views", view, i)
+            metrics: list[tuple[YamlPath, str]] = []
+            if isinstance(widget, KpiWidget):
+                metrics.append(((*at, "metric"), widget.metric))
+                found = metric_of(module, widget.metric)
+                if widget.agg == "days_since_latest" and isinstance(found, tuple):
+                    field = module.entities[found[0]].fields.get(found[1])
+                    if not isinstance(field, DateField):
+                        problems.append(Problem((*at, "agg"), "days_since_latest needs a date"))
+            elif isinstance(widget, StatusBoardWidget):
+                for j, row in enumerate(widget.classes):
+                    metrics.append(((*at, "classes", j, "score"), row.score))
+                    metrics.append(((*at, "classes", j, "status"), row.status))
+            elif isinstance(widget, LineWidget):
+                for j, series in enumerate(widget.series):
+                    metrics.append(((*at, "series", j, "metric"), series.metric))
+                for j, band in enumerate(widget.bands):
+                    if isinstance(band, BandItemModel) and isinstance(band.le, str):
+                        name = band.le.removeprefix("settings.")
+                        if not band.le.startswith("settings.") or name not in module.settings:
+                            problems.append(
+                                Problem(
+                                    (*at, "bands", j, "le"),
+                                    f"'{band.le}' is not a number or a setting (settings.<name>)",
+                                )
+                            )
+            for path, text in metrics:
+                found = metric_of(module, text)
+                if isinstance(found, str):
+                    problems.append(Problem(path, found))
+    return problems

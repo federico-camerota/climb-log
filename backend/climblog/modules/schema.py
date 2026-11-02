@@ -562,6 +562,86 @@ class Recommendation(Strict):
         return self
 
 
+# ---- Views (dashboards, 03 §2.7, D-083) ----
+
+
+class _Widget(Strict):
+    label: str | None = None  # the widget's title
+
+
+class KpiWidget(_Widget):
+    """One number or status: the metric in the latest record, or the days since it."""
+
+    widget: Literal["kpi"]
+    metric: str  # `entity.field`, a stored field or a derived value
+    agg: Literal["latest", "days_since_latest"] = "latest"
+
+
+class StatusClass(Strict):
+    label: str  # e.g. Wellbeing
+    score: str  # `entity.field`
+    status: str  # `entity.field`
+
+
+class StatusBoardWidget(_Widget):
+    """Per class: the latest status and score, the average of the last `compare_last` records
+    vs the ones before, the direction (`settings.trend_delta`), and the LOW records among the
+    last `window` (the legacy Summary - Trends status board)."""
+
+    widget: Literal["status_board"]
+    classes: list[StatusClass] = Field(min_length=1)
+    compare_last: int = Field(4, ge=1)
+    window: int = Field(12, ge=1)
+
+
+class Series(Strict):
+    metric: str  # `entity.field`
+    label: str | None = None
+
+
+class LineWidget(_Widget):
+    """Metrics over the records, with the status bands behind them and a rolling mean; the
+    last `last` records shown at first (a range picker shows more)."""
+
+    widget: Literal["line"]
+    series: list[Series] = Field(min_length=1)
+    bands: list[BandItem] = []  # as a derived entry's (`le: settings.low_max`, …)
+    rolling: int | None = Field(None, ge=2)
+    last: int = Field(12, ge=1)
+    split_by: list[str] = []  # one line per combination of these fields: not drawn yet (M4)
+    x: str | None = None  # an x axis other than the records' dates (`entity.field`): M4
+
+
+class LaterWidget(BaseModel):
+    """A widget of the planned library (03 §2.7) the app doesn't draw yet: its options are
+    checked when it is (#78 for the journal's, M4/M5 for the others)."""
+
+    model_config = ConfigDict(extra="allow", frozen=True)
+    widget: Literal[
+        "heatmap_calendar",
+        "side_by_side",
+        "text_feed",
+        "table",
+        "monthly",
+        "status_strip",
+        "bars",
+        "weekbars",
+        "stacked",
+        "box_by",
+        "scatter",
+        "radar",
+        "delta_table",
+        "ladder",
+        "program_grid",
+        "before_after",
+    ]
+
+
+Widget = Annotated[
+    KpiWidget | StatusBoardWidget | LineWidget | LaterWidget, Field(discriminator="widget")
+]
+
+
 class Module(Strict):
     # Extra top-level keys are allowed only as named level lists (`reflect_levels`);
     # `cross_check` reports any other one as unknown.
@@ -580,6 +660,6 @@ class Module(Strict):
     program: Unchecked | None = None  # M5
     reference: Unchecked | None = None  # M5
     forms: Unchecked | None = None  # M3
-    views: Unchecked | None = None  # M3, M4
+    views: dict[Key, list[Widget]] | None = None  # D-083
     aggregates: Unchecked | None = None  # M5
     recommendation: Recommendation | None = None  # M3 (D-076)

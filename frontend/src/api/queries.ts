@@ -12,6 +12,7 @@ import {
   getRecord,
   getRecords,
   getToday,
+  getView,
   type Values,
 } from "./client";
 
@@ -56,4 +57,11 @@ export function useRecommendation(date: string) {
 
 export function useToday(date: string) {
   return useQuery({ queryKey: ["today", date], queryFn: () => getToday(date) });
+}
+
+export function useView(module: string, view: string, date: string) {
+  return useQuery({
+    queryKey: ["view", module, view, date],
+    queryFn: () => getView(module, view, date),
+  });
 }

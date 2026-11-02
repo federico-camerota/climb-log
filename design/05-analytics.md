@@ -31,7 +31,12 @@ the previous day's session). That is all the explorer needs.
 
 ## 2. Parity analyses (from the current sheets)
 - Status board: latest status and score per class, average of the last 4 vs the previous 4,
-  trend arrow (`TrendDelta`), LOW count in the last 12.
+  trend arrow (`TrendDelta`), LOW count in the last 12. Done (D-083, #77): as the legacy
+  formulas, checked against them on LibreOffice (`tests/test_views_parity.py`): the last 12
+  sessions up to the day, averages of the values present rounded to one decimal (half away
+  from zero), the previous average from 5 sessions on, ▲ when the change ≥ `trend_delta`,
+  ▼ when ≤ −`trend_delta`. One difference: a day's second session counts with its own values
+  (the legacy MATCH by date read the first one twice).
 - Last N sessions side by side (N selectable, not fixed at 4).
 - Monthly averages (any range, not just 6 months).
 - Top reflections of the last 14 days (by score) and reflections needing attention.

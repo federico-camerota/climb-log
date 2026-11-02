@@ -38,6 +38,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/modules/{module}/views/{view}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get View
+         * @description The view's widgets with their data, for the day (default today).
+         */
+        get: operations["get_view_api_modules__module__views__view__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/modules/{module}/{entity}": {
         parameters: {
             query?: never;
@@ -171,6 +191,15 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** BandData */
+        BandData: {
+            /** From */
+            from: number | null;
+            /** Label */
+            label: string;
+            /** To */
+            to: number | null;
+        };
         /** DueForm */
         DueForm: {
             /** Form */
@@ -224,6 +253,40 @@ export interface components {
             tab: string;
             /** Value */
             value?: string | null;
+        };
+        /** KpiData */
+        KpiData: {
+            /** Agg */
+            agg: string;
+            /** Label */
+            label: string | null;
+            /** Value */
+            value: unknown;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "kpi";
+        };
+        /** LineData */
+        LineData: {
+            /** Bands */
+            bands: components["schemas"]["BandData"][];
+            /** Label */
+            label: string | null;
+            /** Last */
+            last: number;
+            /** Points */
+            points: components["schemas"]["Point"][];
+            /** Rolling */
+            rolling: number | null;
+            /** Series */
+            series: components["schemas"]["SeriesData"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "line";
         };
         /** ModuleAdvice */
         ModuleAdvice: {
@@ -306,6 +369,32 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** PlannedData */
+        PlannedData: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string | null;
+            /** Why */
+            why: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "planned";
+        };
+        /** Point */
+        Point: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            };
+        };
         /** Reason */
         Reason: {
             /** Label */
@@ -368,6 +457,52 @@ export interface components {
             /** Records */
             records: components["schemas"]["Record"][];
         };
+        /** SeriesData */
+        SeriesData: {
+            /** Label */
+            label: string;
+            /** Metric */
+            metric: string;
+            /** Rolling */
+            rolling: (number | null)[] | null;
+            /** Values */
+            values: (number | null)[];
+        };
+        /** StatusBoardData */
+        StatusBoardData: {
+            /** Compare Last */
+            compare_last: number;
+            /** Label */
+            label: string | null;
+            /** Rows */
+            rows: components["schemas"]["StatusRow"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "status_board";
+            /** Window */
+            window: number;
+        };
+        /** StatusRow */
+        StatusRow: {
+            /** Average Last */
+            average_last: number | null;
+            /** Average Previous */
+            average_previous: number | null;
+            /** Change */
+            change: number | null;
+            /** Direction */
+            direction: ("up" | "down" | "flat") | null;
+            /** Label */
+            label: string;
+            /** Low */
+            low: number;
+            /** Score */
+            score: number | null;
+            /** Status */
+            status: unknown;
+        };
         /** Today */
         Today: {
             /**
@@ -392,6 +527,24 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** View */
+        View: {
+            /** As Of */
+            as_of: string | null;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Module */
+            module: string;
+            /** Offline */
+            offline: boolean;
+            /** View */
+            view: string;
+            /** Widgets */
+            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["PlannedData"])[];
         };
         /** WriteProblem */
         WriteProblem: {
@@ -456,6 +609,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModuleList"];
+                };
+            };
+        };
+    };
+    get_view_api_modules__module__views__view__get: {
+        parameters: {
+            query?: {
+                date?: string | null;
+            };
+            header?: never;
+            path: {
+                module: string;
+                view: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["View"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

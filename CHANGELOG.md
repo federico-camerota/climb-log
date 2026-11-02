@@ -7,6 +7,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- Dashboard, part 1 (#77, D-083): the journal's dashboard with the latest status and days since
+  the last session, the status board by class (as the legacy Summary – Trends: last 4 vs the 4
+  before, direction, LOW in the last 12) and the scores by class over time with the status bands,
+  a rolling mean and a range picker; `GET /api/modules/{m}/views/{view}`. Views in the module
+  YAML are now checked when it loads.
 - Editing records (#76, D-082): click a record on the Records page to edit the whole record in
   a drawer, its data issues under their fields (a bad value shown as typed), or delete it after
   a confirmation; the issues panel deletes rows the app leaves out (a duplicate key, no date,
