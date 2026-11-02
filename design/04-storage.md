@@ -370,7 +370,8 @@ stored on disk (`~/.local/share/climblog/snapshots/<module>.json.gz`, folder set
   sheet row number), the `_settings` and `_meta` pairs, when the source last changed and when
   it was read. Records load from it exactly as from the workbook (`load_data` takes any
   `Repository`). Gzipped JSON, dates and times tagged (`{"d": "2026-10-20"}`); a `format`
-  number makes older files ignored. Parquet can replace it when analytics bring pandas (M4).
+  number makes older files ignored. Analytics use no
+  DataFrames (D-087), so JSON stays the format.
 - **`CachedRepository`** (`AppConfig.cached(module)`): reads come from the snapshot while the
   source hasn't changed since it was taken (its modified time); when it has, the source is
   read again and a new snapshot saved. Writes and schema sync go to the source; the next read

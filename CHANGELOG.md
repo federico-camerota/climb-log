@@ -6,6 +6,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 
 ## [Unreleased]
 
+### Changed
+- M4 scoped (`design/07-roadmap.md`): eight issues, the analyses useful on little data first
+  and the correlation tools last; the rest of `05-analytics.md` moved to the backlog (D-086).
+  Analytics in plain Python with scipy, no pandas (D-087); modules joined by date (D-088).
+
 ## [0.3.0] - 2026-11-02
 
 M3: the journal app: logging, Today, records, dashboard and the sheet's Summary tab

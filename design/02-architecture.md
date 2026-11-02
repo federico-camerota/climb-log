@@ -14,7 +14,7 @@
  │ FastAPI app (Python)                          │
  │  modules/   load + validate module YAML       │
  │  engine/    derived fields, statuses, rules   │
- │  analytics/ pandas: aggregates, stats, load   │
+ │  analytics/ aggregates, stats, load (scipy)   │
  │  plugins/   custom rules/views in Python      │
  │  storage/   Repository → backends             │
  │       ├── XlsxBackend   (openpyxl)            │
@@ -31,7 +31,7 @@ forms and widgets from module schemas and view definitions served by the API.
 | Layer | Choice | Why |
 |---|---|---|
 | Backend | Python 3.12, FastAPI, pydantic v2 | typed API, easy to extend in Python |
-| Data/analysis | pandas, numpy, scipy (statsmodels later if needed) | correlations, regressions, rolling stats |
+| Data/analysis | plain Python on the records, scipy for distributions (D-087; statsmodels later if needed) | correlations with CIs, rolling stats; a few hundred records a year |
 | Excel | openpyxl | read/write xlsx, data validation, styling |
 | Google | Sheets API v4 and Drive API v3 over REST with google-auth's `AuthorizedSession` (D-063); login with `google-auth-oauthlib` (D-062) | no extra client library, typed, one call reads a whole sheet |
 | Frontend | Vite + React + TypeScript | rich forms, fast UI |
@@ -75,9 +75,9 @@ forms and widgets from module schemas and view definitions served by the API.
 ## Data flow
 1. **Startup**: load module YAMLs, then each module's data source, then read all tabs as rows
    (`storage/load.py`: cells parsed by type, invalid cells go to a *data issues* list, split
-   tabs joined), then compute derived fields (`modules/compute.py`). Analytics build pandas
-   DataFrames from these records (M4). Kept in memory and persisted as a **local snapshot** on disk (`04-storage.md` §6), so the app starts instantly and works read-only offline.
-2. **Read** requests are served from the snapshot. Analytics run on its DataFrames.
+   tabs joined), then compute derived fields (`modules/compute.py`). Analytics work on these
+   records directly (D-087). Kept in memory and persisted as a **local snapshot** on disk (`04-storage.md` §6), so the app starts instantly and works read-only offline.
+2. **Read** requests are served from the snapshot. Analytics run on its records.
 3. **Write** (create/update/delete a record): validate with pydantic, then `storage/write.py`
    checks the values as they would read back, finds the record by its natural key, and writes
    row edits (appends into free rows, updates checked against the row as read, soft deletes)
