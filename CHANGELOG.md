@@ -6,6 +6,13 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 
 ## [Unreleased]
 
+### Added
+- Metric catalogue and query API (#97, D-090): `GET /api/metrics` lists every numeric field and
+  derived value of the loaded modules (and the choice fields that filter them);
+  `GET /api/metrics/query` lines metrics up by record, day, week or month, with an aggregate,
+  a rolling mean, a lag for "the day after", filters and the n behind every value; modules are
+  joined by calendar day.
+
 ### Changed
 - M4 scoped (`design/07-roadmap.md`): eight issues, the analyses useful on little data first
   and the correlation tools last; the rest of `05-analytics.md` moved to the backlog (D-086).
