@@ -10,7 +10,6 @@ import {
   LegendComponent,
   MarkAreaComponent,
   TooltipComponent,
-  VisualMapComponent,
 } from "echarts/components";
 import { init, use as register, type EChartsCoreOption } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
@@ -20,7 +19,6 @@ register([
   LineChart,
   HeatmapChart,
   CalendarComponent,
-  VisualMapComponent,
   GridComponent,
   LegendComponent,
   TooltipComponent,

@@ -133,22 +133,40 @@ def one(
 
 def test_the_calendar_takes_a_days_worst_status_and_marks_rest_days() -> None:
     rows = [
-        session(5, 1, overall_status="GOOD"),
-        session(5, 2, overall_status="LOW"),
-        session(6, overall_status="WATCH"),
+        session(5, 1, overall_status="GOOD", setting="Indoor"),
+        session(5, 2, overall_status="LOW", setting="Outdoor"),
+        session(6, overall_status="WATCH", setting="Indoor"),
+        session(8, overall_status="GOOD"),  # no setting: no letter
     ]
-    rest: list[dict[str, Value]] = [{"date": OCT + dt.timedelta(days=6), "status": "GOOD"}]
+    rest: list[dict[str, Value]] = [
+        {"date": OCT + dt.timedelta(days=6), "status": "GOOD"},
+        {"date": OCT + dt.timedelta(days=7), "status": "LOW"},  # with a session: its letters
+    ]
     found = one("heatmap_calendar", *rows, rest=rest)
+    # from the first record's month, not a year of empty months
     assert (found["start"], found["end"], found["extra"]) == (
-        "2025-11-01",
+        "2026-10-01",
         "2026-10-31",
         "rest_day",
     )
-    assert found["days"] == [
-        {"date": "2026-10-05", "status": "LOW", "records": 2, "extra": None},
-        {"date": "2026-10-06", "status": "WATCH", "records": 1, "extra": None},
-        {"date": "2026-10-07", "status": None, "records": 0, "extra": "GOOD"},
+    assert found["marks"] == [
+        {"letter": "G", "label": "Indoor"},
+        {"letter": "O", "label": "Outdoor"},
+        {"letter": "H", "label": "Home wall"},
+        {"letter": "R", "label": "rest day"},
     ]
+    assert found["days"] == [
+        {"date": "2026-10-05", "status": "LOW", "records": 2, "extra": None, "mark": "GO"},
+        {"date": "2026-10-06", "status": "WATCH", "records": 1, "extra": None, "mark": "G"},
+        {"date": "2026-10-07", "status": None, "records": 0, "extra": "GOOD", "mark": "R"},
+        {"date": "2026-10-08", "status": "GOOD", "records": 1, "extra": "LOW", "mark": None},
+    ]
+
+
+def test_the_calendar_starts_at_most_months_back() -> None:
+    old: dict[str, Value] = {"date": dt.date(2024, 3, 2), "status": "GOOD"}
+    assert one("heatmap_calendar", rest=[old])["start"] == "2025-11-01"
+    assert one("heatmap_calendar")["start"] == "2025-11-01"  # nothing logged: the 12 months
 
 
 def test_the_last_sessions_side_by_side_newest_first_with_the_latest_notes() -> None:
@@ -279,6 +297,11 @@ def test_the_monthly_averages_as_the_legacy_table() -> None:
         (
             "{widget: heatmap_calendar, metric: session.nope}",
             "views.main[0].metric: 'session' has no field or derived value 'nope'",
+        ),
+        (
+            "{widget: heatmap_calendar, metric: session.overall_status,"
+            " mark: {field: rest_day.status, letters: {GOOD: G}}}",
+            "views.main[0].mark.field: 'rest_day.status' is not a field of 'session'",
         ),
     ],
 )

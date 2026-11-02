@@ -302,6 +302,8 @@ export interface components {
             extra: string | null;
             /** Label */
             label: string | null;
+            /** Marks */
+            marks: components["schemas"]["HeatmapMark"][];
             /**
              * Start
              * Format: date
@@ -322,10 +324,19 @@ export interface components {
             date: string;
             /** Extra */
             extra: unknown;
+            /** Mark */
+            mark: string | null;
             /** Records */
             records: number;
             /** Status */
             status: unknown;
+        };
+        /** HeatmapMark */
+        HeatmapMark: {
+            /** Label */
+            label: string;
+            /** Letter */
+            letter: string;
         };
         /** Issue */
         Issue: {

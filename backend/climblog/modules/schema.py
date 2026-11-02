@@ -612,14 +612,27 @@ class LineWidget(_Widget):
     x: str | None = None  # an x axis other than the records' dates (`entity.field`): M4
 
 
+Letter = Annotated[str, Field(min_length=1, max_length=2)]
+
+
+class HeatmapMark(Strict):
+    """A letter on a day's square from a field of its records, e.g. setting Outdoor → O."""
+
+    field: str  # `entity.field` of the metric's entity
+    letters: dict[str, Letter] = Field(min_length=1)  # value → letter; other values: none
+
+
 class HeatmapWidget(_Widget):
-    """A calendar of the last `months` months: each day coloured by the worst of its records'
-    status (`metric`), and the days of another entity (`extra`, e.g. rest days) marked."""
+    """A calendar from the first record's month, at most the last `months` months: each day
+    coloured by the worst of its records' status (`metric`), the days of another entity
+    (`extra`, e.g. rest days) in lighter colours, and a letter per day (`mark`, `extra_mark`)."""
 
     widget: Literal["heatmap_calendar"]
     metric: str  # `entity.field`, a status
     extra: str | None = None  # `entity.field`, e.g. rest_day.status
     months: int = Field(12, ge=1)
+    mark: HeatmapMark | None = None  # e.g. {field: session.setting, letters: {Outdoor: O}}
+    extra_mark: Letter | None = None  # the letter of a day with only an extra record, e.g. R
 
 
 class SideGroup(Strict):

@@ -99,10 +99,10 @@ def cross_check(module: Module) -> list[Problem]:
                 problems.append(Problem(tab_at, f"tab '{tab}' is already used by entity '{other}'"))
     _, found = _recommendation(module)
     problems += found
-    problems += _views(module)
     from climblog.modules.summary import summary_problems  # it imports us
 
     problems += summary_problems(module)
+    problems += _views(module)
     return problems
 
 
@@ -580,6 +580,17 @@ def _views(module: Module) -> list[Problem]:
                 metrics.append(((*at, "metric"), widget.metric))
                 if widget.extra is not None:
                     metrics.append(((*at, "extra"), widget.extra))
+                if widget.mark is not None:
+                    metrics.append(((*at, "mark", "field"), widget.mark.field))
+                    entity = widget.metric.partition(".")[0]
+                    if widget.mark.field.partition(".")[0] != entity:
+                        problems.append(
+                            Problem(
+                                (*at, "mark", "field"),
+                                f"'{widget.mark.field}' is not a field of '{entity}', "
+                                "the metric's entity",
+                            )
+                        )
             elif isinstance(widget, MonthlyWidget):
                 problems += _entity_named(module, widget.count, (*at, "count"))
                 metrics += [

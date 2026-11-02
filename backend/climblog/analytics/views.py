@@ -218,37 +218,62 @@ def _planned(widget: Widget, why: str = "comes with M4") -> dict[str, Any]:
 
 
 def _heatmap(widget: HeatmapWidget, records: Records, day: dt.date) -> dict[str, Any]:
-    """Each day of the last `months` months with records: the worst status of its records,
-    how many there are, and the `extra` entity's status that day."""
-    start = _month_start(day, widget.months - 1)
+    """Each day with records, from the first record's month (at most the last `months`
+    months): the worst status of its records, how many there are, the `extra` entity's status
+    that day, and its letters (the records' `mark`, else `extra_mark` on an extra-only day)."""
     entity, name = _split(widget.metric)
     found = records(entity)
+    other = records(_split(widget.extra)[0]) if widget.extra is not None else None
+    firsts = [d for d in [*found.days, *(other.days if other is not None else [])] if d <= day]
+    start = _month_start(day, widget.months - 1)
+    if firsts:  # not before the first record's month (a new journal isn't a year of blanks)
+        start = max(start, _month_start(min(firsts), 0))
+    mark_name = _split(widget.mark.field)[1] if widget.mark is not None else None
     days: dict[dt.date, dict[str, Any]] = {}
+
+    def entry(when: dt.date) -> dict[str, Any]:
+        return days.setdefault(
+            when, {"date": when.isoformat(), "status": None, "records": 0, "marks": []}
+        )
+
     for when, row in zip(found.days, found.rows, strict=True):
-        if when < start:
+        if not start <= when <= day:
             continue
-        entry = days.setdefault(when, {"date": when.isoformat(), "status": None, "records": 0})
-        entry["records"] += 1
-        entry["status"] = _worst(entry["status"], row.get(name))
+        item = entry(when)
+        item["records"] += 1
+        item["status"] = _worst(item["status"], row.get(name))
+        if widget.mark is not None and mark_name is not None:
+            letter = widget.mark.letters.get(str(row.get(mark_name)))
+            if letter is not None and letter not in item["marks"]:
+                item["marks"].append(letter)
     extra_label = None
-    if widget.extra is not None:
+    if widget.extra is not None and other is not None:
         extra_entity, extra_name = _split(widget.extra)
-        other = records(extra_entity)
         extra_label = extra_entity
         for when, row in zip(other.days, other.rows, strict=True):
-            if when < start:
+            if not start <= when <= day:
                 continue
-            entry = days.setdefault(when, {"date": when.isoformat(), "status": None, "records": 0})
-            entry["extra"] = _json(row.get(extra_name))
-    for entry in days.values():
-        entry["status"] = _json(entry["status"])
-        entry.setdefault("extra", None)
+            entry(when)["extra"] = _json(row.get(extra_name))
+    for item in days.values():
+        item["status"] = _json(item["status"])
+        item.setdefault("extra", None)
+        marks: list[str] = item.pop("marks")
+        if not marks and item["records"] == 0 and widget.extra_mark is not None:
+            marks = [widget.extra_mark]
+        item["mark"] = "".join(marks) or None
+    legend = [
+        {"letter": letter, "label": value}
+        for value, letter in (widget.mark.letters.items() if widget.mark is not None else [])
+    ]
+    if widget.extra_mark is not None and extra_label is not None:
+        legend.append({"letter": widget.extra_mark, "label": extra_label.replace("_", " ")})
     return {
         "widget": "heatmap_calendar",
         "label": widget.label,
         "start": start.isoformat(),
         "end": day.isoformat(),
         "extra": extra_label,
+        "marks": legend,
         "days": [days[d] for d in sorted(days)],
     }
 

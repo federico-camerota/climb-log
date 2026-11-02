@@ -1219,9 +1219,35 @@
       "title": "GradeField",
       "type": "object"
     },
+    "HeatmapMark": {
+      "additionalProperties": false,
+      "description": "A letter on a day's square from a field of its records, e.g. setting Outdoor → O.",
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "letters": {
+          "additionalProperties": {
+            "maxLength": 2,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minProperties": 1,
+          "title": "Letters",
+          "type": "object"
+        }
+      },
+      "required": [
+        "field",
+        "letters"
+      ],
+      "title": "HeatmapMark",
+      "type": "object"
+    },
     "HeatmapWidget": {
       "additionalProperties": false,
-      "description": "A calendar of the last `months` months: each day coloured by the worst of its records'\nstatus (`metric`), and the days of another entity (`extra`, e.g. rest days) marked.",
+      "description": "A calendar from the first record's month, at most the last `months` months: each day\ncoloured by the worst of its records' status (`metric`), the days of another entity\n(`extra`, e.g. rest days) in lighter colours, and a letter per day (`mark`, `extra_mark`).",
       "properties": {
         "label": {
           "anyOf": [
@@ -1261,6 +1287,31 @@
           "minimum": 1,
           "title": "Months",
           "type": "integer"
+        },
+        "mark": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HeatmapMark"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "extra_mark": {
+          "anyOf": [
+            {
+              "maxLength": 2,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extra Mark"
         }
       },
       "required": [
