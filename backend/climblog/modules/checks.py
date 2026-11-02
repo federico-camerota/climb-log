@@ -577,6 +577,17 @@ def _views(module: Module) -> list[Problem]:
                 metrics.append(((*at, "metric"), widget.metric))
                 if widget.extra is not None:
                     metrics.append(((*at, "extra"), widget.extra))
+                if widget.mark is not None:
+                    metrics.append(((*at, "mark", "field"), widget.mark.field))
+                    entity = widget.metric.partition(".")[0]
+                    if widget.mark.field.partition(".")[0] != entity:
+                        problems.append(
+                            Problem(
+                                (*at, "mark", "field"),
+                                f"'{widget.mark.field}' is not a field of '{entity}', "
+                                "the metric's entity",
+                            )
+                        )
             elif isinstance(widget, MonthlyWidget):
                 problems += _entity_named(module, widget.count, (*at, "count"))
                 metrics += [

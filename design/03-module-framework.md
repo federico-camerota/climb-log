@@ -470,7 +470,12 @@ value; an aggregate's name for M5). Drawn so far (#77):
 Drawn with #78 (D-084):
 
 ```yaml
-- {widget: heatmap_calendar, metric: session.overall_status, extra: rest_day.status, months: 12}
+- widget: heatmap_calendar   # from the first record's month, at most the last `months`
+  metric: session.overall_status   # a day's colour: its records' worst status
+  extra: rest_day.status           # extra-only days: their status, in lighter colours
+  months: 12
+  mark: {field: session.setting, letters: {Indoor: G, Outdoor: O}}  # letters on a day (1–2 chars)
+  extra_mark: R                    # the letter of an extra-only day
 - widget: side_by_side       # the latest records, newest first (4 at first, up to 12)
   entity: session
   last: 4

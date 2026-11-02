@@ -258,7 +258,13 @@ views:
         - {label: Overall,      score: session.overall_score, status: session.overall_status}
       compare_last: 4   # the average of the last 4 sessions vs the 4 before
       window: 12        # LOW sessions among the last 12
-    - {widget: heatmap_calendar, label: Sessions and rest days, metric: session.overall_status, extra: rest_day.status, months: 12}
+    - widget: heatmap_calendar
+      label: Training calendar
+      metric: session.overall_status
+      extra: rest_day.status
+      months: 12
+      mark: {field: session.setting, letters: {Indoor: G, Outdoor: O, Home wall: H}}
+      extra_mark: R
     - widget: line
       label: Scores by class
       series:

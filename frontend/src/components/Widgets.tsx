@@ -2,6 +2,7 @@
 import {
   Badge,
   Card,
+  ColorSwatch,
   Group,
   SegmentedControl,
   Stack,
@@ -9,6 +10,7 @@ import {
   Table,
   Text,
   Title,
+  useComputedColorScheme,
 } from "@mantine/core";
 import { useMemo, useState } from "react";
 
@@ -24,7 +26,7 @@ import type {
   TextFeedData,
 } from "../api/client";
 import { formatDateTime, monthName } from "../lib/format";
-import { heatmapOption } from "../lib/heatmap";
+import { CALENDAR_HEIGHT, dayKey, heatmapOption, PIECES } from "../lib/heatmap";
 import { lineOption, RANGES, type Range } from "../lib/lineChart";
 import { Chart } from "./Chart";
 
@@ -242,15 +244,38 @@ function dayLabel(date: string, key: Record<string, unknown>): string {
   return `${formatDateTime(date)}${extra.length > 0 ? ` (${extra.map(String).join(", ")})` : ""}`;
 }
 
-/** Each day of the last months, coloured by the worst status of its sessions; rest days. */
+/** A day per square from the first record's month: coloured by its sessions' worst status,
+ * rest days lighter, a letter for the kind of day; a caption and a legend below. */
 export function HeatmapCard({ data }: { data: HeatmapData }) {
-  const option = useMemo(() => heatmapOption(data), [data]);
+  const dark = useComputedColorScheme("light") === "dark";
+  const option = useMemo(() => {
+    const body = getComputedStyle(document.body).getPropertyValue("--mantine-color-body").trim();
+    return heatmapOption(data, dark, body === "" ? undefined : body);
+  }, [data, dark]);
+  const shown = new Set(data.days.map(dayKey));
   return (
     <Card withBorder>
-      <Title order={4} mb="xs">
-        {data.label ?? "Calendar"}
-      </Title>
-      <Chart option={option} height={200} label={data.label ?? "Calendar"} />
+      <Title order={4}>{data.label ?? "Calendar"}</Title>
+      <Text size="sm" c="dimmed" mb="xs">
+        Each square is a day, coloured by that day&apos;s session status (the worse of two
+        sessions); rest days are lighter. Hover a day for details.
+      </Text>
+      <div style={{ overflowX: "auto" }}>
+        <Chart option={option} height={CALENDAR_HEIGHT} label={data.label ?? "Calendar"} />
+      </div>
+      <Group gap="md" mt="xs" aria-label="Legend">
+        {PIECES.filter((p) => shown.has(p.key) || !p.key.startsWith("rest ")).map((p) => (
+          <Group key={p.key} gap={4} wrap="nowrap">
+            <ColorSwatch color={p.color} size={12} radius={2} withShadow={false} />
+            <Text size="xs">{p.label}</Text>
+          </Group>
+        ))}
+        {data.marks.map((m) => (
+          <Text key={m.letter} size="xs">
+            <b>{m.letter}</b> {m.label}
+          </Text>
+        ))}
+      </Group>
     </Card>
   );
 }

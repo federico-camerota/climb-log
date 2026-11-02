@@ -78,14 +78,21 @@ class HeatmapDay(BaseModel):
     status: Any  # the worst of the day's records
     records: int  # how many (0: only the extra entity's record)
     extra: Any  # the extra entity's status that day, e.g. a rest day's
+    mark: str | None  # the day's letters, e.g. "O", "GO", "R"
+
+
+class HeatmapMark(BaseModel):
+    letter: str
+    label: str  # what it stands for, e.g. Outdoor, rest day
 
 
 class HeatmapData(BaseModel):
     widget: Literal["heatmap_calendar"]
     label: str | None
-    start: dt.date  # the first day of the first month shown
+    start: dt.date  # the first day of the first month shown (not before the first record's)
     end: dt.date  # the day asked
     extra: str | None  # the extra entity, e.g. rest_day
+    marks: list[HeatmapMark]  # the letters' legend
     days: list[HeatmapDay]  # days with records, in order
 
 

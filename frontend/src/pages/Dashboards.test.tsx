@@ -63,11 +63,12 @@ const VIEW = {
     },
     {
       widget: "heatmap_calendar",
-      label: "Sessions and rest days",
-      start: "2025-11-01",
+      label: "Training calendar",
+      start: "2026-10-01",
       end: "2026-10-30",
       extra: "rest_day",
-      days: [{ date: "2026-10-28", status: "LOW", records: 1, extra: null }],
+      marks: [{ letter: "O", label: "Outdoor" }],
+      days: [{ date: "2026-10-28", status: "LOW", records: 1, extra: null, mark: "O" }],
     },
     {
       widget: "side_by_side",
@@ -167,7 +168,12 @@ describe("Dashboards", () => {
     expect(screen.getByRole("radio", { name: "Last 12" })).toBeChecked();
     expect(screen.getByText("Not drawn yet: comes with M4.")).toBeInTheDocument();
     expect(screen.getByText("Weekly bars")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Sessions and rest days" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Training calendar" })).toBeInTheDocument();
+    expect(screen.getByText(/Each square is a day/)).toBeInTheDocument();
+    const legend = screen.getByLabelText("Legend");
+    expect(legend).toHaveTextContent("LOW");
+    expect(legend).toHaveTextContent("O Outdoor");
+    expect(legend).not.toHaveTextContent("Rest day GOOD"); // no such day shown
   });
 
   it("shows the last sessions side by side, 4 at first, and the latest notes", async () => {
