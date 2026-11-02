@@ -37,6 +37,7 @@ from climblog.storage.layout import (
     DateRule,
     ListRule,
     RangeRule,
+    ReportCell,
     TabLayout,
     WorkbookLayout,
 )
@@ -61,6 +62,7 @@ def sync_requests(
         done += sync.data_tab(tab)
     done += sync.settings(layout)
     done += sync.formulas(layout)
+    done += sync.report(layout)
     if META_TAB not in sync.tabs:
         done.append(f"created tab '{META_TAB}'")
     sync.key_values(META_TAB, meta, overwrite=True)
@@ -434,6 +436,83 @@ class _Sync:
                         f"{layout_tab.name}: rewrote {differs + deleted} changed cells of '{key}'"
                     )
         return done
+
+    # ---- The Summary tab (D-085) ----
+
+    def report(self, layout: WorkbookLayout) -> list[str]:
+        """Write the report tab whole (first when new), as `xlsx_sync` does: every cell from the
+        layout, the rest cleared; a cell changed by hand is put back and reported."""
+        report = layout.report
+        if report is None:
+            return []
+        columns = {
+            name: {k: i + 1 for k, i in tab.keys().items()} for name, tab in self.tabs.items()
+        }
+        cells = report.cells(columns, GOOGLE)
+        width = max((c.column for c in cells), default=1)
+        created = report.name not in self.tabs
+        if created:
+            tab = self._add_tab(report.name, max(width, NEW_COLUMNS), frozen=False)
+            self.requests[-1]["addSheet"]["properties"]["index"] = 0
+        else:
+            tab = self.tabs[report.name]
+        new = {(c.row, c.column): c for c in cells}
+        old = {
+            (r, i + 1): value
+            for r, line in enumerate(tab.formulas, start=1)
+            for i, value in enumerate(line)
+            if not _empty(value)
+        }
+        changed = sum(
+            not isinstance(old.get(k), str) or normalize(str(old[k])) != normalize(c.value)
+            if c.value.startswith("=")
+            else old.get(k) != c.value
+            for k, c in new.items()
+        ) + sum(k not in new for k in old)
+        height = max([r for r, _ in new] + [r for r, _ in old] + [1])
+        wide = max([c for _, c in new] + [c for _, c in old] + [1])
+        if height > tab.row_count:
+            self._append(tab, "ROWS", height - tab.row_count)
+        if wide > tab.column_count:
+            self._append(tab, "COLUMNS", wide - tab.column_count)
+        rows: list[Json] = []
+        for r in range(1, height + 1):
+            values: list[Json] = []
+            for column in range(1, wide + 1):
+                cell = new.get((r, column))
+                values.append(self._report_cell(cell))
+            rows.append({"values": values})
+        self.requests.append(
+            {
+                "updateCells": {
+                    "rows": rows,
+                    "start": {"sheetId": tab.sheet_id, "rowIndex": 0, "columnIndex": 0},
+                    "fields": "userEnteredValue,userEnteredFormat",
+                }
+            }
+        )
+        if created:
+            return [f"created tab '{report.name}'"]
+        return [f"{report.name}: rewrote {changed} changed cells"] if changed else []
+
+    def _report_cell(self, cell: ReportCell | None) -> Json:
+        if cell is None:
+            return {}
+        if cell.value.startswith("="):
+            written = local_formula(cell.value) if self.comma else cell.value
+            out: Json = {"userEnteredValue": {"formulaValue": written}}
+        else:
+            out = _text(cell.value)
+        form: Json = {}
+        if (number := google_format(cell.number_format)) is not None:
+            form["numberFormat"] = number
+        if cell.row == 2:
+            form["textFormat"] = {"fontSize": 8, "foregroundColorStyle": _colour(_KEY_INK)}
+        elif cell.bold:
+            form["textFormat"] = {"bold": True}
+        if form:
+            out["userEnteredFormat"] = form
+        return out
 
     # ---- _settings and _meta ----
 

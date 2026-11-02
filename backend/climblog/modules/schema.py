@@ -562,6 +562,47 @@ class Recommendation(Strict):
         return self
 
 
+# ---- The Summary tab of the sheet (D-085) ----
+
+
+class SummaryRow(Strict):
+    label: str
+    # value names, one per column: the summary's values, the recommendation's, or its
+    # `headline` / `text`
+    value: str | list[str]
+
+    def names(self) -> list[str]:
+        return [self.value] if isinstance(self.value, str) else list(self.value)
+
+
+class SummaryGroup(Strict):
+    label: str
+    fields: list[str] = Field(min_length=1)  # the entity's fields or derived values
+
+
+class SummarySessions(Strict):
+    """The latest records side by side (newest first), as the legacy "last 4 sessions"."""
+
+    entity: str
+    last: int = Field(4, ge=1, le=12)
+    groups: list[SummaryGroup] = Field(min_length=1)
+    labels: dict[str, str] = {}  # a row's label (default: the form's, or the derived name)
+
+
+class Summary(Strict):
+    """A tab written by schema sync with formulas compiled from the YAML, so the sheet shows the
+    same as the app away from it (the legacy Summary - Recent): rows of values of the day
+    (TODAY() in the sheet), and the latest records side by side."""
+
+    tab: str = "Summary"
+    title: str
+    # derived entries of the day, as the recommendation's: `date` is the day, and the
+    # recommendation's values can be read by name
+    values: dict[Key, Derived] = {}
+    rows: list[SummaryRow] = Field(min_length=1)
+    side_by_side: SummarySessions | None = None
+
+
 class Module(Strict):
     # Extra top-level keys are allowed only as named level lists (`reflect_levels`);
     # `cross_check` reports any other one as unknown.
@@ -583,3 +624,4 @@ class Module(Strict):
     views: Unchecked | None = None  # M3, M4
     aggregates: Unchecked | None = None  # M5
     recommendation: Recommendation | None = None  # M3 (D-076)
+    summary: Summary | None = None  # the sheet's Summary tab (D-085)

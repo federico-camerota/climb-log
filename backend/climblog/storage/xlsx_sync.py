@@ -72,6 +72,7 @@ def apply_layout(
         _rewrite_rules(_sheet(workbook, tab.name), tab)
     done += _settings(workbook, layout)
     done += _write_formulas(workbook, layout)
+    done += _report(workbook, layout)
     if META_TAB not in workbook.sheetnames:
         done.append(f"created tab '{META_TAB}'")
     _key_values(workbook, META_TAB, meta, overwrite=True)
@@ -349,6 +350,50 @@ def level_fills(n: int) -> list[str]:
 
 def _quoted(text: str) -> str:
     return '"' + text.replace('"', '""') + '"'
+
+
+# ---- The Summary tab (D-085) ----
+
+
+def _report(workbook: Workbook, layout: WorkbookLayout) -> list[str]:
+    """Write the report tab whole (first in the workbook when new): every cell from the layout,
+    the rest cleared. A cell changed by hand is put back and reported."""
+    report = layout.report
+    if report is None:
+        return []
+    columns = {sheet.title: _keys(sheet) for sheet in workbook.worksheets}
+    cells = report.cells(columns, XLSX)
+    created = report.name not in workbook.sheetnames
+    sheet = workbook.create_sheet(report.name, 0) if created else _sheet(workbook, report.name)
+    old = {
+        (cell.row, cell.column): cell.value
+        for line in sheet.iter_rows()
+        for cell in line
+        if cell.value is not None
+    }
+    new = {(c.row, c.column): c.value for c in cells}
+    changed = sum(old.get(k) != v for k, v in new.items()) + sum(k not in new for k in old)
+    for line in sheet.iter_rows():
+        for cell in line:
+            if not isinstance(cell, MergedCell):
+                cell.value = None
+                cell.number_format = "General"
+                cell.font = Font()
+    for c in cells:
+        cell = sheet.cell(c.row, c.column)
+        cell.value = c.value
+        cell.number_format = c.number_format or "General"
+        if c.row == 2:  # the keys, as on a data tab
+            cell.font = _KEY_FONT
+        elif c.bold:
+            cell.font = _LABEL_FONT
+    sheet.column_dimensions["A"].width = 32
+    for i in range(2, max((c.column for c in cells), default=1) + 1):
+        sheet.column_dimensions[get_column_letter(i)].width = 18
+    sheet.freeze_panes = None
+    if created:
+        return [f"created tab '{report.name}'"]
+    return [f"{report.name}: rewrote {changed} changed cells"] if changed else []
 
 
 # ---- _settings and _meta ----

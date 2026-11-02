@@ -60,6 +60,11 @@ def recommend(
     return Advice(plan.label, None, None, reasons, values)
 
 
+def records_of(module: Module, tables: Mapping[str, Table]) -> "_Records":
+    """The records a value of the day reads (`last`, `window`), for the summary too (D-085)."""
+    return _Records(module, tables)
+
+
 class _Records:
     """The records a recommendation reads: no record of its own, so no prev, parent or
     children; `last` and `window` over every entity's rows."""
@@ -78,8 +83,10 @@ class _Records:
     def children(self, entity: str) -> Sequence[Mapping[str, Value]]:
         return ()
 
-    def last(self, entity: str, name: str, day: dt.date, inclusive: bool = False) -> Value:
-        return self._timeline(entity).last(name, day, inclusive)
+    def last(
+        self, entity: str, name: str, day: dt.date, inclusive: bool = False, n: int = 1
+    ) -> Value:
+        return self._timeline(entity).last(name, day, inclusive, n)
 
     def window(self, entity: str, name: str, start: dt.date, end: dt.date) -> list[Value]:
         return self._timeline(entity).window(name, start, end)

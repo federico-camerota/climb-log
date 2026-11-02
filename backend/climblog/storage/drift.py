@@ -79,7 +79,40 @@ def find_drift(module: Module, repo: Repository, dialect: Dialect = XLSX) -> lis
                 found.append(Drift("formula", tab, row.number, key, cell, expected))
                 changed.add((tab, row.number, key))
     found += _value_drift(module, repo, placed, changed, values)
+    found += _report_drift(module, repo, dialect)
     return found
+
+
+def _report_drift(module: Module, repo: Repository, dialect: Dialect) -> list[Drift]:
+    """The Summary tab's formula cells that are not the compiled ones (D-085)."""
+    from climblog.storage.layout import workbook_layout
+
+    layout = workbook_layout(module)
+    report = layout.report
+    if report is None:
+        return []
+    columns: dict[str, dict[str, int]] = {}
+    for tab in layout.tabs:
+        try:
+            columns[tab.name] = dict(repo.read_formulas(tab.name).numbers)
+        except StorageError:
+            return []  # a missing tab: `check` reports it
+    try:
+        found = repo.read_formulas(report.name)
+    except StorageError:
+        return []  # missing: `check` reports it
+    keys = {number: key for key, number in found.numbers.items()}
+    rows = {row.number: row.cells for row in found.rows}
+    drifts = []
+    for cell in report.cells(columns, dialect):
+        if cell.row < 3 or not cell.value.startswith("="):
+            continue
+        key = keys.get(cell.column, f"column {cell.column}")
+        sheet = rows.get(cell.row, {}).get(key)
+        if isinstance(sheet, str) and normalize(sheet) == normalize(cell.value):
+            continue
+        drifts.append(Drift("formula", report.name, cell.row, key, sheet, cell.value))
+    return drifts
 
 
 def _data_rows(table: Table) -> set[int]:

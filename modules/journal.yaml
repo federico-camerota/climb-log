@@ -241,6 +241,56 @@ recommendation:
     last_session: Last session
     latest_status: Latest overall status
     low_sessions: LOW sessions in the last 14 days
+# The sheet's Summary tab (D-085): the legacy Summary – Recent, written by schema sync with
+# formulas compiled from these lines, so the sheet on the phone shows what the app shows.
+summary:
+  title: Summary — Recent sessions
+  values:
+    last_type:  "last(session.session_type, until=date)"
+    last_venue: "last(session.venue, until=date)"
+    days_ago:
+      require: "notnull(last_session)"
+      expr: "'Today' if days_between(last_session, date) <= 0 else concat(days_between(last_session, date), ' day(s) ago')"
+    wb_latest:   "last(session.wb_score, until=date)"
+    ph_latest:   "last(session.ph_readiness, until=date)"
+    mn_latest:   "last(session.mn_score, until=date)"
+    feel_latest: "last(session.feel_score, until=date)"
+    lowest: "min(wb_latest, ph_latest, mn_latest, feel_latest)"
+    weakest:
+      require: "notnull(lowest)"
+      expr: "'Wellbeing' if wb_latest == lowest else ('Physical' if ph_latest == lowest else ('Mental' if mn_latest == lowest else 'Session feel'))"
+    lowest_score: "round(lowest, 1)"
+  rows:
+    - {label: Last session, value: [last_session, last_type, last_venue]}
+    - {label: Last session was, value: days_ago}
+    - {label: Latest overall status, value: latest_status}
+    - {label: Weakest area (latest session), value: [weakest, lowest_score]}
+    - {label: LOW sessions in last 14 days, value: low_sessions}
+    - {label: Suggested next session, value: text}
+  side_by_side:
+    entity: session
+    last: 4
+    groups:
+      - {label: Session, fields: [venue, session_type, hardest_grade]}
+      - label: Wellbeing
+        fields: [wb_sleep_quality, wb_mood_pre, wb_energy_pre, wb_fatigue_post, wb_mood_post,
+                 wb_recovery_feel, wb_score, wb_status]
+      - label: Physical (before climbing)
+        fields: [ph_pre_fingers, ph_pre_forearms, ph_pre_elbows, ph_pre_shoulders,
+                 ph_pre_neck_traps, ph_pre_wrists, ph_pre_skin, ph_readiness, ph_status]
+      - label: Mental
+        fields: [mn_life_stress, mn_confidence, mn_anxiety, mn_focus, mn_fall_commitment,
+                 mn_fear_response, mn_route_confidence, mn_approach, mn_score, mn_status]
+      - {label: Session feel, fields: [feel_enjoyment, feel_satisfaction, feel_score, feel_status]}
+      - {label: Overall, fields: [overall_score, overall_status]}
+    labels: {wb_mood_pre: Mood (pre), wb_energy_pre: Energy (pre), wb_fatigue_post: Post fatigue ↓,
+             wb_mood_post: Post mood, mn_life_stress: Life stress ↓, mn_confidence: Confidence (pre),
+             mn_anxiety: Anxiety (pre) ↓, mn_focus: Focus during, mn_fear_response: Fear response ↓,
+             wb_score: Wellbeing score, wb_status: Wellbeing status, ph_readiness: Readiness score,
+             ph_status: Physical status, mn_score: Mental score, mn_status: Mental status,
+             feel_score: Feel score, feel_status: Feel status, overall_score: Overall score,
+             overall_status: Overall status}
+
 
 views:
   overview:

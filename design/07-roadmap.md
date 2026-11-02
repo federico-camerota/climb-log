@@ -82,7 +82,8 @@ away from home (D-069). Issues in the milestone "M3 · Journal app", in this ord
 - Journal dashboard at parity (D-072): status board, last N sessions, monthly averages,
   reflections, rest days.
 - Generated `Summary` tab in the sheet ("Recent": latest statuses, suggested next session), so
-  the recommendation is also in the sheet away from home.
+  the recommendation is also in the sheet away from home. → done (D-085, #79): the legacy
+  Summary – Recent's guidance and the last 4 sessions side by side.
 - README screenshots of the Today page and dashboard (left out of M0: the app was empty).
 - **Done when**: I log full sessions (pre, post, rest day) from the app on the computer and
   review them there (Today log check and recommendation, records with data issues, dashboard

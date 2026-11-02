@@ -189,11 +189,13 @@ class FakeSheetsClient:
         props = copy.deepcopy(dict(body["properties"]))
         if any(s["properties"]["title"] == props["title"] for s in book["sheets"]):
             raise StorageError(f"Google answered 400: A sheet named '{props['title']}' exists")
-        props["index"] = len(book["sheets"])
+        index = min(int(props.get("index", len(book["sheets"]))), len(book["sheets"]))
         grid = props.setdefault("gridProperties", {})
         grid.setdefault("rowCount", 1000)
         grid.setdefault("columnCount", 26)
-        book["sheets"].append({"properties": props})
+        book["sheets"].insert(index, {"properties": props})  # as Google: at `index`, else last
+        for i, sheet in enumerate(book["sheets"]):
+            sheet["properties"]["index"] = i
 
     def _deleteSheet(self, book: Json, body: Mapping[str, Any]) -> None:
         if len(book["sheets"]) == 1:

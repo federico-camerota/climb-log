@@ -59,6 +59,7 @@ from climblog.modules.schema import (
     PluginDerived,
     WhenDerived,
 )
+from climblog.modules.summary import summary_plan
 
 AUTO = "auto:"
 KEY_COLUMN = "auto:_key"
@@ -194,6 +195,49 @@ def recommendation_formulas(
     return result
 
 
+def summary_formulas(
+    module: Module, columns: ColumnMap, refs: Mapping[str, str], dialect: Dialect = XLSX
+) -> dict[str, str]:
+    """The sheet formulas of the module's summary (D-085): the recommendation's values,
+    `headline` and `text`, then the summary's own values; `refs` gives the cell of the day and
+    of each value. Raises `Unsupported` for what has no formula."""
+    plan = summary_plan(module)
+    if plan is None:
+        return {}
+    result = recommendation_formulas(module, columns, refs, dialect)
+    advice = recommendation_plan(module)
+    names = {
+        "date": NameInfo("date"),
+        **(advice.values.names if advice is not None else {}),
+        **plan.values.names,
+    }
+    compiler = _DayCompiler(module, _Plans(module), columns, refs, names, dialect)
+    for step in plan.values.steps:
+        result[step.key] = "=" + compiler.value_of(step)
+    return result
+
+
+def side_by_side_formulas(
+    module: Module,
+    columns: ColumnMap,
+    day: str,
+    entity: str,
+    fields: Sequence[str],
+    last: int,
+    dialect: Dialect = XLSX,
+) -> dict[tuple[str, int], str]:
+    """`last(entity.field, until=day, n=k)` as formulas, for each field and k from 1 to `last`:
+    the summary's side by side (D-085). One compiler for them all."""
+    names = {"date": NameInfo("date")}
+    compiler = _DayCompiler(module, _Plans(module), columns, {"date": day}, names, dialect)
+    before = dataclasses.replace(_cell(day), type="date")
+    return {
+        (name, n): "=" + compiler.last(entity, name, before, True, n).text
+        for name in fields
+        for n in range(1, last + 1)
+    }
+
+
 # ---- Per entity ----
 
 
@@ -209,7 +253,12 @@ class _Plans:
         trees = [node for step in steps for node in _walk(step)]
         if recommendation is not None:
             trees += [node for step in recommendation.values.steps for node in _walk(step)]
+        summary = summary_plan(module) if module.summary is not None else None
+        if summary is not None:
+            trees += [node for step in summary.values.steps for node in _walk(step)]
         self.read_by_last = {node.entity for node in trees if isinstance(node, Last)}
+        if summary is not None and summary.side_by_side is not None:
+            self.read_by_last.add(summary.side_by_side.entity)  # `last(…, n=k)` (D-085)
         self.dry: dict[str, dict[str, int]] = {}
         for entity in module.entities.values():
             autos = [AUTO + key for key in entity.derived]
@@ -625,8 +674,8 @@ class _Compiler:
                 return self.prev(name, n)
             case ParentRef(name=name):
                 return self.parent(name)
-            case Last(entity=entity, field=name, before=before, inclusive=inclusive):
-                return self.last(entity, name, self.node(before), inclusive)
+            case Last(entity=entity, field=name, before=before, inclusive=inclusive, n=n):
+                return self.last(entity, name, self.node(before), inclusive, n)
             case Call():
                 return self.call(node)
             case Fields() | Children() | Window():  # pragma: no cover - lists only in calls
@@ -755,21 +804,28 @@ class _Compiler:
         assert isinstance(field, BaseField)
         return _field_value(field, found)
 
-    def last(self, e_name: str, name: str, before: F, inclusive: bool = False) -> F:
+    def last(self, e_name: str, name: str, before: F, inclusive: bool = False, n: int = 1) -> F:
         """The field (or derived value) in the latest record dated before the day, or on it
-        (`inclusive`). Records of one day are told apart by `auto:_key` (date, then key), as the
-        app orders them, when it has one."""
+        (`inclusive`), or the n-th latest: each MAXIFS below the one before (none left: 0, no
+        row). Records of one day are told apart by `auto:_key` (date, then key), as the app
+        orders them, when it has one. The record is found on the entity's main tab (every record
+        has a row there), then its row on the field's tab by the same key: a split entity's
+        latest record may have no row on that tab yet, and is blank there, as in the app."""
         other = _Entity(self.module, e_name, self.e.plans)
         tab, key = self._column_of(other, name)
-        dates = self.column(tab, other.entity.date_field)
-        order = dates
-        if other.needs_key() and other.key_code.reason is None and not other.key_code.choices:
-            order = self.column(tab, KEY_COLUMN)
+        keyed = other.needs_key() and other.key_code.reason is None and not other.key_code.choices
+        main = other.entity.main_tab
+        dates = self.column(main, other.entity.date_field)
+        order = self.column(main, KEY_COLUMN) if keyed else dates
         day = f"INT({_wrap(before.core)})"
-        deleted = self.column(tab, DELETED)
+        deleted = self.column(main, DELETED)
         op = "<=" if inclusive else "<"
-        latest = f'{self.dialect.fn("MAXIFS")}({order},{dates},"{op}"&{day},{deleted},"")'
-        value = self._value_of(other, name, self.index(tab, key, f"MATCH({latest},{order},0)"))
+        maxifs = self.dialect.fn("MAXIFS")
+        latest = f'{maxifs}({order},{dates},"{op}"&{day},{deleted},"")'
+        for _ in range(n - 1):
+            latest = f'{maxifs}({order},{dates},"{op}"&{day},{deleted},"",{order},"<"&{latest})'
+        there = self.column(tab, KEY_COLUMN if keyed else other.entity.date_field)
+        value = self._value_of(other, name, self.index(tab, key, f"MATCH({latest},{there},0)"))
         return F(value.core, _either(before.test, value.test), value.type)
 
     def window(self, node: Window, func: str, equals: F | None) -> F:

@@ -322,7 +322,9 @@ column** in the sheet:
   the row's; `children(e)` are `COUNTIFS`/`SUMIFS`/`MAXIFS`/… on the child's key column; soft-
   deleted rows are left out (`deleted` blank). `last(e.x, before=d)` takes the latest row dated
   before `d` (`until=d`: on or before), ordered by `auto:_key`, which an entity read by `last`
-  gets when its key has more than the date (D-076). `window(e.x, days=n, until=d)` inside
+  gets when its key has more than the date (D-076); `n=k` (the k-th latest) chains `MAXIFS`, each
+  below the one before. The record is found on the entity's main tab, then its row on the
+  field's tab by the same key: a record without a row there is blank, as in the app (D-085). `window(e.x, days=n, until=d)` inside
   `count` (with or without `equals=`), `sum`, `min`, `max` and `mean` is `COUNTIFS`/`SUMIFS`/…
   on the date column (from `d - n` to `d`) and `deleted` blank.
 - **App only** (no column, listed by `climblog module validate` as notes): plugins and entries
@@ -361,7 +363,8 @@ column** in the sheet:
     (e.g. days since the last climb on the rest-day tab:
     `days_between(last(session.date, before=date), date)`). None → blank. `last(e.x, until=d)`:
     dated on or before `d`. Records of one day are ordered by key (a day's second session is
-    later than its first).
+    later than its first). `n=2` takes the one before the latest (up to 12; the Summary's side
+    by side, D-085).
   - `window(e.x, days=n, until=d)`: `x` in every record of `e` dated from `n` days before `d` to
     `d` itself (`days=14`: 15 calendar days, as the legacy `>= TODAY()-14`), for an aggregate:
     `count(window(session.overall_status, days=14, until=date), equals='LOW')`, `max(window(…))`.
@@ -390,6 +393,28 @@ column** in the sheet:
   `recommendation_formulas` (each value, `headline`, and `text` = "RECOVER — …", as the legacy
   cell), checked by `tests/test_recommend_parity.py` with LibreOffice, also against the legacy
   Summary formulas.
+- **Summary tab** (`summary:`, D-085): a tab schema sync writes whole into the sheet, so the
+  phone shows what the app shows (the legacy Summary – Recent):
+  ```yaml
+  summary:
+    title: Summary — Recent sessions
+    values:                       # derived entries of the day, as the recommendation's
+      days_ago: {require: "notnull(last_session)", expr: "'Today' if … else concat(…)"}
+    rows:                         # a label and value names, one per column; the recommendation's
+      - {label: Last session, value: [last_session, last_type, last_venue]}   # values, `text`
+      - {label: Suggested next session, value: text}
+    side_by_side:                 # the latest records, newest first: last(e.x, until=date, n=k)
+      entity: session
+      last: 4
+      groups: [{label: Wellbeing, fields: [wb_mood_pre, wb_score, wb_status]}]
+      labels: {wb_mood_pre: Mood (pre)}
+  ```
+  The tab (default `Summary`, first in the workbook): the title, the day (`B3`, `=TODAY()`),
+  the rows, the side by side, and the values the formulas read but the rows don't show. Row 2
+  holds keys (`item`, `c1`…), as on a data tab, so its formulas read back for the drift check:
+  a cell changed by hand is reported by `climblog check` and put back by `--apply`. The app
+  computes the same (`modules/summary.py`, `summarize`), checked on LibreOffice and Google
+  (`tests/test_summary_parity.py`).
 - **Plugin**: `{plugin: module.rule_name}`, a Python function
   `(records: DataFrame, ctx) -> Series | list[Flag]`. Example: fall-ladder advancement
   (two consecutive falls on the same rung with BERP ≥ 3, fear ≤ 5, soft catch).
