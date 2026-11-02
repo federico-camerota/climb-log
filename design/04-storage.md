@@ -11,6 +11,10 @@
     is also a data issue).
   - Both have `key` and `value` headers in row 1 (any column order, other columns ignored)
     and one pair per row from row 2.
+  - A module with a `summary:` also gets a **Summary** tab (D-085), first in the workbook:
+    written whole by schema sync (labels and formulas, nothing to type), row 2 with keys as
+    on a data tab; the drift check compares its formulas, `check --apply` writes them again.
+    The app reads nothing from it.
 **Hand entry is a first-class path** (D-003, D-013): I sometimes log directly in Google
 Sheets without the app, so every tab must be comfortable to fill by hand.
 

@@ -357,18 +357,25 @@ class _Checker:
 
     def last(self, node: Call) -> tuple[Node, Kind]:
         """`last(e.x, before=d)`: x in the latest record of entity e dated before d; with
-        `until=d`, dated on or before d."""
+        `until=d`, dated on or before d; with `n=2`, in the one before it (the side by side)."""
         usage = (
             "last() takes an entity's field and a date, e.g. last(session.date, before=date) "
             "or last(session.date, until=date)"
         )
         entity, name, info = self.entity_field(node, usage)
         options = dict(node.kwargs)
+        nth = options.pop("n", None)
         if set(options) not in ({"before"}, {"until"}):
             raise ExprError(usage, node.at)
+        n = 1
+        if nth is not None:
+            if not (isinstance(nth, Literal) and type(nth.value) is int and 1 <= nth.value <= 12):
+                raise ExprError("n must be a whole number from 1 to 12, e.g. n=2", nth.at)
+            n = nth.value
         option = "until" if "until" in options else "before"
         day, _ = self.single(options[option], ("date",), f"`{option}`")
-        return Last(node.at, entity, name, day, inclusive=option == "until"), _kind(info)
+        last = Last(node.at, entity, name, day, inclusive=option == "until", n=n)
+        return last, _kind(info)
 
     def window(self, node: Call) -> tuple[Node, Kind]:
         """`window(e.x, days=n, until=d)`: x in every record of entity e dated from n days

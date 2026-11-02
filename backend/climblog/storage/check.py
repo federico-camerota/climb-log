@@ -38,9 +38,12 @@ def check_schema(module: Module, repo: Repository) -> list[Difference]:
     """
     tables = set(repo.list_tables())
     differences = list(_meta(module, repo, tables))
-    for tab in workbook_layout(module).tabs:
+    layout = workbook_layout(module)
+    for tab in layout.tabs:
         differences += _tab(tab, repo, tables)
     differences += _settings(module, repo, tables)
+    if layout.report is not None and layout.report.name not in tables:  # D-085
+        differences.append(Difference("sync", layout.report.name, None, "the tab is missing"))
     return differences
 
 

@@ -100,6 +100,9 @@ def cross_check(module: Module) -> list[Problem]:
     _, found = _recommendation(module)
     problems += found
     problems += _views(module)
+    from climblog.modules.summary import summary_problems  # it imports us
+
+    problems += summary_problems(module)
     return problems
 
 

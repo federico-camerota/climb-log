@@ -20,6 +20,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   a drawer, its data issues under their fields (a bad value shown as typed), or delete it after
   a confirmation; the issues panel deletes rows the app leaves out (a duplicate key, no date,
   an orphan) and creates the missing session of an orphan section row.
+- Summary tab in the sheet (#79, D-085): schema sync writes a `Summary` tab with the latest
+  session, days since, latest status, weakest area, LOW sessions in 14 days, the suggested next
+  session and the last 4 sessions side by side, as formulas compiled from the module YAML, so the
+  sheet on the phone shows what the app shows; a cell changed by hand is drift.
 - App shell (#70, D-073): a sidebar with Today, Log, Records, Dashboards and Settings,
   pages per module and entity in the URL (`/records/journal/session`), a light/dark toggle,
   Settings listing the modules (and what is wrong with one that doesn't load), and on Records
@@ -62,6 +66,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   Sheets on the phone as the fallback; LAN mode moved to the backlog (D-069). Frontend
   libraries, the declarative readiness rule and backend-computed dashboards decided
   (D-070–D-072).
+
+### Fixed
+- A sheet formula reading a split entity's latest record with `last()` took that tab's latest
+  row, an older session's value when the latest session had no row there yet; it now finds the
+  record on the main tab, as the app does (D-085). Schema sync rewrites these formulas once.
 
 ## [0.2.0] - 2026-10-30
 

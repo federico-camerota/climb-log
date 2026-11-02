@@ -180,6 +180,7 @@ class Last(Node):
     field: str
     before: Node
     inclusive: bool = False
+    n: int = 1  # the n-th latest (`n=2`: the one before the latest)
 
 
 @dataclass(frozen=True)
