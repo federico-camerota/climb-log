@@ -115,4 +115,4 @@ views:
     - {widget: weekbars, metric: session.n_sets, split_by: session.session_type, stacked: true}
     - {widget: box_by, metric: session.readiness, by: session.start_time, bins: [morning, afternoon, evening]}
     - {widget: scatter, x: session.readiness, y: session.top_added_kg, label: Readiness vs performance}
-    - {widget: text_feed, entity: session, fields: [notes]}
+    - {widget: text_feed, entity: session, lists: [{label: Notes, text: notes}], window_days: 28, top: 10}

@@ -1,5 +1,33 @@
 {
   "$defs": {
+    "Attention": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "equals": {
+          "title": "Equals",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Fields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "status",
+        "equals",
+        "fields"
+      ],
+      "title": "Attention",
+      "type": "object"
+    },
     "Band": {
       "additionalProperties": false,
       "properties": {
@@ -998,6 +1026,37 @@
       "title": "ExprDerived",
       "type": "object"
     },
+    "FeedList": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        }
+      },
+      "required": [
+        "label",
+        "text"
+      ],
+      "title": "FeedList",
+      "type": "object"
+    },
     "GradeField": {
       "additionalProperties": false,
       "properties": {
@@ -1160,6 +1219,57 @@
       "title": "GradeField",
       "type": "object"
     },
+    "HeatmapWidget": {
+      "additionalProperties": false,
+      "description": "A calendar of the last `months` months: each day coloured by the worst of its records'\nstatus (`metric`), and the days of another entity (`extra`, e.g. rest days) marked.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "heatmap_calendar",
+          "title": "Widget",
+          "type": "string"
+        },
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "extra": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extra"
+        },
+        "months": {
+          "default": 12,
+          "minimum": 1,
+          "title": "Months",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "widget",
+        "metric"
+      ],
+      "title": "HeatmapWidget",
+      "type": "object"
+    },
     "KpiWidget": {
       "additionalProperties": false,
       "description": "One number or status: the metric in the latest record, or the days since it.",
@@ -1204,15 +1314,10 @@
     },
     "LaterWidget": {
       "additionalProperties": true,
-      "description": "A widget of the planned library (03 §2.7) the app doesn't draw yet: its options are\nchecked when it is (#78 for the journal's, M4/M5 for the others).",
+      "description": "A widget of the planned library (03 §2.7) the app doesn't draw yet (M4/M5): its options\nare checked when it is.",
       "properties": {
         "widget": {
           "enum": [
-            "heatmap_calendar",
-            "side_by_side",
-            "text_feed",
-            "table",
-            "monthly",
             "status_strip",
             "bars",
             "weekbars",
@@ -1362,6 +1467,147 @@
         "map"
       ],
       "title": "MapDerived",
+      "type": "object"
+    },
+    "MonthlyClass": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "score": {
+          "title": "Score",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "score"
+      ],
+      "title": "MonthlyClass",
+      "type": "object"
+    },
+    "MonthlyExtra": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "count": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Count"
+        },
+        "mean": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mean"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "MonthlyExtra",
+      "type": "object"
+    },
+    "MonthlyWidget": {
+      "additionalProperties": false,
+      "description": "Per calendar month (the last `months` at first, a picker shows more): the records of\n`count`, each class's average, `overall` (the average of the class averages), the `low`\nstatuses, and `extra` counts or averages (the legacy Summary - Trends monthly table).",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "monthly",
+          "title": "Widget",
+          "type": "string"
+        },
+        "count": {
+          "title": "Count",
+          "type": "string"
+        },
+        "count_label": {
+          "default": "Records",
+          "title": "Count Label",
+          "type": "string"
+        },
+        "classes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/MonthlyClass"
+          },
+          "title": "Classes",
+          "type": "array"
+        },
+        "overall": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Overall"
+        },
+        "low": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Low"
+        },
+        "extra": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/MonthlyExtra"
+          },
+          "title": "Extra",
+          "type": "array"
+        },
+        "months": {
+          "default": 6,
+          "minimum": 1,
+          "title": "Months",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "widget",
+        "count"
+      ],
+      "title": "MonthlyWidget",
       "type": "object"
     },
     "MultichoiceField": {
@@ -2563,6 +2809,94 @@
       "title": "Setting",
       "type": "object"
     },
+    "SideBySideWidget": {
+      "additionalProperties": false,
+      "description": "The latest records side by side, newest first: `last` at first (a picker shows up to\n12), their fields in `groups`, and the latest record's `notes` below.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "side_by_side",
+          "title": "Widget",
+          "type": "string"
+        },
+        "entity": {
+          "title": "Entity",
+          "type": "string"
+        },
+        "last": {
+          "default": 4,
+          "maximum": 12,
+          "minimum": 1,
+          "title": "Last",
+          "type": "integer"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/SideGroup"
+          },
+          "minItems": 1,
+          "title": "Groups",
+          "type": "array"
+        },
+        "notes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "Labels",
+          "type": "object"
+        }
+      },
+      "required": [
+        "widget",
+        "entity",
+        "groups"
+      ],
+      "title": "SideBySideWidget",
+      "type": "object"
+    },
+    "SideGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Fields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "label",
+        "fields"
+      ],
+      "title": "SideGroup",
+      "type": "object"
+    },
     "StatusBoardWidget": {
       "additionalProperties": false,
       "description": "Per class: the latest status and score, the average of the last `compare_last` records\nvs the ones before, the direction (`settings.trend_delta`), and the LOW records among the\nlast `window` (the legacy Summary - Trends status board).",
@@ -2636,6 +2970,102 @@
       "title": "StatusClass",
       "type": "object"
     },
+    "TableWidget": {
+      "additionalProperties": false,
+      "description": "An entity's records of the last `window_days` days (or the `last` ones), newest first,\nwith the averages of some columns and the latest note.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "table",
+          "title": "Widget",
+          "type": "string"
+        },
+        "entity": {
+          "title": "Entity",
+          "type": "string"
+        },
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Columns",
+          "type": "array"
+        },
+        "window_days": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Window Days"
+        },
+        "last": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last"
+        },
+        "averages": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Averages",
+          "type": "array"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "Labels",
+          "type": "object"
+        }
+      },
+      "required": [
+        "widget",
+        "entity",
+        "columns"
+      ],
+      "title": "TableWidget",
+      "type": "object"
+    },
     "TemplateUse": {
       "additionalProperties": false,
       "description": "A field entry that expands a template: `ph_pre_: {template: soreness, section: ph_pre}`\nadds `ph_pre_fingers`, `ph_pre_forearms`, … in its place. Only placement can be set here.",
@@ -2680,6 +3110,71 @@
         "template"
       ],
       "title": "TemplateUse",
+      "type": "object"
+    },
+    "TextFeedWidget": {
+      "additionalProperties": false,
+      "description": "Texts of the last `window_days` days: per list the `top` ones by their score (then the\nnewest), as the legacy \"top 3 of the last 2 weeks\"; and the records needing attention.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "text_feed",
+          "title": "Widget",
+          "type": "string"
+        },
+        "entity": {
+          "title": "Entity",
+          "type": "string"
+        },
+        "lists": {
+          "items": {
+            "$ref": "#/$defs/FeedList"
+          },
+          "minItems": 1,
+          "title": "Lists",
+          "type": "array"
+        },
+        "window_days": {
+          "default": 14,
+          "minimum": 0,
+          "title": "Window Days",
+          "type": "integer"
+        },
+        "top": {
+          "default": 3,
+          "minimum": 1,
+          "title": "Top",
+          "type": "integer"
+        },
+        "attention": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Attention"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "widget",
+        "entity",
+        "lists"
+      ],
+      "title": "TextFeedWidget",
       "type": "object"
     },
     "TextField": {
@@ -3106,20 +3601,20 @@
                     "before_after": "#/$defs/LaterWidget",
                     "box_by": "#/$defs/LaterWidget",
                     "delta_table": "#/$defs/LaterWidget",
-                    "heatmap_calendar": "#/$defs/LaterWidget",
+                    "heatmap_calendar": "#/$defs/HeatmapWidget",
                     "kpi": "#/$defs/KpiWidget",
                     "ladder": "#/$defs/LaterWidget",
                     "line": "#/$defs/LineWidget",
-                    "monthly": "#/$defs/LaterWidget",
+                    "monthly": "#/$defs/MonthlyWidget",
                     "program_grid": "#/$defs/LaterWidget",
                     "radar": "#/$defs/LaterWidget",
                     "scatter": "#/$defs/LaterWidget",
-                    "side_by_side": "#/$defs/LaterWidget",
+                    "side_by_side": "#/$defs/SideBySideWidget",
                     "stacked": "#/$defs/LaterWidget",
                     "status_board": "#/$defs/StatusBoardWidget",
                     "status_strip": "#/$defs/LaterWidget",
-                    "table": "#/$defs/LaterWidget",
-                    "text_feed": "#/$defs/LaterWidget",
+                    "table": "#/$defs/TableWidget",
+                    "text_feed": "#/$defs/TextFeedWidget",
                     "weekbars": "#/$defs/LaterWidget"
                   },
                   "propertyName": "widget"
@@ -3133,6 +3628,21 @@
                   },
                   {
                     "$ref": "#/$defs/LineWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/HeatmapWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/SideBySideWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/TextFeedWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/TableWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/MonthlyWidget"
                   },
                   {
                     "$ref": "#/$defs/LaterWidget"

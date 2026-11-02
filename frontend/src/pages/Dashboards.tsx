@@ -16,7 +16,17 @@ import { useSearchParams } from "react-router";
 import { viewNames, type ModuleInfo, type View } from "../api/client";
 import { useView } from "../api/queries";
 import { DataStatus } from "../components/DataStatus";
-import { KpiCard, LineCard, PlannedCard, StatusBoard } from "../components/Widgets";
+import {
+  HeatmapCard,
+  KpiCard,
+  LineCard,
+  MonthlyCard,
+  PlannedCard,
+  SideBySideCard,
+  StatusBoard,
+  TableCard,
+  TextFeedCard,
+} from "../components/Widgets";
 import { WithModule } from "../components/WithModule";
 
 /** A module's dashboard (06-ui Dashboards, D-083): its view's widgets, computed in the backend
@@ -106,6 +116,16 @@ function Widgets({ view }: { view: View }) {
             return <StatusBoard key={i} data={w} />;
           case "line":
             return <LineCard key={i} data={w} today={view.date} />;
+          case "heatmap_calendar":
+            return <HeatmapCard key={i} data={w} />;
+          case "side_by_side":
+            return <SideBySideCard key={i} data={w} />;
+          case "text_feed":
+            return <TextFeedCard key={i} data={w} />;
+          case "table":
+            return <TableCard key={i} data={w} />;
+          case "monthly":
+            return <MonthlyCard key={i} data={w} />;
           case "planned":
             return <PlannedCard key={i} data={w} />;
           default:

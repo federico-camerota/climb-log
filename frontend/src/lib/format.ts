@@ -9,3 +9,11 @@ export function formatDateTime(iso: string): string {
   const date = `${day ?? ""}/${month ?? ""}/${year ?? ""}`;
   return hour === undefined ? date : `${date} ${hour}:${minute ?? ""}`;
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "2026-10" → "Oct 26", as the legacy table. */
+export function monthName(month: string): string {
+  const [year, number] = month.split("-");
+  return `${MONTHS[Number(number) - 1] ?? ""} ${(year ?? "").slice(2)}`;
+}

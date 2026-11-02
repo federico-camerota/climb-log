@@ -151,6 +151,36 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Attention */
+        Attention: {
+            /** Items */
+            items: components["schemas"]["AttentionItem"][];
+            /** Label */
+            label: string;
+        };
+        /** AttentionItem */
+        AttentionItem: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            };
+            /** Texts */
+            texts: string[];
+        };
+        /** Average */
+        Average: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: number | null;
+        };
         /** BandData */
         BandData: {
             /** From */
@@ -177,6 +207,29 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** FeedItem */
+        FeedItem: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            };
+            /** Score */
+            score: number | null;
+            /** Text */
+            text: string;
+        };
+        /** FeedList */
+        FeedList: {
+            /** Items */
+            items: components["schemas"]["FeedItem"][];
+            /** Label */
+            label: string;
+        };
         /** FieldProblem */
         FieldProblem: {
             /** Field */
@@ -195,6 +248,44 @@ export interface components {
             status: string;
             /** Version */
             version: string;
+        };
+        /** HeatmapData */
+        HeatmapData: {
+            /** Days */
+            days: components["schemas"]["HeatmapDay"][];
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Extra */
+            extra: string | null;
+            /** Label */
+            label: string | null;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "heatmap_calendar";
+        };
+        /** HeatmapDay */
+        HeatmapDay: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Extra */
+            extra: unknown;
+            /** Records */
+            records: number;
+            /** Status */
+            status: unknown;
         };
         /** Issue */
         Issue: {
@@ -220,6 +311,16 @@ export interface components {
              * @enum {string}
              */
             widget: "kpi";
+        };
+        /** LatestNote */
+        LatestNote: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Text */
+            text: string;
         };
         /** LineData */
         LineData: {
@@ -315,12 +416,60 @@ export interface components {
              */
             problems: string[];
         };
+        /** MonthRow */
+        MonthRow: {
+            /** Classes */
+            classes: (number | null)[];
+            /** Count */
+            count: number;
+            /** Extra */
+            extra: (number | null)[];
+            /** Low */
+            low: number | null;
+            /** Month */
+            month: string;
+            /** Overall */
+            overall: number | null;
+        };
+        /** MonthlyData */
+        MonthlyData: {
+            /** Classes */
+            classes: string[];
+            /** Count Label */
+            count_label: string;
+            /** Extra */
+            extra: string[];
+            /** Label */
+            label: string | null;
+            /** Low */
+            low: boolean;
+            /** Months */
+            months: number;
+            /** Overall */
+            overall: string | null;
+            /** Rows */
+            rows: components["schemas"]["MonthRow"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "monthly";
+        };
         /** NewRecord */
         NewRecord: {
             /** Values */
             values: {
                 [key: string]: unknown;
             };
+        };
+        /** Note */
+        Note: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
+            /** Text */
+            text: string | null;
         };
         /** PlannedData */
         PlannedData: {
@@ -410,6 +559,13 @@ export interface components {
             /** Records */
             records: components["schemas"]["Record"][];
         };
+        /** Row */
+        Row: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
+        };
         /** SeriesData */
         SeriesData: {
             /** Label */
@@ -420,6 +576,47 @@ export interface components {
             rolling: (number | null)[] | null;
             /** Values */
             values: (number | null)[];
+        };
+        /** SideBySideData */
+        SideBySideData: {
+            /** Groups */
+            groups: components["schemas"]["SideGroupData"][];
+            /** Label */
+            label: string | null;
+            /** Last */
+            last: number;
+            /** Notes */
+            notes: components["schemas"]["Note"][];
+            /** Records */
+            records: components["schemas"]["SideRecord"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "side_by_side";
+        };
+        /** SideGroupData */
+        SideGroupData: {
+            /** Label */
+            label: string;
+            /** Rows */
+            rows: components["schemas"]["Row"][];
+        };
+        /** SideRecord */
+        SideRecord: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            };
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
         };
         /** StatusBoardData */
         StatusBoardData: {
@@ -455,6 +652,40 @@ export interface components {
             score: number | null;
             /** Status */
             status: unknown;
+        };
+        /** TableData */
+        TableData: {
+            /** Averages */
+            averages: components["schemas"]["Average"][];
+            /** Columns */
+            columns: components["schemas"]["Row"][];
+            /** Label */
+            label: string | null;
+            note: components["schemas"]["LatestNote"] | null;
+            /** Rows */
+            rows: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "table";
+        };
+        /** TextFeedData */
+        TextFeedData: {
+            attention: components["schemas"]["Attention"] | null;
+            /** Label */
+            label: string | null;
+            /** Lists */
+            lists: components["schemas"]["FeedList"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "text_feed";
+            /** Window Days */
+            window_days: number;
         };
         /** Today */
         Today: {
@@ -497,7 +728,7 @@ export interface components {
             /** View */
             view: string;
             /** Widgets */
-            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["PlannedData"])[];
+            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["HeatmapData"] | components["schemas"]["SideBySideData"] | components["schemas"]["TextFeedData"] | components["schemas"]["TableData"] | components["schemas"]["MonthlyData"] | components["schemas"]["PlannedData"])[];
         };
         /** WriteProblem */
         WriteProblem: {

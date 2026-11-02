@@ -7,6 +7,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- Dashboard, part 2 (#78, D-084): a calendar of sessions and rest days, the last 4, 8 or 12
+  sessions side by side with the latest notes, the best reflections of the last 2 weeks and
+  those needing attention, the rest days of the last 2 weeks, and monthly averages over 6, 12,
+  24 or all months, as the legacy Summary sheets.
 - Dashboard, part 1 (#77, D-083): the journal's dashboard with the latest status and days since
   the last session, the status board by class (as the legacy Summary – Trends: last 4 vs the 4
   before, direction, LOW in the last 12) and the scores by class over time with the status bands,
