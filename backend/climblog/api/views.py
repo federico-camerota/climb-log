@@ -73,15 +73,150 @@ class LineData(BaseModel):
     last: int  # how many of the latest points to show at first
 
 
+class HeatmapDay(BaseModel):
+    date: dt.date
+    status: Any  # the worst of the day's records
+    records: int  # how many (0: only the extra entity's record)
+    extra: Any  # the extra entity's status that day, e.g. a rest day's
+    mark: str | None  # the day's letters, e.g. "O", "GO", "R"
+
+
+class HeatmapMark(BaseModel):
+    letter: str
+    label: str  # what it stands for, e.g. Outdoor, rest day
+
+
+class HeatmapData(BaseModel):
+    widget: Literal["heatmap_calendar"]
+    label: str | None
+    start: dt.date  # the first day of the first month shown (not before the first record's)
+    end: dt.date  # the day asked
+    extra: str | None  # the extra entity, e.g. rest_day
+    marks: list[HeatmapMark]  # the letters' legend
+    days: list[HeatmapDay]  # days with records, in order
+
+
+class Row(BaseModel):
+    field: str
+    label: str
+
+
+class SideGroupData(BaseModel):
+    label: str
+    rows: list[Row]
+
+
+class SideRecord(BaseModel):
+    date: dt.date
+    key: dict[str, Any]
+    values: dict[str, Any]
+
+
+class Note(BaseModel):
+    field: str
+    label: str
+    text: str | None
+
+
+class SideBySideData(BaseModel):
+    widget: Literal["side_by_side"]
+    label: str | None
+    last: int  # how many to show at first
+    groups: list[SideGroupData]
+    records: list[SideRecord]  # the latest 12, newest first
+    notes: list[Note]  # the newest record's
+
+
+class FeedItem(BaseModel):
+    date: dt.date
+    key: dict[str, Any]
+    text: str
+    score: float | None
+
+
+class FeedList(BaseModel):
+    label: str
+    items: list[FeedItem]
+
+
+class AttentionItem(BaseModel):
+    date: dt.date
+    key: dict[str, Any]
+    texts: list[str]
+
+
+class Attention(BaseModel):
+    label: str  # the status, e.g. NEEDS ATTENTION
+    items: list[AttentionItem]
+
+
+class TextFeedData(BaseModel):
+    widget: Literal["text_feed"]
+    label: str | None
+    window_days: int
+    lists: list[FeedList]
+    attention: Attention | None
+
+
+class Average(BaseModel):
+    field: str
+    label: str
+    value: float | None
+
+
+class LatestNote(BaseModel):
+    date: dt.date
+    text: str
+
+
+class TableData(BaseModel):
+    widget: Literal["table"]
+    label: str | None
+    columns: list[Row]
+    rows: list[dict[str, Any]]  # newest first
+    averages: list[Average]  # over the rows shown
+    note: LatestNote | None
+
+
+class MonthRow(BaseModel):
+    month: str  # 2026-10
+    count: int
+    classes: list[float | None]  # one per class; none without a record counted
+    overall: float | None  # the average of the class averages
+    low: int | None  # LOW statuses; none without a record counted
+    extra: list[float | None]  # one per extra column
+
+
+class MonthlyData(BaseModel):
+    widget: Literal["monthly"]
+    label: str | None
+    count_label: str
+    classes: list[str]
+    overall: str | None
+    low: bool
+    extra: list[str]
+    months: int  # how many to show at first
+    rows: list[MonthRow]  # every month from the first record's, oldest first
+
+
 class PlannedData(BaseModel):
     widget: Literal["planned"]
     label: str | None
     kind: str  # the widget's name in the YAML
-    why: str  # e.g. "comes with #78"
+    why: str  # e.g. "comes with M4"
 
 
 WidgetData = Annotated[
-    KpiData | StatusBoardData | LineData | PlannedData, Field(discriminator="widget")
+    KpiData
+    | StatusBoardData
+    | LineData
+    | HeatmapData
+    | SideBySideData
+    | TextFeedData
+    | TableData
+    | MonthlyData
+    | PlannedData,
+    Field(discriminator="widget"),
 ]
 
 
