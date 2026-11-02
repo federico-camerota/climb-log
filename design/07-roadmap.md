@@ -80,7 +80,8 @@ away from home (D-069). Issues in the milestone "M3 · Journal app", in this ord
 - Records page with search and the data issues (orphan section rows, bad values) → done
   (D-081, #75); editing and fixing records, including those typed on the phone.
 - Journal dashboard at parity (D-072): status board, last N sessions, monthly averages,
-  reflections, rest days.
+  reflections, rest days. → part 1 done (D-083, #77): views API, KPIs, status board, trend
+  line.
 - Generated `Summary` tab in the sheet ("Recent": latest statuses, suggested next session), so
   the recommendation is also in the sheet away from home.
 - README screenshots of the Today page and dashboard (left out of M0: the app was empty).

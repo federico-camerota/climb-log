@@ -449,6 +449,27 @@ weekday/type/…), `scatter` (with trend line), `radar`, `delta_table`, `table`,
 `text_feed` (notes/reflections), `ladder` (rung progress), `program_grid` (prescribed vs
 done), `before_after`. Custom widgets are registered by name in the frontend.
 
+Views are checked when the module loads (D-083): a widget the app draws has typed options, and
+an unknown widget name is an error; a metric is `entity.field` (a stored field or a derived
+value; an aggregate's name for M5). Drawn so far (#77):
+
+```yaml
+- {widget: kpi, metric: session.overall_status, agg: latest, label: Latest status}  # or days_since_latest (a date)
+- widget: status_board
+  classes:
+    - {label: Wellbeing, score: session.wb_score, status: session.wb_status}
+  compare_last: 4   # the average of the last 4 records vs the 4 before (default 4)
+  window: 12        # LOW statuses among the last 12 (default 12); arrows by settings.trend_delta
+- widget: line
+  series: [{metric: session.wb_score, label: Wellbeing}]
+  bands: *std_bands  # a derived entry's bands (le: settings.low_max, …), drawn behind the lines
+  rolling: 4         # a rolling mean the user can switch on
+  last: 12           # the records shown at first; a range picker shows more
+```
+
+The other widgets of the library are accepted and shown as "not drawn yet" (#78 for the
+journal's, M4/M5 for the rest); a `line` with `split_by` or `x` too (M4).
+
 Every numeric/scale field and derived numeric field is automatically a **metric** in the
 analysis explorer (see `05-analytics.md`). No view config is needed for that.
 

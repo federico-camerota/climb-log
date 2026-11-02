@@ -134,8 +134,9 @@ views:
   overview:
     - {widget: kpi, metric: checkin.status, agg: latest}
     - {widget: kpi, metric: checkin.review_flag, agg: latest}
-    - {widget: line, metrics: [checkin.trap_fatigue, checkin.pain_during, checkin.pain_next_am, checkin.pec_fatigue],
-       bands: [{ge: settings.red_min, color: red}, {ge: settings.yellow_min, color: yellow}]}
+    - {widget: line,
+       series: [{metric: checkin.trap_fatigue}, {metric: checkin.pain_during}, {metric: checkin.pain_next_am}, {metric: checkin.pec_fatigue}],
+       bands: [{le: settings.yellow_min, label: GREEN}, {le: settings.red_min, label: YELLOW}, {else: RED}]}
     - {widget: weekbars, metric: checkin.status, agg: count_by_value, group: program_week}
     - {widget: program_grid, reference: exercises, entity: exercise_log}
     - {widget: before_after, entity: retest, by: measure_id, across: checkpoint}

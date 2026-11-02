@@ -242,13 +242,33 @@ recommendation:
     latest_status: Latest overall status
     low_sessions: LOW sessions in the last 14 days
 
+# The dashboard (D-072, D-083): its numbers are computed in the backend, as the legacy
+# Summary – Trends and – Recent sheets did (00-current-state §1).
 views:
   overview:
     - {widget: kpi, metric: session.overall_status, agg: latest, label: Latest status}
     - {widget: kpi, metric: session.date, agg: days_since_latest, label: Days since last session}
-    - {widget: status_board, metrics: [session.wb_score, session.ph_readiness, session.mn_score, session.feel_score, session.overall_score], compare: last4_vs_prev4}
+    - widget: status_board
+      label: Status by class
+      classes:
+        - {label: Wellbeing,    score: session.wb_score,      status: session.wb_status}
+        - {label: Physical,     score: session.ph_readiness,  status: session.ph_status}
+        - {label: Mental,       score: session.mn_score,      status: session.mn_status}
+        - {label: Session feel, score: session.feel_score,    status: session.feel_status}
+        - {label: Overall,      score: session.overall_score, status: session.overall_status}
+      compare_last: 4   # the average of the last 4 sessions vs the 4 before
+      window: 12        # LOW sessions among the last 12
     - {widget: heatmap_calendar, metric: session.overall_status, extra: rest_day.status}
-    - {widget: line, metrics: [session.wb_score, session.ph_readiness, session.mn_score, session.feel_score], bands: std_bands, rolling: 4}
+    - widget: line
+      label: Scores by class
+      series:
+        - {metric: session.wb_score,     label: Wellbeing}
+        - {metric: session.ph_readiness, label: Physical}
+        - {metric: session.mn_score,     label: Mental}
+        - {metric: session.feel_score,   label: Session feel}
+      bands: *std_bands
+      rolling: 4
+      last: 12
     - {widget: side_by_side, entity: session, last: 4}
     - {widget: text_feed, entity: session, fields: [rf_good, rf_off, rf_change], sort_by: rf_good_score, window_days: 14, top: 3}
     - {widget: table, entity: rest_day, last: 7}

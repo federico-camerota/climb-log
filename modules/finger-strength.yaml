@@ -106,10 +106,12 @@ forms:
 views:
   overview:
     - {widget: kpi, metric: session.readiness_status, agg: latest}
-    - {widget: line, metrics: [session.top_added_kg],
+    - {widget: line, series: [{metric: session.top_added_kg}],
        split_by: [hang_set.edge_mm, hang_set.grip, hang_set.arms, hang_set.hang_s], label: "Max hang added load per protocol"}
-    - {widget: line, metrics: [session.est_1rm_left, session.est_1rm_right], label: Finger curl est. 1RM per hand}
-    - {widget: line, metrics: [session.lr_imbalance_pct], bands: [{between: [-10, 10], color: neutral}], label: Left/right imbalance}
+    - {widget: line, label: Finger curl est. 1RM per hand,
+       series: [{metric: session.est_1rm_left, label: Left}, {metric: session.est_1rm_right, label: Right}]}
+    # M4: a neutral band from -10 to 10 % behind it (bands here are status bands, D-083)
+    - {widget: line, series: [{metric: session.lr_imbalance_pct}], label: Left/right imbalance}
     - {widget: weekbars, metric: session.n_sets, split_by: session.session_type, stacked: true}
     - {widget: box_by, metric: session.readiness, by: session.start_time, bins: [morning, afternoon, evening]}
     - {widget: scatter, x: session.readiness, y: session.top_added_kg, label: Readiness vs performance}

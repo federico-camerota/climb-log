@@ -13,6 +13,11 @@ export type Issue = Schemas["Issue"];
 export type Written = Schemas["Written"];
 export type Recommendation = Schemas["Recommendation"];
 export type ModuleAdvice = Schemas["ModuleAdvice"];
+export type View = Schemas["View"];
+export type KpiData = Schemas["KpiData"];
+export type StatusBoardData = Schemas["StatusBoardData"];
+export type LineData = Schemas["LineData"];
+export type PlannedData = Schemas["PlannedData"];
 export type Today = Schemas["Today"];
 export type ModuleDay = Schemas["ModuleDay"];
 export type DueForm = Schemas["DueForm"];
@@ -161,6 +166,18 @@ export function updateRecord(
   expected: Values,
 ): Promise<Written> {
   return send<Written>("PATCH", recordPath(module, entity, key), { values, expected });
+}
+
+/** A module's view (dashboard) with each widget's data, for a day (D-083). */
+export function getView(module: string, view: string, date: string): Promise<View> {
+  const path = `/api/modules/${encodeURIComponent(module)}/views/${encodeURIComponent(view)}`;
+  return getJson<View>(`${path}?date=${encodeURIComponent(date)}`);
+}
+
+/** The names of a module's views, in YAML order. */
+export function viewNames(module: ModuleInfo): string[] {
+  const views = module.module_schema?.views;
+  return typeof views === "object" && views !== null ? Object.keys(views) : [];
 }
 
 export function getRecommendation(date: string): Promise<Recommendation> {
