@@ -1,6 +1,7 @@
 # 05 · Analytics and decision support
 
-All analysis runs in the backend on cached DataFrames (pandas/scipy). The frontend renders
+All analysis runs in the backend on the cached records, in plain Python with scipy for the
+distributions (D-087, no pandas). The frontend renders
 the results with ECharts. Every chart has a time-range selector (7 d / 30 d / 90 d /
 program run / all / custom) and filters (module-specific choices such as session type,
 indoor/outdoor, venue, weekday).

@@ -97,10 +97,26 @@ away from home (D-069). Issues in the milestone "M3 · Journal app", in this ord
   and can be fixed in the app; the sheet's Summary tab matches the app's recommendation; the
   old journal spreadsheet is no longer needed.
 
-### M4 · Analytics ☐
-- Metric query layer; widget library v1 (kpi, line+bands, bars, box_by, scatter, calendar heatmap).
-- Explore page; correlation pair + matrix; training load (session-RPE, ACWR, monotony/strain);
-  pre→post deltas; grade charts.
+### M4 · Analytics ☐  *(scoped, D-086)*
+Issues in the milestone "M4 · Analytics", in this order (the analyses useful on little data
+first, the correlation tools last, D-086). Statistics in plain Python with scipy, no pandas
+(D-087); modules joined by date (D-088).
+- Metric query layer (`05-analytics.md` §1): the catalogue of metrics (every numeric field and
+  derived value) and a query API with range, grouping (day, week, month), aggregation, rolling
+  mean, filters and a lag; it grows out of `analytics/views.py` (D-072).
+- Widget library v1: `bars`, `weekbars`/`stacked`, `box_by` and `scatter`, and the `line`'s
+  `split_by` and `x` (kpi, line with bands and the calendar heatmap are done, D-083/D-084).
+- Training load: weekly session-RPE load, ACWR (EWMA, shown with zones, not as a rule),
+  monotony and strain, sessions per week, streaks; as widgets on the journal dashboard.
+- Pre → post deltas by session type (paired dots per body part) and soreness by body part ×
+  week.
+- Grades: hardest grade over time (French and gym on separate axes, D-017/D-047), grade
+  pyramid by period, indoor vs outdoor, by venue.
+- Explore page: pick metrics, range, grouping and filters; shown as a line or bars.
+- Correlation: a pair (scatter, regression line, Pearson and Spearman r, 95% CI, n, an
+  optional lag, greyed out under the minimum n), a matrix (Spearman, cells hidden under the
+  minimum n), and "what predicts a good session?" (pre-session metrics only).
+- Close M4: docs, README screenshots, v0.4.0.
 - **Done when**: the explorer can answer "does sleep relate to my session feel?" with n and CI.
 
 ### M5 · Program modules ☐
@@ -124,6 +140,10 @@ away from home (D-069). Issues in the milestone "M3 · Journal app", in this ord
 - **Gym log**: a sheet-first module for logging at the gym how each boulder or route attempt
   felt (one row per attempt, typed on the phone, reviewed in the app). The module framework
   covers it as it is: a new module YAML and `climblog module create FILE --google`.
+- **More analyses** from `05-analytics.md`, left out of M4 to keep it the size of M3 (D-086):
+  recovery patterns (§3.1), venue/partner view, wins timeline, reflection themes with Italian
+  stemming (§3.6), finger-strength charts (§3.5), search across all modules (§2); and the
+  regularised regression of §3.2 once n ≥ ~40.
 
 ## Testing strategy
 - **Backend contract tests** run against both backends (xlsx in a temp dir; Google against
