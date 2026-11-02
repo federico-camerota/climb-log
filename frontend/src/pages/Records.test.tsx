@@ -40,7 +40,13 @@ describe("Records", () => {
   });
 
   it("warns when the data is an offline snapshot, and counts the issues", async () => {
-    const issue = { tab: "Wellbeing", row: 7, field: null, message: "no Session row" };
+    const issue = {
+      tab: "Wellbeing",
+      row: 7,
+      field: null,
+      message: "no Session row",
+      kind: "orphan",
+    };
     stubApi({
       ...API,
       "/api/modules/journal/session": records(2, { offline: true, issues: [issue] }),
