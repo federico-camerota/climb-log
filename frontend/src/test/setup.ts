@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import "@testing-library/jest-dom/vitest";
 import "../lib/dayjs";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 
 // jsdom has no matchMedia; Mantine uses it for the colour scheme.
@@ -31,6 +31,10 @@ Element.prototype.scrollIntoView = () => undefined;
 Object.defineProperty(document, "fonts", {
   value: { addEventListener: () => undefined, removeEventListener: () => undefined },
 });
+
+// findBy… waits 1 s by default: a page's first render (Mantine, a whole form) can take longer
+// when the full suite runs in parallel on a busy machine. 3 s stays under vitest's 5 s per test.
+configure({ asyncUtilTimeout: 3000 });
 
 afterEach(() => {
   cleanup();
