@@ -7,6 +7,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- Summary tab in the sheet (#79, D-085): schema sync writes a `Summary` tab with the latest
+  session, days since, latest status, weakest area, LOW sessions in 14 days, the suggested next
+  session and the last 4 sessions side by side, as formulas compiled from the module YAML, so the
+  sheet on the phone shows what the app shows; a cell changed by hand is drift.
 - Dashboard, part 2 (#78, D-084): a training calendar (a square per day on a grid, coloured by
   the day's status, rest days lighter, a letter for gym, outdoor, home wall or rest; from the
   first record's month, at most 12 months), the last 4, 8 or 12
@@ -64,6 +68,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   Sheets on the phone as the fallback; LAN mode moved to the backlog (D-069). Frontend
   libraries, the declarative readiness rule and backend-computed dashboards decided
   (D-070–D-072).
+
+### Fixed
+- A sheet formula reading a split entity's latest record with `last()` took that tab's latest
+  row, an older session's value when the latest session had no row there yet; it now finds the
+  record on the main tab, as the app does (D-085). Schema sync rewrites these formulas once.
 
 ## [0.2.0] - 2026-10-30
 

@@ -3021,6 +3021,169 @@
       "title": "StatusClass",
       "type": "object"
     },
+    "Summary": {
+      "additionalProperties": false,
+      "description": "A tab written by schema sync with formulas compiled from the YAML, so the sheet shows the\nsame as the app away from it (the legacy Summary - Recent): rows of values of the day\n(TODAY() in the sheet), and the latest records side by side.",
+      "properties": {
+        "tab": {
+          "default": "Summary",
+          "title": "Tab",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "values": {
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/ExprDerived"
+                },
+                {
+                  "$ref": "#/$defs/BandsDerived"
+                },
+                {
+                  "$ref": "#/$defs/WhenDerived"
+                },
+                {
+                  "$ref": "#/$defs/MapDerived"
+                },
+                {
+                  "$ref": "#/$defs/PluginDerived"
+                },
+                {
+                  "$ref": "#/$defs/ReferenceGroupDerived"
+                }
+              ]
+            }
+          },
+          "title": "Values",
+          "type": "object"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/SummaryRow"
+          },
+          "minItems": 1,
+          "title": "Rows",
+          "type": "array"
+        },
+        "side_by_side": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SummarySessions"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "title",
+        "rows"
+      ],
+      "title": "Summary",
+      "type": "object"
+    },
+    "SummaryGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Fields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "label",
+        "fields"
+      ],
+      "title": "SummaryGroup",
+      "type": "object"
+    },
+    "SummaryRow": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "title": "SummaryRow",
+      "type": "object"
+    },
+    "SummarySessions": {
+      "additionalProperties": false,
+      "description": "The latest records side by side (newest first), as the legacy \"last 4 sessions\".",
+      "properties": {
+        "entity": {
+          "title": "Entity",
+          "type": "string"
+        },
+        "last": {
+          "default": 4,
+          "maximum": 12,
+          "minimum": 1,
+          "title": "Last",
+          "type": "integer"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/SummaryGroup"
+          },
+          "minItems": 1,
+          "title": "Groups",
+          "type": "array"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "Labels",
+          "type": "object"
+        }
+      },
+      "required": [
+        "entity",
+        "groups"
+      ],
+      "title": "SummarySessions",
+      "type": "object"
+    },
     "TableWidget": {
       "additionalProperties": false,
       "description": "An entity's records of the last `window_days` days (or the `last` ones), newest first,\nwith the averages of some columns and the latest note.",
@@ -3729,6 +3892,17 @@
       "anyOf": [
         {
           "$ref": "#/$defs/Recommendation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Summary"
         },
         {
           "type": "null"

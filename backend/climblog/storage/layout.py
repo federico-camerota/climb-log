@@ -19,6 +19,8 @@ from climblog.modules.formulas import (
     Template,
     compile_formulas,
     formula_columns,
+    side_by_side_formulas,
+    summary_formulas,
 )
 from climblog.modules.schema import (
     BaseField,
@@ -34,6 +36,7 @@ from climblog.modules.schema import (
     ScaleField,
     TextField,
 )
+from climblog.modules.summary import row_label, summary_plan
 from climblog.storage.cells import RawCell
 from climblog.storage.load import DELETED
 from climblog.storage.load import SETTINGS_TAB as SETTINGS_TAB
@@ -124,6 +127,28 @@ Formulas = Callable[[ColumnMap, Dialect], dict[tuple[str, str], Template]]
 
 
 @dataclass(frozen=True)
+class ReportCell:
+    """A cell of a report tab: text, or a formula (`=…`)."""
+
+    row: int
+    column: int  # 1-based
+    value: str
+    number_format: str | None = None
+    bold: bool = False
+    name: str | None = None  # what a formula shows: a value's name, or `field#n` side by side
+
+
+@dataclass(frozen=True)
+class ReportTab:
+    """A tab the app writes whole on every sync (the Summary, D-085): its cells, once the
+    backend knows where every column is. Row 2 holds keys, as on a data tab, so its formulas
+    read back with `read_formulas` for the drift check."""
+
+    name: str
+    cells: Callable[[ColumnMap, Dialect], list[ReportCell]]
+
+
+@dataclass(frozen=True)
 class WorkbookLayout:
     module: str
     version: int
@@ -131,6 +156,7 @@ class WorkbookLayout:
     settings: tuple[SettingRow, ...]
     formulas: Formulas = lambda columns, dialect: {}
     title: str = ""  # the module's name, for a new Google Sheet
+    report: ReportTab | None = None
 
 
 def workbook_layout(module: Module) -> WorkbookLayout:
@@ -148,8 +174,124 @@ def workbook_layout(module: Module) -> WorkbookLayout:
         return compile_formulas(module, columns, dialect)
 
     return WorkbookLayout(
-        module.module, module.version, tuple(tabs), settings, formulas, module.name
+        module.module,
+        module.version,
+        tuple(tabs),
+        settings,
+        formulas,
+        module.name,
+        summary_tab(module),
     )
+
+
+# ---- The Summary tab (D-085) ----
+
+DATE_FORMAT = "DD/MM/YYYY"
+DAY_ROW = 3  # B3: =TODAY(), the day every formula reads (a test puts a date there)
+SUMMARY_NOTE = (
+    "Written by climb-log from the module's YAML: nothing to type here. "
+    "Schema sync (climblog check --apply) writes it again."
+)
+
+
+def summary_tab(module: Module) -> ReportTab | None:
+    """The module's Summary tab, if it has a `summary:` (rows of values, the latest records
+    side by side, then the values the formulas use but the rows don't show)."""
+    plan = summary_plan(module) if module.summary is not None else None
+    if plan is None:
+        return None
+
+    def cells(columns: ColumnMap, dialect: Dialect) -> list[ReportCell]:
+        day = f"$B${DAY_ROW}"
+        out = [
+            ReportCell(1, 1, plan.title, bold=True),
+            ReportCell(DAY_ROW, 1, "Day", bold=True),
+            ReportCell(DAY_ROW, 2, "=TODAY()", DATE_FORMAT),
+        ]
+        refs: dict[str, str] = {"date": day}
+        values: list[tuple[int, int, str]] = []  # where each value goes: (row, column, name)
+        row = DAY_ROW + 1
+        for item in plan.rows:
+            out.append(ReportCell(row, 1, item.label, bold=True))
+            for column, name in enumerate(item.names(), start=2):
+                refs.setdefault(name, f"${_column_letter(column)}${row}")
+                values.append((row, column, name))
+            row += 1
+        width = max(len(item.names()) for item in plan.rows)
+        sessions = plan.side_by_side
+        if sessions is not None:
+            entity = module.entities[sessions.entity]
+            width = max(width, sessions.last)
+            row += 1
+            out.append(ReportCell(row, 1, f"LAST {sessions.last} SESSIONS", bold=True))
+            row += 1
+            fields = [entity.date_field, *(f for g in sessions.groups for f in g.fields)]
+            side = side_by_side_formulas(
+                module, columns, day, sessions.entity, fields, sessions.last, dialect
+            )
+            lines: list[tuple[str, str | None]] = [("Date", entity.date_field)]
+            for group in sessions.groups:
+                lines.append((group.label, None))
+                lines += [
+                    (row_label(module, sessions.entity, f, sessions.labels), f)
+                    for f in group.fields
+                ]
+            for label, field in lines:
+                out.append(ReportCell(row, 1, label, bold=field in (None, entity.date_field)))
+                if field is not None:
+                    fmt = DATE_FORMAT if field == entity.date_field else None
+                    for n in range(1, sessions.last + 1):
+                        cell = ReportCell(row, n + 1, side[(field, n)], fmt, name=f"{field}#{n}")
+                        out.append(cell)
+                row += 1
+        hidden = [name for name in _value_names(module) if name not in refs]
+        if hidden:  # the values the shown ones read, below everything else
+            row += 1
+            out.append(ReportCell(row, 1, "Values used above", bold=True))
+            row += 1
+            for name in hidden:
+                refs[name] = f"$B${row}"
+                out.append(ReportCell(row, 1, name))
+                values.append((row, 2, name))
+                row += 1
+        formulas = summary_formulas(module, columns, refs, dialect)
+        types = _value_types(module)
+        for r, c, name in values:
+            fmt = DATE_FORMAT if types.get(name) == "date" else None
+            out.append(ReportCell(r, c, formulas[name], fmt, name=name))
+        out.append(ReportCell(row + 1, 1, SUMMARY_NOTE))
+        keys = ["item", *(f"c{i}" for i in range(1, width + 1))]
+        out += [ReportCell(2, i, key) for i, key in enumerate(keys, start=1)]
+        return out
+
+    return ReportTab(plan.tab, cells)
+
+
+def _value_names(module: Module) -> list[str]:
+    """Every value the summary's formulas compute, in order."""
+    from climblog.modules.checks import recommendation_plan
+
+    plan = summary_plan(module)
+    assert plan is not None
+    advice = recommendation_plan(module)
+    names = [s.key for s in advice.values.steps] + ["headline", "text"] if advice else []
+    return names + [s.key for s in plan.values.steps]
+
+
+def _value_types(module: Module) -> dict[str, str]:
+    from climblog.modules.checks import recommendation_plan
+
+    plan = summary_plan(module)
+    assert plan is not None
+    advice = recommendation_plan(module)
+    found = {**(advice.values.names if advice else {}), **plan.values.names}
+    return {name: info.type for name, info in found.items()}
+
+
+def _column_letter(i: int) -> str:
+    from openpyxl.utils import get_column_letter
+
+    return get_column_letter(i)
 
 
 def _entity_tabs(

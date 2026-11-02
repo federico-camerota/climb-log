@@ -99,6 +99,9 @@ def cross_check(module: Module) -> list[Problem]:
                 problems.append(Problem(tab_at, f"tab '{tab}' is already used by entity '{other}'"))
     _, found = _recommendation(module)
     problems += found
+    from climblog.modules.summary import summary_problems  # it imports us
+
+    problems += summary_problems(module)
     problems += _views(module)
     return problems
 

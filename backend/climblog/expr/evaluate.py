@@ -60,9 +60,11 @@ class Related(Protocol):
         """The rows of a child entity that belong to this record (stored and derived values)."""
         ...
 
-    def last(self, entity: str, name: str, day: dt.date, inclusive: bool = False) -> Value:
-        """`name` in the latest record of `entity` dated before `day` (or on it, `inclusive`);
-        blank if none."""
+    def last(
+        self, entity: str, name: str, day: dt.date, inclusive: bool = False, n: int = 1
+    ) -> Value:
+        """`name` in the latest record of `entity` dated before `day` (or on it, `inclusive`),
+        or the n-th latest; blank if none."""
         ...
 
     def window(self, entity: str, name: str, start: dt.date, end: dt.date) -> list[Value]:
@@ -82,7 +84,9 @@ class _Alone:
     def children(self, entity: str) -> Sequence[Mapping[str, Value]]:
         return ()
 
-    def last(self, entity: str, name: str, day: dt.date, inclusive: bool = False) -> Value:
+    def last(
+        self, entity: str, name: str, day: dt.date, inclusive: bool = False, n: int = 1
+    ) -> Value:
         return None
 
     def window(self, entity: str, name: str, start: dt.date, end: dt.date) -> list[Value]:
@@ -152,9 +156,11 @@ class _Evaluator:
                 return [True for _ in self.related.children(entity)]  # one item per row
             case Children(entity=entity, field=str() as name):
                 return [row.get(name) for row in self.related.children(entity)]
-            case Last(entity=entity, field=name, before=before, inclusive=inclusive):
+            case Last(entity=entity, field=name, before=before, inclusive=inclusive, n=n):
                 day = self.day(before)
-                return None if day is None else self.related.last(entity, name, day, inclusive)
+                if day is None:
+                    return None
+                return self.related.last(entity, name, day, inclusive, n)
             case Window(entity=entity, field=name, days=days, until=until):
                 end = self.day(until)
                 if end is None:

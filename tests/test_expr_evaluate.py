@@ -202,9 +202,12 @@ class FakeRelated:
     def children(self, entity: str) -> Sequence[Mapping[str, Value]]:
         return [{"kg": 10, "volume": 50}, {"kg": None, "volume": 30}]
 
-    def last(self, entity: str, name: str, day: dt.date, inclusive: bool = False) -> Value:
+    def last(
+        self, entity: str, name: str, day: dt.date, inclusive: bool = False, n: int = 1
+    ) -> Value:
         start = dt.date(2026, 10, 13)
-        return 6 if day > start or (inclusive and day == start) else None
+        found = day > start or (inclusive and day == start)
+        return (6 if n == 1 else 2) if found and n <= 2 else None
 
     def window(self, entity: str, name: str, start: dt.date, end: dt.date) -> list[Value]:
         days = {dt.date(2026, 10, d): v for d, v in [(6, 1), (10, 4), (15, None), (20, 4)]}

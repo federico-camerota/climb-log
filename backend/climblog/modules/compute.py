@@ -52,10 +52,11 @@ class Timeline:
         self.days = [_row_day(entity, rows[i]) or dt.date.min for i in order]
         self.rows = [rows[i] for i in order]
 
-    def last(self, name: str, day: dt.date, inclusive: bool = False) -> Value:
-        """`name` in the latest row dated before `day` (on or before, `inclusive`)."""
+    def last(self, name: str, day: dt.date, inclusive: bool = False, n: int = 1) -> Value:
+        """`name` in the latest row dated before `day` (on or before, `inclusive`), or the n-th
+        latest."""
         found = (bisect_right if inclusive else bisect_left)(self.days, day)
-        return self.rows[found - 1].get(name) if found else None
+        return self.rows[found - n].get(name) if found >= n else None
 
     def window(self, name: str, start: dt.date, end: dt.date) -> list[Value]:
         """`name` in every row dated from `start` to `end`."""
@@ -136,8 +137,10 @@ class _Table:
         key = tuple(_sort_key(row.get(k)) for k in child.parent.key)
         return self.child_rows[entity].get(key, ())
 
-    def last(self, entity: str, name: str, day: dt.date, inclusive: bool = False) -> Value:
-        return self.timeline(entity).last(name, day, inclusive)
+    def last(
+        self, entity: str, name: str, day: dt.date, inclusive: bool = False, n: int = 1
+    ) -> Value:
+        return self.timeline(entity).last(name, day, inclusive, n)
 
     def window(self, entity: str, name: str, start: dt.date, end: dt.date) -> list[Value]:
         return self.timeline(entity).window(name, start, end)
