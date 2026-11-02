@@ -7,9 +7,25 @@ you own (local `.xlsx` or Google Sheets) and can still edit by hand; the app add
 logging forms, interactive charts, cross-module analysis and a "next session" recommendation.
 What is tracked is defined in config files (module YAMLs), not in code.
 
-**Status: early development, not usable yet.** The skeleton (backend, frontend, tooling, CI)
-is in place; the module framework and spreadsheet storage come next. See the
-[roadmap](design/07-roadmap.md).
+**Status: v0.3.0, the journal app (M3).** The climbing journal is logged in the app on the
+computer (pre-session, post-session and rest-day forms), with a Today page (what is still to
+log, the next-session recommendation), a records page that also fixes entries typed on the
+phone, and a dashboard at parity with the old Summary sheets. The data stays in Google Sheets
+or a local `.xlsx`, which also get a generated Summary tab for use on the phone. Other modules
+and the analysis explorer come next: see the [roadmap](design/07-roadmap.md).
+
+## Screenshots
+
+On a fictional journal (`scripts/demo_journal.py`; every value is invented):
+
+| Today | Dashboard |
+|---|---|
+| [![Today: the suggested next session and the forms due](docs/screenshots/today.png)](docs/screenshots/today.png) | [![Dashboard: status by class, calendar, scores by class, last sessions](docs/screenshots/dashboard.png)](docs/screenshots/dashboard.png) |
+
+To make them again: `make build`, then
+`uv run python scripts/demo_journal.py build/demo/journal.xlsx` and
+`uv run python scripts/screenshots.py CONFIG docs/screenshots`, with an app config pointing the
+journal module to that workbook (Firefox is needed).
 
 ## Quick start
 

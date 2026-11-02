@@ -87,6 +87,10 @@ away from home (D-069). Issues in the milestone "M3 · Journal app", in this ord
   the recommendation is also in the sheet away from home. → done (D-085, #79): the legacy
   Summary – Recent's guidance and the last 4 sessions side by side.
 - README screenshots of the Today page and dashboard (left out of M0: the app was empty).
+  → done (#80): `docs/screenshots/`, made by `scripts/screenshots.py` on the fictional journal
+  of `scripts/demo_journal.py`; v0.3.0 in `pyproject.toml`, `package.json` and the CHANGELOG.
+- All M3 issues are done; the milestone is ticked once the owner has checked the done-when
+  below, and v0.3.0 is tagged then.
 - **Done when**: I log full sessions (pre, post, rest day) from the app on the computer and
   review them there (Today log check and recommendation, records with data issues, dashboard
   at parity with the old Summary sheets); a session typed on the phone in the sheet shows up

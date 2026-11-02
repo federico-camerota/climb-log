@@ -6,7 +6,14 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-02
+
+M3: the journal app: logging, Today, records, dashboard and the sheet's Summary tab
+(`design/07-roadmap.md`).
+
 ### Added
+- README screenshots of Today and the dashboard (#80), made by `scripts/screenshots.py`
+  (headless Firefox) on the fictional journal of `scripts/demo_journal.py`.
 - Dashboard, part 2 (#78, D-084): a calendar of sessions and rest days, the last 4, 8 or 12
   sessions side by side with the latest notes, the best reflections of the last 2 weeks and
   those needing attention, the rest days of the last 2 weeks, and monthly averages over 6, 12,
@@ -229,6 +236,7 @@ M1: the module framework and local storage (`design/07-roadmap.md`).
   locally before changes to formulas, expressions or sync (D-057).
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).
 
-[Unreleased]: https://github.com/federico-camerota/climb-log/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/federico-camerota/climb-log/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/federico-camerota/climb-log/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/federico-camerota/climb-log/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/federico-camerota/climb-log/releases/tag/v0.1.0
