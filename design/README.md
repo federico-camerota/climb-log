@@ -7,8 +7,8 @@ interface (logging, visualization, analysis, planning). The data stays in spread
 **Status:** M1 (module framework + local storage) done, released as v0.1.0; M2 (the Google
 Sheets backend) done, released as v0.2.0: the journal lives on Google and is typed on the phone.
 M3 (the journal app: logging in the app on the computer, Today, records with fixes, the
-dashboard at parity with the old Summary sheets, and the sheet's Summary tab) is done in code,
-released as v0.3.0 once the owner has checked its done-when (`07-roadmap.md`). Next is M4.
+dashboard at parity with the old Summary sheets, and the sheet's Summary tab) done, released
+as v0.3.0. Next is M4, analytics (`07-roadmap.md`).
 Last updated 2026-11-02.
 
 ## Read in this order
