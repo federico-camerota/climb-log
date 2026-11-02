@@ -63,7 +63,15 @@ const SHOWN_FIRST = /(score|status|readiness)$|^log_check$/; // the default colu
 /** An entity's records as a table (06-ui Records, D-081): newest first, sortable, searched
  * without accents, the data issues marked in their cell; the columns are picked (and
  * remembered); the table as shown is exported to CSV. */
-export function RecordsTable({ module, data }: { module: ModuleInfo; data: Records }) {
+export function RecordsTable({
+  module,
+  data,
+  onOpen,
+}: {
+  module: ModuleInfo;
+  data: Records;
+  onOpen?: (values: Record<string, unknown>) => void; // a row clicked: edit its record (D-082)
+}) {
   const entity = useMemo(() => entityOf(module, data.entity) ?? { fields: {} }, [module, data]);
   const columns = useMemo(() => columnsOf(module, entity, data), [module, entity, data]);
   const storageKey = `climblog:columns:${module.id}:${data.entity}`;
@@ -204,7 +212,15 @@ export function RecordsTable({ module, data }: { module: ModuleInfo; data: Recor
           </Table.Thead>
           <Table.Tbody>
             {table.getRowModel().rows.map((row) => (
-              <Table.Tr key={row.id}>
+              <Table.Tr
+                key={row.id}
+                tabIndex={onOpen === undefined ? undefined : 0}
+                style={onOpen === undefined ? undefined : { cursor: "pointer" }}
+                onClick={() => onOpen?.(row.original.values)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") onOpen?.(row.original.values);
+                }}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <Table.Td key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

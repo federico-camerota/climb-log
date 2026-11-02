@@ -7,6 +7,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- Editing records (#76, D-082): click a record on the Records page to edit the whole record in
+  a drawer, its data issues under their fields (a bad value shown as typed), or delete it after
+  a confirmation; the issues panel deletes rows the app leaves out (a duplicate key, no date,
+  an orphan) and creates the missing session of an orphan section row.
 - App shell (#70, D-073): a sidebar with Today, Log, Records, Dashboards and Settings,
   pages per module and entity in the URL (`/records/journal/session`), a light/dark toggle,
   Settings listing the modules (and what is wrong with one that doesn't load), and on Records
