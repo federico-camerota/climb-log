@@ -5,6 +5,12 @@
     uv run python scripts/demo_journal.py build/demo/journal.xlsx
     uv run python scripts/screenshots.py build/demo/config.toml docs/screenshots
 
+build/demo/config.toml is written by hand (the demo script writes only the workbook):
+
+    [modules.journal]
+    definition = "/abs/path/to/climb-log/modules/journal.yaml"
+    workbook = "/abs/path/to/climb-log/build/demo/journal.xlsx"
+
 Serves the built app on the given app config (a fictional journal only), then captures each
 page with `firefox --headless --screenshot`. Firefox takes its picture at the page's load
 event, before the app has fetched its data, so each page is shown in a frame by a small local
