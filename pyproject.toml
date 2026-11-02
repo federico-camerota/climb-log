@@ -71,3 +71,8 @@ pythonpath = ["scripts"]
 addopts = "--strict-markers"
 # Fail on warnings so deprecations are dealt with when they appear.
 filterwarnings = ["error"]
+
+[tool.coverage.run]
+# Python 3.12's sys.monitoring: measuring coverage costs almost nothing (the suite took 462 s
+# with the default tracer, 177 s with this, locally). Line coverage only, which it supports.
+core = "sysmon"

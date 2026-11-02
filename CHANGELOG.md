@@ -10,6 +10,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - M4 scoped (`design/07-roadmap.md`): eight issues, the analyses useful on little data first
   and the correlation tools last; the rest of `05-analytics.md` moved to the backlog (D-086).
   Analytics in plain Python with scipy, no pandas (D-087); modules joined by date (D-088).
+- Faster tests (D-089): coverage measures with Python 3.12's `sys.monitoring`
+  (`core = "sysmon"`); the Python tests took ~8 minutes in CI, mostly the coverage tracer's
+  overhead (locally 462 s → 177 s).
 
 ## [0.3.0] - 2026-11-02
 
