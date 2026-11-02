@@ -292,13 +292,99 @@ summary:
              overall_status: Overall status}
 
 
+# The dashboard (D-072, D-083): its numbers are computed in the backend, as the legacy
+# Summary – Trends and – Recent sheets did (00-current-state §1).
 views:
   overview:
     - {widget: kpi, metric: session.overall_status, agg: latest, label: Latest status}
     - {widget: kpi, metric: session.date, agg: days_since_latest, label: Days since last session}
-    - {widget: status_board, metrics: [session.wb_score, session.ph_readiness, session.mn_score, session.feel_score, session.overall_score], compare: last4_vs_prev4}
-    - {widget: heatmap_calendar, metric: session.overall_status, extra: rest_day.status}
-    - {widget: line, metrics: [session.wb_score, session.ph_readiness, session.mn_score, session.feel_score], bands: std_bands, rolling: 4}
-    - {widget: side_by_side, entity: session, last: 4}
-    - {widget: text_feed, entity: session, fields: [rf_good, rf_off, rf_change], sort_by: rf_good_score, window_days: 14, top: 3}
-    - {widget: table, entity: rest_day, last: 7}
+    - widget: status_board
+      label: Status by class
+      classes:
+        - {label: Wellbeing,    score: session.wb_score,      status: session.wb_status}
+        - {label: Physical,     score: session.ph_readiness,  status: session.ph_status}
+        - {label: Mental,       score: session.mn_score,      status: session.mn_status}
+        - {label: Session feel, score: session.feel_score,    status: session.feel_status}
+        - {label: Overall,      score: session.overall_score, status: session.overall_status}
+      compare_last: 4   # the average of the last 4 sessions vs the 4 before
+      window: 12        # LOW sessions among the last 12
+    - widget: heatmap_calendar
+      label: Training calendar
+      metric: session.overall_status
+      extra: rest_day.status
+      months: 12
+      mark: {field: session.setting, letters: {Indoor: G, Outdoor: O, Home wall: H}}
+      extra_mark: R
+    - widget: line
+      label: Scores by class
+      series:
+        - {metric: session.wb_score,     label: Wellbeing}
+        - {metric: session.ph_readiness, label: Physical}
+        - {metric: session.mn_score,     label: Mental}
+        - {metric: session.feel_score,   label: Session feel}
+      bands: *std_bands
+      rolling: 4
+      last: 12
+    # The legacy Summary – Recent: the last sessions side by side and the latest notes
+    - widget: side_by_side
+      label: Last sessions side by side
+      entity: session
+      last: 4
+      groups:
+        - {label: Session, fields: [venue, session_type, hardest_grade]}
+        - label: Wellbeing
+          fields: [wb_sleep_quality, wb_mood_pre, wb_energy_pre, wb_fatigue_post, wb_mood_post,
+                   wb_recovery_feel, wb_score, wb_status]
+        - label: Physical (before climbing)
+          fields: [ph_pre_fingers, ph_pre_forearms, ph_pre_elbows, ph_pre_shoulders,
+                   ph_pre_neck_traps, ph_pre_wrists, ph_pre_skin, ph_readiness, ph_status]
+        - label: Mental
+          fields: [mn_life_stress, mn_confidence, mn_anxiety, mn_focus, mn_fall_commitment,
+                   mn_fear_response, mn_route_confidence, mn_approach, mn_score, mn_status]
+        - {label: Session feel, fields: [feel_enjoyment, feel_satisfaction, feel_score, feel_status]}
+        - {label: Overall, fields: [overall_score, overall_status]}
+      notes: [wb_note_pre, wb_note_post, ph_note_pre, ph_note_post, mn_note_pre, mn_note_post, feel_note]
+      labels: {wb_mood_pre: Mood (pre), wb_energy_pre: Energy (pre), wb_fatigue_post: Post fatigue,
+               wb_mood_post: Post mood, mn_confidence: Confidence (pre), mn_anxiety: Anxiety (pre),
+               mn_focus: Focus during, wb_score: Wellbeing score, wb_status: Wellbeing status, ph_readiness: Readiness score,
+               ph_status: Physical status, mn_score: Mental score, mn_status: Mental status,
+               feel_score: Feel score, feel_status: Feel status, overall_score: Overall score,
+               overall_status: Overall status, wb_note_pre: Wellbeing — before,
+               wb_note_post: Wellbeing — after, ph_note_pre: Physical — before,
+               ph_note_post: Physical — after, mn_note_pre: Mental — before,
+               mn_note_post: Mental — after, feel_note: Session note}
+    - widget: text_feed
+      label: Wins & reflect, last 2 weeks
+      entity: session
+      lists:
+        - {label: Best 'what felt good',       text: rf_good,   score: rf_good_score}
+        - {label: Biggest 'what felt off',     text: rf_off,    score: rf_off_severity}
+        - {label: Most urgent 'what to change', text: rf_change, score: rf_change_priority}
+      window_days: 14
+      top: 3
+      attention: {status: reflect_status, equals: NEEDS ATTENTION, fields: [rf_off, rf_change]}
+    - widget: table
+      label: Rest days, last 2 weeks
+      entity: rest_day
+      columns: [date, rest_type, wellbeing_score, body_readiness, status, days_since_climb]
+      window_days: 14
+      averages: [wellbeing_score, body_readiness]
+      note: note
+      labels: {wellbeing_score: Wellbeing, body_readiness: Body readiness, status: Status,
+               days_since_climb: Days since climbing}
+    # The legacy Summary – Trends monthly table
+    - widget: monthly
+      label: Monthly averages
+      count: session
+      count_label: Sessions logged
+      classes:
+        - {label: Wellbeing,    score: session.wb_score}
+        - {label: Physical,     score: session.ph_readiness}
+        - {label: Mental,       score: session.mn_score}
+        - {label: Session feel, score: session.feel_score}
+      overall: Overall
+      low: session.overall_status
+      extra:
+        - {label: Rest days logged,   count: rest_day}
+        - {label: Rest-day wellbeing, mean: rest_day.wellbeing_score}
+      months: 6

@@ -474,6 +474,63 @@ weekday/type/…), `scatter` (with trend line), `radar`, `delta_table`, `table`,
 `text_feed` (notes/reflections), `ladder` (rung progress), `program_grid` (prescribed vs
 done), `before_after`. Custom widgets are registered by name in the frontend.
 
+Views are checked when the module loads (D-083): a widget the app draws has typed options, and
+an unknown widget name is an error; a metric is `entity.field` (a stored field or a derived
+value; an aggregate's name for M5). Drawn so far (#77):
+
+```yaml
+- {widget: kpi, metric: session.overall_status, agg: latest, label: Latest status}  # or days_since_latest (a date)
+- widget: status_board
+  classes:
+    - {label: Wellbeing, score: session.wb_score, status: session.wb_status}
+  compare_last: 4   # the average of the last 4 records vs the 4 before (default 4)
+  window: 12        # LOW statuses among the last 12 (default 12); arrows by settings.trend_delta
+- widget: line
+  series: [{metric: session.wb_score, label: Wellbeing}]
+  bands: *std_bands  # a derived entry's bands (le: settings.low_max, …), drawn behind the lines
+  rolling: 4         # a rolling mean the user can switch on
+  last: 12           # the records shown at first; a range picker shows more
+```
+
+Drawn with #78 (D-084):
+
+```yaml
+- widget: heatmap_calendar   # from the first record's month, at most the last `months`
+  metric: session.overall_status   # a day's colour: its records' worst status
+  extra: rest_day.status           # extra-only days: their status, in lighter colours
+  months: 12
+  mark: {field: session.setting, letters: {Indoor: G, Outdoor: O}}  # letters on a day (1–2 chars)
+  extra_mark: R                    # the letter of an extra-only day
+- widget: side_by_side       # the latest records, newest first (4 at first, up to 12)
+  entity: session
+  last: 4
+  groups: [{label: Wellbeing, fields: [wb_mood_pre, wb_score, wb_status]}]
+  notes: [wb_note_pre]       # the latest record's
+  labels: {wb_score: Wellbeing score}   # a row's label (default: the form's, or the name)
+- widget: text_feed          # per list the `top` texts of the last `window_days` days by score
+  entity: session
+  lists: [{label: Best 'what felt good', text: rf_good, score: rf_good_score}]
+  window_days: 14
+  top: 3
+  attention: {status: reflect_status, equals: NEEDS ATTENTION, fields: [rf_off, rf_change]}
+- widget: table              # records of the last `window_days` days (or the `last`), newest first
+  entity: rest_day
+  columns: [date, rest_type, wellbeing_score, status]
+  window_days: 14
+  averages: [wellbeing_score]
+  note: note                 # the latest non-blank one
+- widget: monthly            # per calendar month, 6 at first
+  count: session
+  count_label: Sessions logged
+  classes: [{label: Wellbeing, score: session.wb_score}]
+  overall: Overall           # the average of the class averages
+  low: session.overall_status
+  extra: [{label: Rest days logged, count: rest_day}, {label: Rest-day wellbeing, mean: rest_day.wellbeing_score}]
+```
+
+The other widgets of the library are accepted and shown as "not drawn yet" (M4/M5); a `line`
+with `split_by` or `x` too (M4).
+
 Every numeric/scale field and derived numeric field is automatically a **metric** in the
 analysis explorer (see `05-analytics.md`). No view config is needed for that.
 

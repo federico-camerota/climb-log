@@ -6,10 +6,12 @@ one per tab it has a row in, applied in one save. Values are checked as if read 
 sheet (`parse_cell`), so a write never creates a data issue. Every row written gets
 `updated_at`; a soft delete fills `deleted` on the record's rows and on its children's. An
 update can carry the values the caller read: one that changed since is a conflict (D-027).
+A row that is no record (a data issue: left out, an orphan) can be soft deleted on its own,
+and an orphan section row given its main row (D-082).
 """
 
 import datetime as dt
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 
 from climblog.expr import Value
 from climblog.modules.schema import NEXT, BaseField, Entity, Module
@@ -18,6 +20,8 @@ from climblog.storage.cells import CellError, RawCell, parse_cell
 from climblog.storage.load import DELETED, Key, ModuleData, describe_key, load_data
 
 UPDATED_AT = "updated_at"
+# Rows that are no record, which the app can soft delete on their own (D-082).
+STRAY_ROWS = frozenset({"left_out", "orphan", "orphan_child"})
 
 
 class WriteError(StorageError):
@@ -157,6 +161,40 @@ class RecordWriter:
         if edits:
             self.repo.apply(edits)
         return tuple(record.get(part) for part in _key(ent))
+
+    def delete_row(self, entity: str, tab: str, row: int) -> None:
+        """Soft delete a row that is no record (D-082): one the loader leaves out (no key, a
+        duplicate key) or an orphan. A record's own rows go with the record (`delete`)."""
+        self._stray(entity, tab, row, STRAY_ROWS)
+        now = self._now()
+        as_read = self._row(tab, row)
+        self.repo.apply([Update(tab, row, self._stamped(tab, {DELETED: now}, now), as_read)])
+
+    def adopt_row(self, entity: str, tab: str, row: int) -> Key:
+        """The record of an orphan section row (D-082): its main-tab row, with the orphan's key,
+        so the section's values become a record again. Returns the key."""
+        ent = self._entity(entity)
+        self._stray(entity, tab, row, {"orphan"})
+        cells = self._row(tab, row)
+        key = tuple(
+            self._or_default(ent, p, parse_cell(self.module, _field(ent, p), cells.get(p)))
+            for p in _key(ent)
+        )
+        keys = {p: _cell(v) for p, v in zip(_key(ent), key, strict=True)}
+        self.repo.apply([Append(ent.main_tab, self._stamped(ent.main_tab, keys, self._now()))])
+        return key
+
+    def _stray(self, entity: str, tab: str, row: int, kinds: Collection[str]) -> None:
+        """Check that the row is still one of the entity's rows reported as `kinds` (it may
+        have changed in the sheet since the caller read the issues): a conflict otherwise."""
+        ent = self._entity(entity)
+        if tab not in ent.tab_fields():
+            raise WriteError(f"{tab} is not a tab of {ent.label.lower()}", None)
+        issues = load_data(self.module, self.repo).issues
+        if not any(i.tab == tab and i.row == row and i.kind in kinds for i in issues):
+            raise WriteConflict(
+                f"{tab} row {row} is no longer a row the app leaves out: reload and look again"
+            )
 
     def key_of(self, entity: str, key: Mapping[str, Value]) -> Key:
         """The full key of the record with this key (blank parts take their defaults); raises

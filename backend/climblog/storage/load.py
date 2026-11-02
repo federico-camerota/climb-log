@@ -85,7 +85,9 @@ def _setting(
     try:
         value = parse_cell(module, _SETTING_FIELDS[setting.type], raw)
     except CellError as error:
-        issues.append(DataIssue(SETTINGS_TAB, None, key, f"{error.message}; using the default"))
+        issues.append(
+            DataIssue(SETTINGS_TAB, None, key, f"{error.message}; using the default", "setting")
+        )
         value = None
     if value is None:
         default: Value = setting.default  # checked against the type at load
@@ -121,7 +123,9 @@ class _Loader:
             present = [f for f in fields if f in table.columns]
             for missing in (f for f in fields if f not in table.columns):
                 if not _retired(self.entity, missing):  # a retired field needs no column (03 §3)
-                    self.issues.append(DataIssue(tab, None, missing, "the column is missing"))
+                    self.issues.append(
+                        DataIssue(tab, None, missing, "the column is missing", "column")
+                    )
             first_row: dict[Key, int] = {}
             counts: dict[Key, int] = {}
             for row in table.rows:
@@ -133,7 +137,7 @@ class _Loader:
         try:
             return self.repo.read_table(tab)
         except TableNotFound:
-            self.issues.append(DataIssue(tab, None, None, "the tab is missing"))
+            self.issues.append(DataIssue(tab, None, None, "the tab is missing", "tab"))
             return None
 
     def _row(
@@ -164,7 +168,9 @@ class _Loader:
             bad = {issue.field for issue in issues}
             if has_data and not bad & set(blank):
                 issues.append(
-                    DataIssue(tab, row.number, blank[0], f"no {blank[0]}: the row is left out")
+                    DataIssue(
+                        tab, row.number, blank[0], f"no {blank[0]}: the row is left out", "left_out"
+                    )
                 )
             self.issues.extend(issues)
             return
@@ -175,6 +181,7 @@ class _Loader:
                     row.number,
                     None,
                     f"same {', '.join(self.key)} as row {first_row[key]}: the row is left out",
+                    "left_out",
                 )
             )
             self.issues.extend(issues)
@@ -190,7 +197,9 @@ class _Loader:
         if index is None:
             what = describe_key(self.key, key)
             self.issues.append(
-                DataIssue(tab, row.number, None, f"no {self.entity.main_tab} row for {what}")
+                DataIssue(
+                    tab, row.number, None, f"no {self.entity.main_tab} row for {what}", "orphan"
+                )
             )
             return
         self.data.records[index].update(values)
@@ -247,7 +256,13 @@ def _report_orphan_children(
                 tab = entity.main_tab
                 what = describe_key(link.key, key)
                 issues.append(
-                    DataIssue(tab, places[tab], None, f"no {parent.main_tab} row for {what}")
+                    DataIssue(
+                        tab,
+                        places[tab],
+                        None,
+                        f"no {parent.main_tab} row for {what}",
+                        "orphan_child",
+                    )
                 )
 
 

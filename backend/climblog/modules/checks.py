@@ -23,7 +23,11 @@ from climblog.modules.schema import (
     DateField,
     Entity,
     GradeField,
+    HeatmapWidget,
+    KpiWidget,
+    LineWidget,
     Module,
+    MonthlyWidget,
     NumberField,
     NumericScale,
     OrdinalScale,
@@ -31,8 +35,15 @@ from climblog.modules.schema import (
     ReferenceTemplateUse,
     RefField,
     ScaleField,
+    SideBySideWidget,
+    StatusBoardWidget,
+    TableWidget,
     TemplateUse,
+    TextFeedWidget,
     YamlPath,
+)
+from climblog.modules.schema import (
+    Band as BandItemModel,
 )
 
 # Columns the app adds to every tab (04-storage.md §1).
@@ -91,6 +102,7 @@ def cross_check(module: Module) -> list[Problem]:
     from climblog.modules.summary import summary_problems  # it imports us
 
     problems += summary_problems(module)
+    problems += _views(module)
     return problems
 
 
@@ -503,3 +515,140 @@ def _recommendation(module: Module) -> tuple[RecommendationPlan | None, list[Pro
             )
     reasons = tuple(found.reasons.items())
     return RecommendationPlan(found.label, values, tuple(rules), reasons), problems
+
+
+# ---- Views (D-083) ----
+
+
+def field_names(module: Module, entity: str) -> set[str]:
+    """An entity's fields and derived values, templates expanded (`ph_pre_` + soreness's keys:
+    the checks run on the module as written)."""
+    found = module.entities[entity]
+    names = set(found.derived)
+    for name, field in found.fields.items():
+        if isinstance(field, TemplateUse):
+            names |= {name + key for key in module.templates.get(field.template, {})}
+        else:
+            names.add(name)
+    return names
+
+
+def metric_of(module: Module, text: str) -> tuple[str, str] | str:
+    """`entity.field` as (entity, field), a stored field or a derived value; else the problem."""
+    entity, _, name = text.partition(".")
+    if entity in (module.aggregates or {}) and name:
+        return entity, name  # an aggregate's value (M5): checked when aggregates are
+    if entity not in module.entities or not name:
+        known = ", ".join(module.entities)
+        return f"'{text}' is not entity.field (entities: {known})"
+    if name not in field_names(module, entity):
+        return f"'{entity}' has no field or derived value '{name}'"
+    return entity, name
+
+
+def _views(module: Module) -> list[Problem]:
+    problems: list[Problem] = []
+    for view, widgets in (module.views or {}).items():
+        for i, widget in enumerate(widgets):
+            at: YamlPath = ("views", view, i)
+            metrics: list[tuple[YamlPath, str]] = []
+            if isinstance(widget, KpiWidget):
+                metrics.append(((*at, "metric"), widget.metric))
+                found = metric_of(module, widget.metric)
+                if widget.agg == "days_since_latest" and isinstance(found, tuple):
+                    field = module.entities[found[0]].fields.get(found[1])
+                    if not isinstance(field, DateField):
+                        problems.append(Problem((*at, "agg"), "days_since_latest needs a date"))
+            elif isinstance(widget, StatusBoardWidget):
+                for j, row in enumerate(widget.classes):
+                    metrics.append(((*at, "classes", j, "score"), row.score))
+                    metrics.append(((*at, "classes", j, "status"), row.status))
+            elif isinstance(widget, LineWidget):
+                for j, series in enumerate(widget.series):
+                    metrics.append(((*at, "series", j, "metric"), series.metric))
+                for j, band in enumerate(widget.bands):
+                    if isinstance(band, BandItemModel) and isinstance(band.le, str):
+                        name = band.le.removeprefix("settings.")
+                        if not band.le.startswith("settings.") or name not in module.settings:
+                            problems.append(
+                                Problem(
+                                    (*at, "bands", j, "le"),
+                                    f"'{band.le}' is not a number or a setting (settings.<name>)",
+                                )
+                            )
+            elif isinstance(widget, HeatmapWidget):
+                metrics.append(((*at, "metric"), widget.metric))
+                if widget.extra is not None:
+                    metrics.append(((*at, "extra"), widget.extra))
+                if widget.mark is not None:
+                    metrics.append(((*at, "mark", "field"), widget.mark.field))
+                    entity = widget.metric.partition(".")[0]
+                    if widget.mark.field.partition(".")[0] != entity:
+                        problems.append(
+                            Problem(
+                                (*at, "mark", "field"),
+                                f"'{widget.mark.field}' is not a field of '{entity}', "
+                                "the metric's entity",
+                            )
+                        )
+            elif isinstance(widget, MonthlyWidget):
+                problems += _entity_named(module, widget.count, (*at, "count"))
+                metrics += [
+                    ((*at, "classes", j, "score"), c.score) for j, c in enumerate(widget.classes)
+                ]
+                if widget.low is not None:
+                    metrics.append(((*at, "low"), widget.low))
+                for j, extra in enumerate(widget.extra):
+                    if extra.count is not None:
+                        problems += _entity_named(module, extra.count, (*at, "extra", j, "count"))
+                    if extra.mean is not None:
+                        metrics.append(((*at, "extra", j, "mean"), extra.mean))
+            else:
+                problems += _entity_fields(module, widget, at)
+            for path, text in metrics:
+                found = metric_of(module, text)
+                if isinstance(found, str):
+                    problems.append(Problem(path, found))
+    return problems
+
+
+def _entity_named(module: Module, name: str, at: YamlPath) -> list[Problem]:
+    if name in module.entities:
+        return []
+    return [Problem(at, f"no entity '{name}' (entities: {', '.join(module.entities)})")]
+
+
+def _entity_fields(module: Module, widget: object, at: YamlPath) -> list[Problem]:
+    """The `entity` of a widget and the names of its fields there (stored or derived)."""
+    entity = getattr(widget, "entity", None)
+    if not isinstance(entity, str):
+        return []
+    found = _entity_named(module, entity, (*at, "entity"))
+    if found:
+        return found
+    names: list[tuple[YamlPath, str]] = []
+    if isinstance(widget, SideBySideWidget):
+        for j, group in enumerate(widget.groups):
+            names += [((*at, "groups", j, "fields", k), f) for k, f in enumerate(group.fields)]
+        names += [((*at, "notes", k), f) for k, f in enumerate(widget.notes)]
+    elif isinstance(widget, TextFeedWidget):
+        for j, item in enumerate(widget.lists):
+            names.append(((*at, "lists", j, "text"), item.text))
+            if item.score is not None:
+                names.append(((*at, "lists", j, "score"), item.score))
+        if widget.attention is not None:
+            names.append(((*at, "attention", "status"), widget.attention.status))
+            names += [
+                ((*at, "attention", "fields", k), f) for k, f in enumerate(widget.attention.fields)
+            ]
+    elif isinstance(widget, TableWidget):
+        names += [((*at, "columns", k), f) for k, f in enumerate(widget.columns)]
+        names += [((*at, "averages", k), f) for k, f in enumerate(widget.averages)]
+        if widget.note is not None:
+            names.append(((*at, "note"), widget.note))
+    known = field_names(module, entity)
+    return [
+        Problem(path, f"'{entity}' has no field or derived value '{name}'")
+        for path, name in names
+        if name not in known
+    ]

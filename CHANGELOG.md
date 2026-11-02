@@ -11,6 +11,21 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   session, days since, latest status, weakest area, LOW sessions in 14 days, the suggested next
   session and the last 4 sessions side by side, as formulas compiled from the module YAML, so the
   sheet on the phone shows what the app shows; a cell changed by hand is drift.
+- Dashboard, part 2 (#78, D-084): a training calendar (a square per day on a grid, coloured by
+  the day's status, rest days lighter, a letter for gym, outdoor, home wall or rest; from the
+  first record's month, at most 12 months), the last 4, 8 or 12
+  sessions side by side with the latest notes, the best reflections of the last 2 weeks and
+  those needing attention, the rest days of the last 2 weeks, and monthly averages over 6, 12,
+  24 or all months, as the legacy Summary sheets.
+- Dashboard, part 1 (#77, D-083): the journal's dashboard with the latest status and days since
+  the last session, the status board by class (as the legacy Summary – Trends: last 4 vs the 4
+  before, direction, LOW in the last 12) and the scores by class over time with the status bands,
+  a rolling mean and a range picker; `GET /api/modules/{m}/views/{view}`. Views in the module
+  YAML are now checked when it loads.
+- Editing records (#76, D-082): click a record on the Records page to edit the whole record in
+  a drawer, its data issues under their fields (a bad value shown as typed), or delete it after
+  a confirmation; the issues panel deletes rows the app leaves out (a duplicate key, no date,
+  an orphan) and creates the missing session of an orphan section row.
 - App shell (#70, D-073): a sidebar with Today, Log, Records, Dashboards and Settings,
   pages per module and entity in the URL (`/records/journal/session`), a light/dark toggle,
   Settings listing the modules (and what is wrong with one that doesn't load), and on Records

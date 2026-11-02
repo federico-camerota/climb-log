@@ -5,7 +5,7 @@ import type { Records } from "../api/client";
 import { formatDateTime } from "../lib/format";
 
 /** When the data shown was read, and a warning when the sheet couldn't be reached (D-055). */
-export function DataStatus({ records }: { records: Records }) {
+export function DataStatus({ records }: { records: Pick<Records, "as_of" | "offline"> }) {
   const asOf = records.as_of === null ? null : formatDateTime(records.as_of);
   return (
     <>

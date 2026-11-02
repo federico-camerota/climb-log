@@ -30,7 +30,7 @@ describe("Shell", () => {
   it("marks a page active on its sub-paths", async () => {
     stubApi({ "/api/health": HEALTH, "/api/modules": MODULES });
     renderApp("/dashboards/journal");
-    expect(await screen.findByText("The module's dashboard comes with #77.")).toBeInTheDocument();
+    expect(await screen.findByText("Module 'journal' has no views.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Dashboards" })).toHaveAttribute("data-active", "true");
   });
 

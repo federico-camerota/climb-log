@@ -562,6 +562,198 @@ class Recommendation(Strict):
         return self
 
 
+# ---- Views (dashboards, 03 §2.7, D-083) ----
+
+
+class _Widget(Strict):
+    label: str | None = None  # the widget's title
+
+
+class KpiWidget(_Widget):
+    """One number or status: the metric in the latest record, or the days since it."""
+
+    widget: Literal["kpi"]
+    metric: str  # `entity.field`, a stored field or a derived value
+    agg: Literal["latest", "days_since_latest"] = "latest"
+
+
+class StatusClass(Strict):
+    label: str  # e.g. Wellbeing
+    score: str  # `entity.field`
+    status: str  # `entity.field`
+
+
+class StatusBoardWidget(_Widget):
+    """Per class: the latest status and score, the average of the last `compare_last` records
+    vs the ones before, the direction (`settings.trend_delta`), and the LOW records among the
+    last `window` (the legacy Summary - Trends status board)."""
+
+    widget: Literal["status_board"]
+    classes: list[StatusClass] = Field(min_length=1)
+    compare_last: int = Field(4, ge=1)
+    window: int = Field(12, ge=1)
+
+
+class Series(Strict):
+    metric: str  # `entity.field`
+    label: str | None = None
+
+
+class LineWidget(_Widget):
+    """Metrics over the records, with the status bands behind them and a rolling mean; the
+    last `last` records shown at first (a range picker shows more)."""
+
+    widget: Literal["line"]
+    series: list[Series] = Field(min_length=1)
+    bands: list[BandItem] = []  # as a derived entry's (`le: settings.low_max`, …)
+    rolling: int | None = Field(None, ge=2)
+    last: int = Field(12, ge=1)
+    split_by: list[str] = []  # one line per combination of these fields: not drawn yet (M4)
+    x: str | None = None  # an x axis other than the records' dates (`entity.field`): M4
+
+
+Letter = Annotated[str, Field(min_length=1, max_length=2)]
+
+
+class HeatmapMark(Strict):
+    """A letter on a day's square from a field of its records, e.g. setting Outdoor → O."""
+
+    field: str  # `entity.field` of the metric's entity
+    letters: dict[str, Letter] = Field(min_length=1)  # value → letter; other values: none
+
+
+class HeatmapWidget(_Widget):
+    """A calendar from the first record's month, at most the last `months` months: each day
+    coloured by the worst of its records' status (`metric`), the days of another entity
+    (`extra`, e.g. rest days) in lighter colours, and a letter per day (`mark`, `extra_mark`)."""
+
+    widget: Literal["heatmap_calendar"]
+    metric: str  # `entity.field`, a status
+    extra: str | None = None  # `entity.field`, e.g. rest_day.status
+    months: int = Field(12, ge=1)
+    mark: HeatmapMark | None = None  # e.g. {field: session.setting, letters: {Outdoor: O}}
+    extra_mark: Letter | None = None  # the letter of a day with only an extra record, e.g. R
+
+
+class SideGroup(Strict):
+    label: str  # e.g. Wellbeing
+    fields: list[str] = Field(min_length=1)  # the entity's fields or derived values
+
+
+class SideBySideWidget(_Widget):
+    """The latest records side by side, newest first: `last` at first (a picker shows up to
+    12), their fields in `groups`, and the latest record's `notes` below."""
+
+    widget: Literal["side_by_side"]
+    entity: str
+    last: int = Field(4, ge=1, le=12)
+    groups: list[SideGroup] = Field(min_length=1)
+    notes: list[str] = []  # text fields
+    labels: dict[str, str] = {}  # a row's label (default: the form's, or the derived name)
+
+
+class FeedList(Strict):
+    label: str  # e.g. Best 'what felt good'
+    text: str  # a text field
+    score: str | None = None  # its score: the highest first (none: the newest first)
+
+
+class Attention(Strict):
+    status: str  # a status field or derived value, e.g. reflect_status
+    equals: str  # e.g. NEEDS ATTENTION
+    fields: list[str] = Field(min_length=1)  # the texts shown for such a record
+
+
+class TextFeedWidget(_Widget):
+    """Texts of the last `window_days` days: per list the `top` ones by their score (then the
+    newest), as the legacy "top 3 of the last 2 weeks"; and the records needing attention."""
+
+    widget: Literal["text_feed"]
+    entity: str
+    lists: list[FeedList] = Field(min_length=1)
+    window_days: int = Field(14, ge=0)
+    top: int = Field(3, ge=1)
+    attention: Attention | None = None
+
+
+class TableWidget(_Widget):
+    """An entity's records of the last `window_days` days (or the `last` ones), newest first,
+    with the averages of some columns and the latest note."""
+
+    widget: Literal["table"]
+    entity: str
+    columns: list[str] = Field(min_length=1)  # the entity's fields or derived values
+    window_days: int | None = Field(None, ge=0)
+    last: int | None = Field(None, ge=1)
+    averages: list[str] = []  # columns averaged over the rows shown
+    note: str | None = None  # a text field: its latest non-blank value up to the day
+    labels: dict[str, str] = {}  # a column's label (default: the form's, or the derived name)
+
+
+class MonthlyClass(Strict):
+    label: str
+    score: str  # `entity.field`
+
+
+class MonthlyExtra(Strict):
+    label: str
+    count: str | None = None  # an entity: its records in the month
+    mean: str | None = None  # `entity.field`: its average in the month
+
+    @model_validator(mode="after")
+    def _one(self) -> Self:
+        if (self.count is None) == (self.mean is None):
+            raise ValueError("give either count (an entity) or mean (entity.field)")
+        return self
+
+
+class MonthlyWidget(_Widget):
+    """Per calendar month (the last `months` at first, a picker shows more): the records of
+    `count`, each class's average, `overall` (the average of the class averages), the `low`
+    statuses, and `extra` counts or averages (the legacy Summary - Trends monthly table)."""
+
+    widget: Literal["monthly"]
+    count: str  # the entity counted ("Sessions logged"); a month without one shows no averages
+    count_label: str = "Records"
+    classes: list[MonthlyClass] = []
+    overall: str | None = None  # the label of the average of the class averages
+    low: str | None = None  # `entity.field`, a status: the LOW ones per month
+    extra: list[MonthlyExtra] = []
+    months: int = Field(6, ge=1)
+
+
+class LaterWidget(BaseModel):
+    """A widget of the planned library (03 §2.7) the app doesn't draw yet (M4/M5): its options
+    are checked when it is."""
+
+    model_config = ConfigDict(extra="allow", frozen=True)
+    widget: Literal[
+        "status_strip",
+        "bars",
+        "weekbars",
+        "stacked",
+        "box_by",
+        "scatter",
+        "radar",
+        "delta_table",
+        "ladder",
+        "program_grid",
+        "before_after",
+    ]
+
+
+Widget = Annotated[
+    KpiWidget
+    | StatusBoardWidget
+    | LineWidget
+    | HeatmapWidget
+    | SideBySideWidget
+    | TextFeedWidget
+    | TableWidget
+    | MonthlyWidget
+    | LaterWidget,
+    Field(discriminator="widget"),
+]
 # ---- The Summary tab of the sheet (D-085) ----
 
 
@@ -621,7 +813,7 @@ class Module(Strict):
     program: Unchecked | None = None  # M5
     reference: Unchecked | None = None  # M5
     forms: Unchecked | None = None  # M3
-    views: Unchecked | None = None  # M3, M4
+    views: dict[Key, list[Widget]] | None = None  # D-083
     aggregates: Unchecked | None = None  # M5
     recommendation: Recommendation | None = None  # M3 (D-076)
     summary: Summary | None = None  # the sheet's Summary tab (D-085)

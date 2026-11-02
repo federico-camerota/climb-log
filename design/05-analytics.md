@@ -31,11 +31,21 @@ the previous day's session). That is all the explorer needs.
 
 ## 2. Parity analyses (from the current sheets)
 - Status board: latest status and score per class, average of the last 4 vs the previous 4,
-  trend arrow (`TrendDelta`), LOW count in the last 12.
-- Last N sessions side by side (N selectable, not fixed at 4).
-- Monthly averages (any range, not just 6 months).
-- Top reflections of the last 14 days (by score) and reflections needing attention.
-- Rest-day log with status and days since the last climb.
+  trend arrow (`TrendDelta`), LOW count in the last 12. Done (D-083, #77): as the legacy
+  formulas, checked against them on LibreOffice (`tests/test_views_parity.py`): the last 12
+  sessions up to the day, averages of the values present rounded to one decimal (half away
+  from zero), the previous average from 5 sessions on, ▲ when the change ≥ `trend_delta`,
+  ▼ when ≤ −`trend_delta`. One difference: a day's second session counts with its own values
+  (the legacy MATCH by date read the first one twice).
+- Last N sessions side by side (N selectable, not fixed at 4). Done (D-084, #78): 4, 8 or 12,
+  with the legacy rows and the latest session's notes.
+- Monthly averages (any range, not just 6 months). Done (D-084, #78): 6, 12, 24 or all months,
+  as the legacy formulas (checked on LibreOffice): sessions logged, each class's average, the
+  overall as the average of the class averages, LOW sessions, rest days and their wellbeing.
+- Top reflections of the last 14 days (by score) and reflections needing attention. Done
+  (D-084, #78): per prompt the top 3 by score then the newest, as the legacy lists.
+- Rest-day log with status and days since the last climb. Done (D-084, #78): the last 14 days,
+  newest first, with the averages and the latest rest-day note.
 - Log check (incomplete records) is shown as a to-do list.
 - Search across all text fields with filters (all modules, highlighted matches, no 40-row cap).
 - Shoulder weekly dashboard (completion %, primer, symptom averages, G/Y/R days, review flags).

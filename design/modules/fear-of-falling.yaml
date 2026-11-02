@@ -147,5 +147,5 @@ views:
     - {widget: ladder, reference: rungs, cleared: rung_clearance, attempts: fall}
     - {widget: radar, entity: fear_map_score, axis: scenario, series: checkpoint}
     - {widget: scatter, x: fall.pred_hurt_pct, y: fall.peak_fear, color: fall.rung.track}
-    - {widget: line, metrics: [weekly.peak_fear_max, weekly.berp_avg], x: program_week}
+    - {widget: line, series: [{metric: weekly.peak_fear_max}, {metric: weekly.berp_avg}], x: weekly.program_week}
     - {widget: radar, entity: q20, axis: category, series: program_week, last: 3}

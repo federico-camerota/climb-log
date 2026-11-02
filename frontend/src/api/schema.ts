@@ -38,6 +38,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/modules/{module}/views/{view}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get View
+         * @description The view's widgets with their data, for the day (default today).
+         */
+        get: operations["get_view_api_modules__module__views__view__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/modules/{module}/{entity}": {
         parameters: {
             query?: never;
@@ -87,6 +107,46 @@ export interface paths {
         patch: operations["update_record_api_modules__module___entity__record_patch"];
         trace?: never;
     };
+    "/api/modules/{module}/{entity}/row": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Row
+         * @description The row of a data issue, e.g. ?tab=Session&row=6
+         */
+        delete: operations["delete_row_api_modules__module___entity__row_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/modules/{module}/{entity}/row/record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt Row
+         * @description The row of a data issue, e.g. ?tab=Session&row=6
+         */
+        post: operations["adopt_row_api_modules__module___entity__row_record_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recommendation": {
         parameters: {
             query?: never;
@@ -131,6 +191,45 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Attention */
+        Attention: {
+            /** Items */
+            items: components["schemas"]["AttentionItem"][];
+            /** Label */
+            label: string;
+        };
+        /** AttentionItem */
+        AttentionItem: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            };
+            /** Texts */
+            texts: string[];
+        };
+        /** Average */
+        Average: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: number | null;
+        };
+        /** BandData */
+        BandData: {
+            /** From */
+            from: number | null;
+            /** Label */
+            label: string;
+            /** To */
+            to: number | null;
+        };
         /** DueForm */
         DueForm: {
             /** Form */
@@ -147,6 +246,29 @@ export interface components {
             missing: string[];
             /** Status */
             status: string;
+        };
+        /** FeedItem */
+        FeedItem: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            };
+            /** Score */
+            score: number | null;
+            /** Text */
+            text: string;
+        };
+        /** FeedList */
+        FeedList: {
+            /** Items */
+            items: components["schemas"]["FeedItem"][];
+            /** Label */
+            label: string;
         };
         /** FieldProblem */
         FieldProblem: {
@@ -167,16 +289,116 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** HeatmapData */
+        HeatmapData: {
+            /** Days */
+            days: components["schemas"]["HeatmapDay"][];
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Extra */
+            extra: string | null;
+            /** Label */
+            label: string | null;
+            /** Marks */
+            marks: components["schemas"]["HeatmapMark"][];
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "heatmap_calendar";
+        };
+        /** HeatmapDay */
+        HeatmapDay: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Extra */
+            extra: unknown;
+            /** Mark */
+            mark: string | null;
+            /** Records */
+            records: number;
+            /** Status */
+            status: unknown;
+        };
+        /** HeatmapMark */
+        HeatmapMark: {
+            /** Label */
+            label: string;
+            /** Letter */
+            letter: string;
+        };
         /** Issue */
         Issue: {
             /** Field */
             field: string | null;
+            /**
+             * Kind
+             * @default value
+             */
+            kind: string;
             /** Message */
             message: string;
             /** Row */
             row: number | null;
             /** Tab */
             tab: string;
+            /** Value */
+            value?: string | null;
+        };
+        /** KpiData */
+        KpiData: {
+            /** Agg */
+            agg: string;
+            /** Label */
+            label: string | null;
+            /** Value */
+            value: unknown;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "kpi";
+        };
+        /** LatestNote */
+        LatestNote: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Text */
+            text: string;
+        };
+        /** LineData */
+        LineData: {
+            /** Bands */
+            bands: components["schemas"]["BandData"][];
+            /** Label */
+            label: string | null;
+            /** Last */
+            last: number;
+            /** Points */
+            points: components["schemas"]["Point"][];
+            /** Rolling */
+            rolling: number | null;
+            /** Series */
+            series: components["schemas"]["SeriesData"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "line";
         };
         /** ModuleAdvice */
         ModuleAdvice: {
@@ -252,10 +474,84 @@ export interface components {
              */
             problems: string[];
         };
+        /** MonthRow */
+        MonthRow: {
+            /** Classes */
+            classes: (number | null)[];
+            /** Count */
+            count: number;
+            /** Extra */
+            extra: (number | null)[];
+            /** Low */
+            low: number | null;
+            /** Month */
+            month: string;
+            /** Overall */
+            overall: number | null;
+        };
+        /** MonthlyData */
+        MonthlyData: {
+            /** Classes */
+            classes: string[];
+            /** Count Label */
+            count_label: string;
+            /** Extra */
+            extra: string[];
+            /** Label */
+            label: string | null;
+            /** Low */
+            low: boolean;
+            /** Months */
+            months: number;
+            /** Overall */
+            overall: string | null;
+            /** Rows */
+            rows: components["schemas"]["MonthRow"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "monthly";
+        };
         /** NewRecord */
         NewRecord: {
             /** Values */
             values: {
+                [key: string]: unknown;
+            };
+        };
+        /** Note */
+        Note: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
+            /** Text */
+            text: string | null;
+        };
+        /** PlannedData */
+        PlannedData: {
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string | null;
+            /** Why */
+            why: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "planned";
+        };
+        /** Point */
+        Point: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Key */
+            key: {
                 [key: string]: unknown;
             };
         };
@@ -321,6 +617,134 @@ export interface components {
             /** Records */
             records: components["schemas"]["Record"][];
         };
+        /** Row */
+        Row: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string;
+        };
+        /** SeriesData */
+        SeriesData: {
+            /** Label */
+            label: string;
+            /** Metric */
+            metric: string;
+            /** Rolling */
+            rolling: (number | null)[] | null;
+            /** Values */
+            values: (number | null)[];
+        };
+        /** SideBySideData */
+        SideBySideData: {
+            /** Groups */
+            groups: components["schemas"]["SideGroupData"][];
+            /** Label */
+            label: string | null;
+            /** Last */
+            last: number;
+            /** Notes */
+            notes: components["schemas"]["Note"][];
+            /** Records */
+            records: components["schemas"]["SideRecord"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "side_by_side";
+        };
+        /** SideGroupData */
+        SideGroupData: {
+            /** Label */
+            label: string;
+            /** Rows */
+            rows: components["schemas"]["Row"][];
+        };
+        /** SideRecord */
+        SideRecord: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            };
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
+        };
+        /** StatusBoardData */
+        StatusBoardData: {
+            /** Compare Last */
+            compare_last: number;
+            /** Label */
+            label: string | null;
+            /** Rows */
+            rows: components["schemas"]["StatusRow"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "status_board";
+            /** Window */
+            window: number;
+        };
+        /** StatusRow */
+        StatusRow: {
+            /** Average Last */
+            average_last: number | null;
+            /** Average Previous */
+            average_previous: number | null;
+            /** Change */
+            change: number | null;
+            /** Direction */
+            direction: ("up" | "down" | "flat") | null;
+            /** Label */
+            label: string;
+            /** Low */
+            low: number;
+            /** Score */
+            score: number | null;
+            /** Status */
+            status: unknown;
+        };
+        /** TableData */
+        TableData: {
+            /** Averages */
+            averages: components["schemas"]["Average"][];
+            /** Columns */
+            columns: components["schemas"]["Row"][];
+            /** Label */
+            label: string | null;
+            note: components["schemas"]["LatestNote"] | null;
+            /** Rows */
+            rows: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "table";
+        };
+        /** TextFeedData */
+        TextFeedData: {
+            attention: components["schemas"]["Attention"] | null;
+            /** Label */
+            label: string | null;
+            /** Lists */
+            lists: components["schemas"]["FeedList"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "text_feed";
+            /** Window Days */
+            window_days: number;
+        };
         /** Today */
         Today: {
             /**
@@ -345,6 +769,24 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** View */
+        View: {
+            /** As Of */
+            as_of: string | null;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Module */
+            module: string;
+            /** Offline */
+            offline: boolean;
+            /** View */
+            view: string;
+            /** Widgets */
+            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["HeatmapData"] | components["schemas"]["SideBySideData"] | components["schemas"]["TextFeedData"] | components["schemas"]["TableData"] | components["schemas"]["MonthlyData"] | components["schemas"]["PlannedData"])[];
         };
         /** WriteProblem */
         WriteProblem: {
@@ -409,6 +851,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModuleList"];
+                };
+            };
+        };
+    };
+    get_view_api_modules__module__views__view__get: {
+        parameters: {
+            query?: {
+                date?: string | null;
+            };
+            header?: never;
+            path: {
+                module: string;
+                view: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["View"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -669,6 +1145,146 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Written"];
+                };
+            };
+            /** @description No such module, entity or record */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The key is taken, the record changed since it was read, or the module doesn't load */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description An unknown field or a bad value */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook is open in Excel or LibreOffice */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook can't be reached: offline, read-only */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+        };
+    };
+    delete_row_api_modules__module___entity__row_delete: {
+        parameters: {
+            query: {
+                tab: string;
+                row: number;
+            };
+            header?: never;
+            path: {
+                module: string;
+                entity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such module, entity or record */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The key is taken, the record changed since it was read, or the module doesn't load */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description An unknown field or a bad value */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook is open in Excel or LibreOffice */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook can't be reached: offline, read-only */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+        };
+    };
+    adopt_row_api_modules__module___entity__row_record_post: {
+        parameters: {
+            query: {
+                tab: string;
+                row: number;
+            };
+            header?: never;
+            path: {
+                module: string;
+                entity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

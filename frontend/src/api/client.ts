@@ -13,6 +13,16 @@ export type Issue = Schemas["Issue"];
 export type Written = Schemas["Written"];
 export type Recommendation = Schemas["Recommendation"];
 export type ModuleAdvice = Schemas["ModuleAdvice"];
+export type View = Schemas["View"];
+export type KpiData = Schemas["KpiData"];
+export type StatusBoardData = Schemas["StatusBoardData"];
+export type LineData = Schemas["LineData"];
+export type PlannedData = Schemas["PlannedData"];
+export type HeatmapData = Schemas["HeatmapData"];
+export type SideBySideData = Schemas["SideBySideData"];
+export type TextFeedData = Schemas["TextFeedData"];
+export type TableData = Schemas["TableData"];
+export type MonthlyData = Schemas["MonthlyData"];
 export type Today = Schemas["Today"];
 export type ModuleDay = Schemas["ModuleDay"];
 export type DueForm = Schemas["DueForm"];
@@ -161,6 +171,43 @@ export function updateRecord(
   expected: Values,
 ): Promise<Written> {
   return send<Written>("PATCH", recordPath(module, entity, key), { values, expected });
+}
+
+/** A module's view (dashboard) with each widget's data, for a day (D-083). */
+export function getView(module: string, view: string, date: string): Promise<View> {
+  const path = `/api/modules/${encodeURIComponent(module)}/views/${encodeURIComponent(view)}`;
+  return getJson<View>(`${path}?date=${encodeURIComponent(date)}`);
+}
+
+/** The names of a module's views, in YAML order. */
+export function viewNames(module: ModuleInfo): string[] {
+  const views = module.module_schema?.views;
+  return typeof views === "object" && views !== null ? Object.keys(views) : [];
+}
+
+/** Soft delete a record and its children (D-075). */
+export function deleteRecord(module: string, entity: string, key: Values): Promise<void> {
+  return send<undefined>("DELETE", recordPath(module, entity, key));
+}
+
+function rowPath(module: string, entity: string, tab: string, row: number, suffix = ""): string {
+  const params = new URLSearchParams({ tab, row: String(row) });
+  return `${entityPath(module, entity)}/row${suffix}?${params.toString()}`;
+}
+
+/** Soft delete a row that is no record: left out (no key, a duplicate) or an orphan (D-082). */
+export function deleteRow(module: string, entity: string, tab: string, row: number): Promise<void> {
+  return send<undefined>("DELETE", rowPath(module, entity, tab, row));
+}
+
+/** Give an orphan section row its record: the main-tab row with its key (D-082). */
+export function adoptRow(
+  module: string,
+  entity: string,
+  tab: string,
+  row: number,
+): Promise<Written> {
+  return send<Written>("POST", rowPath(module, entity, tab, row, "/record"));
 }
 
 export function getRecommendation(date: string): Promise<Recommendation> {
