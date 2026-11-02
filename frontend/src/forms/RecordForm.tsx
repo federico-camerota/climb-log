@@ -8,6 +8,7 @@ import {
   addRecord,
   ApiError,
   type FieldProblem,
+  type Issue,
   updateRecord,
   type ModuleInfo,
   type Values,
@@ -16,7 +17,10 @@ import {
 import { useRecord } from "../api/queries";
 import { FieldInput } from "./FieldInput";
 import { formGroups, scaleOf, type EntityDef, type FormDef } from "./schema";
-import { problem, toApi, toInput, unchanged, type InputValue } from "./values";
+import { isScale, problem, toApi, toInput, unchanged, type InputValue } from "./values";
+
+// The inputs that hold text as typed (FieldInput's text inputs): a bad value is shown in them.
+const TYPED_AS_TEXT = new Set(["text", "integer", "number", "percent", "duration", "grade", "ref"]);
 
 interface Props {
   module: ModuleInfo;
@@ -24,6 +28,9 @@ interface Props {
   form: FormDef;
   entity: EntityDef;
   recordKey: Values; // e.g. {date: "2026-10-30", session_no: "2"}
+  // the record's data issues (Records' edit drawer, D-082): each shows under its field, and a
+  // bad value typed in a text-like field starts in the input as typed, to be corrected
+  issues?: Issue[];
 }
 
 /** A module form for one record (06-ui Log): created the first time it is saved (the pre-session
@@ -70,12 +77,21 @@ function Editor({
   read,
   onSaved,
   onReload,
+  issues = [],
 }: EditorProps) {
   const groups = formGroups(entity, form);
   const fields = groups.flatMap((group) => group.fields);
   const scale = (name: string) => scaleOf(module, entity.fields[name]?.scale);
   const initial = Object.fromEntries(
-    fields.map(([name, field]) => [name, toInput(field, scale(name), read?.[name])]),
+    fields.map(([name, field]) => {
+      const typed = issues.find((i) => i.field === name && i.kind === "value")?.value;
+      const asTyped =
+        typed != null && TYPED_AS_TEXT.has(field.type) && !isScale(field, scale(name));
+      return [name, asTyped ? typed : toInput(field, scale(name), read?.[name])];
+    }),
+  );
+  const issueErrors = Object.fromEntries(
+    issues.filter((i) => i.field !== null).map((i) => [i.field ?? "", i.message]),
   );
   const draftKey = `climblog:draft:${module.id}:${formName}:${JSON.stringify(recordKey)}`;
   const [draft] = useState(() => loadDraft(draftKey));
@@ -85,7 +101,7 @@ function Editor({
     mode: "controlled",
     initialValues: { ...initial, ...(draft ?? {}) },
     // a draft comes back with the errors it had (D-079): the API's are known only on save
-    initialErrors: draft === null ? {} : loadDraftErrors(draftKey),
+    initialErrors: { ...issueErrors, ...(draft === null ? {} : loadDraftErrors(draftKey)) },
     validate: Object.fromEntries(
       fields.map(([name, field]) => [name, (value: InputValue) => problem(field, value)]),
     ),
