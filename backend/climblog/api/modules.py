@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from climblog.catalog import Catalog, EntityRecords, Entry, served
 from climblog.expr import Value
 from climblog.storage import (
+    DataIssue,
     KeyTaken,
     RecordNotFound,
     RecordWriter,
@@ -51,6 +52,10 @@ class Issue(BaseModel):
     row: int | None
     field: str | None
     message: str
+    # value, required, left_out, orphan, orphan_child, column, tab, setting (D-082): what can
+    # be done about it (a left-out or orphan row can be deleted, an orphan section row adopted)
+    kind: str = "value"
+    value: str | None = None  # a bad cell as typed, to show it in the form
 
 
 class Record(BaseModel):
@@ -94,7 +99,7 @@ def list_records(request: Request, module: str, entity: str) -> Records:
         module=module,
         entity=entity,
         records=[_record(data, index) for index in range(len(data.records))],
-        issues=[Issue(tab=i.tab, row=i.row, field=i.field, message=i.message) for i in data.issues],
+        issues=[_issue(i) for i in data.issues],
         as_of=data.as_of,
         offline=data.offline,
     )
@@ -190,6 +195,36 @@ def delete_record(request: Request, module: str, entity: str) -> None:
         _writer(entry).delete(entity, dict(request.query_params))
 
 
+# A row that is no record (a data issue): `?tab=Session&row=6`, as the issue gives them (D-082).
+ROW_HELP = "The row of a data issue, e.g. ?tab=Session&row=6"
+
+
+@router.delete(
+    "/modules/{module}/{entity}/row", status_code=204, responses=_WRITE_ERRORS, description=ROW_HELP
+)
+def delete_row(request: Request, module: str, entity: str, tab: str, row: int) -> None:
+    """Soft delete a row the app leaves out (no key, a duplicate key) or an orphan row."""
+    current = catalog(request)
+    entry = _entry(current, module, entity)
+    with entry.lock, _write_errors():
+        _writer(entry).delete_row(entity, tab, row)
+
+
+@router.post(
+    "/modules/{module}/{entity}/row/record",
+    status_code=201,
+    responses=_WRITE_ERRORS,
+    description=ROW_HELP,
+)
+def adopt_row(request: Request, module: str, entity: str, tab: str, row: int) -> Written:
+    """Give an orphan section row its record: the main-tab row with the orphan's key."""
+    current = catalog(request)
+    entry = _entry(current, module, entity)
+    with entry.lock, _write_errors():
+        key = _writer(entry).adopt_row(entity, tab, row)
+    return _written(current, entry, entity, key)
+
+
 def _entry(current: Catalog, module: str, entity: str) -> Entry:
     """The module's entry, refused when it is unknown or doesn't load, or has no such entity."""
     entry = current.entries.get(module)
@@ -245,6 +280,19 @@ def _written(current: Catalog, entry: Entry, entity: str, key: Sequence[Value]) 
         raise HTTPException(404, WriteProblem(message="the record is gone").model_dump())
     data, index = found
     return Written(record=_record(data, index), as_of=data.as_of)
+
+
+def _issue(issue: DataIssue) -> Issue:
+    raw = issue.value
+    value = None if raw is None else raw.isoformat() if hasattr(raw, "isoformat") else str(raw)
+    return Issue(
+        tab=issue.tab,
+        row=issue.row,
+        field=issue.field,
+        message=issue.message,
+        kind=issue.kind,
+        value=value,
+    )
 
 
 def _record(data: EntityRecords, index: int) -> Record:
