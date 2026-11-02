@@ -11,7 +11,7 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
   `CLAUDE.md` commands section, pre-commit config (incl. the personal-data check),
   GitHub Actions CI, PR and issue templates, branch protection on `main`,
   GitHub milestones/issues for M1. → pre-commit and CI done (D-040);
-  README, CONTRIBUTING, PR and issue templates done (README screenshots wait for M3).
+  README, CONTRIBUTING, PR and issue templates done (README screenshots added in M3, #80).
 - **Done when**: `make dev` shows an empty app; `make test` passes.
 
 ### M1 · Module framework + local storage ☑
@@ -66,7 +66,7 @@ Each milestone ends in something runnable and tested. Status: ☐ todo · ◐ in
   done: the journal lives on Google, `climblog check journal` is clean, and a session typed on
   the phone reached the app. Released as v0.2.0.
 
-### M3 · Journal app (logging + parity views) ☐  *(re-scoped, D-069)*
+### M3 · Journal app (logging + parity views) ☑  *(re-scoped, D-069)*
 Logging happens mainly in the app on the computer; Google Sheets on the phone is the fallback
 away from home (D-069). Issues in the milestone "M3 · Journal app", in this order:
 - App shell: pages, navigation (desktop-first), data fetching (D-070). → done (D-073, #70):
@@ -89,8 +89,8 @@ away from home (D-069). Issues in the milestone "M3 · Journal app", in this ord
 - README screenshots of the Today page and dashboard (left out of M0: the app was empty).
   → done (#80): `docs/screenshots/`, made by `scripts/screenshots.py` on the fictional journal
   of `scripts/demo_journal.py`; v0.3.0 in `pyproject.toml`, `package.json` and the CHANGELOG.
-- All M3 issues are done; the milestone is ticked once the owner has checked the done-when
-  below, and v0.3.0 is tagged then.
+- All M3 issues are done. → done: the owner checked the done-when below; milestone closed and
+  released as v0.3.0 (2026-11-02).
 - **Done when**: I log full sessions (pre, post, rest day) from the app on the computer and
   review them there (Today log check and recommendation, records with data issues, dashboard
   at parity with the old Summary sheets); a session typed on the phone in the sheet shows up
