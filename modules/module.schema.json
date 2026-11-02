@@ -135,6 +135,80 @@
       "title": "BandsDerived",
       "type": "object"
     },
+    "BarsWidget": {
+      "additionalProperties": false,
+      "description": "A metric aggregated per period (`group`), or per value of a field (`by`, e.g. the\nsession type or the weekday); the last `last` periods shown at first.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "bars",
+          "title": "Widget",
+          "type": "string"
+        },
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "agg": {
+          "default": "mean",
+          "enum": [
+            "mean",
+            "min",
+            "max",
+            "sum",
+            "count",
+            "latest"
+          ],
+          "title": "Agg",
+          "type": "string"
+        },
+        "group": {
+          "default": "week",
+          "enum": [
+            "day",
+            "week",
+            "month"
+          ],
+          "title": "Group",
+          "type": "string"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "By"
+        },
+        "last": {
+          "default": 12,
+          "minimum": 1,
+          "title": "Last",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "widget",
+        "metric"
+      ],
+      "title": "BarsWidget",
+      "type": "object"
+    },
     "BoolField": {
       "additionalProperties": false,
       "properties": {
@@ -278,6 +352,60 @@
         "type"
       ],
       "title": "BoolField",
+      "type": "object"
+    },
+    "BoxByWidget": {
+      "additionalProperties": false,
+      "description": "A metric's spread for each value of a field (Tukey box plots: quartiles, whiskers at\n1.5 IQR, the values beyond as points), with n.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "box_by",
+          "title": "Widget",
+          "type": "string"
+        },
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "by": {
+          "title": "By",
+          "type": "string"
+        },
+        "order": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Order",
+          "type": "array"
+        },
+        "bins": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Bins",
+          "type": "array"
+        }
+      },
+      "required": [
+        "widget",
+        "metric",
+        "by"
+      ],
+      "title": "BoxByWidget",
       "type": "object"
     },
     "Case": {
@@ -1370,11 +1498,6 @@
         "widget": {
           "enum": [
             "status_strip",
-            "bars",
-            "weekbars",
-            "stacked",
-            "box_by",
-            "scatter",
             "radar",
             "delta_table",
             "ladder",
@@ -2742,6 +2865,63 @@
       "title": "ScaleField",
       "type": "object"
     },
+    "ScatterWidget": {
+      "additionalProperties": false,
+      "description": "Two metrics against each other with a least-squares trend line and n: one point per\nrecord (one entity) or per day (two entities, `lag` days apart).",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "scatter",
+          "title": "Widget",
+          "type": "string"
+        },
+        "x": {
+          "title": "X",
+          "type": "string"
+        },
+        "y": {
+          "title": "Y",
+          "type": "string"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color"
+        },
+        "lag": {
+          "default": 0,
+          "maximum": 31,
+          "minimum": -31,
+          "title": "Lag",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "widget",
+        "x",
+        "y"
+      ],
+      "title": "ScatterWidget",
+      "type": "object"
+    },
     "Section": {
       "additionalProperties": false,
       "description": "A group of fields. With a `tab`, the entity is split: one tab per section (D-006).",
@@ -2946,6 +3126,72 @@
         "fields"
       ],
       "title": "SideGroup",
+      "type": "object"
+    },
+    "StackedWidget": {
+      "additionalProperties": false,
+      "description": "Several metrics per period, stacked (e.g. the load of climbing and of finger training).",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "stacked",
+          "title": "Widget",
+          "type": "string"
+        },
+        "series": {
+          "items": {
+            "$ref": "#/$defs/Series"
+          },
+          "minItems": 1,
+          "title": "Series",
+          "type": "array"
+        },
+        "agg": {
+          "default": "sum",
+          "enum": [
+            "mean",
+            "min",
+            "max",
+            "sum",
+            "count",
+            "latest"
+          ],
+          "title": "Agg",
+          "type": "string"
+        },
+        "group": {
+          "default": "week",
+          "enum": [
+            "day",
+            "week",
+            "month"
+          ],
+          "title": "Group",
+          "type": "string"
+        },
+        "last": {
+          "default": 12,
+          "minimum": 1,
+          "title": "Last",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "widget",
+        "series"
+      ],
+      "title": "StackedWidget",
       "type": "object"
     },
     "StatusBoardWidget": {
@@ -3551,6 +3797,77 @@
       "title": "TextField",
       "type": "object"
     },
+    "WeekbarsWidget": {
+      "additionalProperties": false,
+      "description": "Per week: the records counted by the value of `metric` (a status or a choice), stacked\n(`count_by_value`); or one number per week (`count` of values, `sum` or `mean` of a numeric\nfield), stacked by the value of `split_by` if given.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "weekbars",
+          "title": "Widget",
+          "type": "string"
+        },
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "agg": {
+          "default": "count_by_value",
+          "enum": [
+            "count_by_value",
+            "count",
+            "sum",
+            "mean"
+          ],
+          "title": "Agg",
+          "type": "string"
+        },
+        "split_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Split By"
+        },
+        "group": {
+          "default": "week",
+          "enum": [
+            "week",
+            "program_week"
+          ],
+          "title": "Group",
+          "type": "string"
+        },
+        "weeks": {
+          "default": 12,
+          "minimum": 1,
+          "title": "Weeks",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "widget",
+        "metric"
+      ],
+      "title": "WeekbarsWidget",
+      "type": "object"
+    },
     "WhenDerived": {
       "additionalProperties": false,
       "properties": {
@@ -3811,9 +4128,9 @@
               "items": {
                 "discriminator": {
                   "mapping": {
-                    "bars": "#/$defs/LaterWidget",
+                    "bars": "#/$defs/BarsWidget",
                     "before_after": "#/$defs/LaterWidget",
-                    "box_by": "#/$defs/LaterWidget",
+                    "box_by": "#/$defs/BoxByWidget",
                     "delta_table": "#/$defs/LaterWidget",
                     "heatmap_calendar": "#/$defs/HeatmapWidget",
                     "kpi": "#/$defs/KpiWidget",
@@ -3822,14 +4139,14 @@
                     "monthly": "#/$defs/MonthlyWidget",
                     "program_grid": "#/$defs/LaterWidget",
                     "radar": "#/$defs/LaterWidget",
-                    "scatter": "#/$defs/LaterWidget",
+                    "scatter": "#/$defs/ScatterWidget",
                     "side_by_side": "#/$defs/SideBySideWidget",
-                    "stacked": "#/$defs/LaterWidget",
+                    "stacked": "#/$defs/StackedWidget",
                     "status_board": "#/$defs/StatusBoardWidget",
                     "status_strip": "#/$defs/LaterWidget",
                     "table": "#/$defs/TableWidget",
                     "text_feed": "#/$defs/TextFeedWidget",
-                    "weekbars": "#/$defs/LaterWidget"
+                    "weekbars": "#/$defs/WeekbarsWidget"
                   },
                   "propertyName": "widget"
                 },
@@ -3857,6 +4174,21 @@
                   },
                   {
                     "$ref": "#/$defs/MonthlyWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/BarsWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/WeekbarsWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/StackedWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/BoxByWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/ScatterWidget"
                   },
                   {
                     "$ref": "#/$defs/LaterWidget"

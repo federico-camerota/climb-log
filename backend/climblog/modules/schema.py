@@ -608,8 +608,8 @@ class LineWidget(_Widget):
     bands: list[BandItem] = []  # as a derived entry's (`le: settings.low_max`, …)
     rolling: int | None = Field(None, ge=2)
     last: int = Field(12, ge=1)
-    split_by: list[str] = []  # one line per combination of these fields: not drawn yet (M4)
-    x: str | None = None  # an x axis other than the records' dates (`entity.field`): M4
+    split_by: list[str] = []  # one line per value (combination of values) of these fields
+    x: str | None = None  # an x axis other than the records' dates: a numeric `entity.field`
 
 
 Letter = Annotated[str, Field(min_length=1, max_length=2)]
@@ -722,6 +722,75 @@ class MonthlyWidget(_Widget):
     months: int = Field(6, ge=1)
 
 
+Agg = Literal["mean", "min", "max", "sum", "count", "latest"]
+Period = Literal["day", "week", "month"]
+
+
+class BarsWidget(_Widget):
+    """A metric aggregated per period (`group`), or per value of a field (`by`, e.g. the
+    session type or the weekday); the last `last` periods shown at first."""
+
+    widget: Literal["bars"]
+    metric: str  # a numeric `entity.field`
+    agg: Agg = "mean"
+    group: Period = "week"
+    by: str | None = None  # `entity.field` of the metric's entity: one bar per value
+    last: int = Field(12, ge=1)
+
+
+class WeekbarsWidget(_Widget):
+    """Per week: the records counted by the value of `metric` (a status or a choice), stacked
+    (`count_by_value`); or one number per week (`count` of values, `sum` or `mean` of a numeric
+    field), stacked by the value of `split_by` if given."""
+
+    widget: Literal["weekbars"]
+    metric: str  # `entity.field`
+    agg: Literal["count_by_value", "count", "sum", "mean"] = "count_by_value"
+    split_by: str | None = None  # `entity.field` of the metric's entity (not with count_by_value)
+    group: Literal["week", "program_week"] = "week"  # program weeks come with M5
+    weeks: int = Field(12, ge=1)  # shown at first
+
+    @model_validator(mode="after")
+    def _split(self) -> Self:
+        if self.split_by is not None and self.agg == "count_by_value":
+            raise ValueError("count_by_value already stacks by the metric's values; drop split_by")
+        return self
+
+
+class StackedWidget(_Widget):
+    """Several metrics per period, stacked (e.g. the load of climbing and of finger training)."""
+
+    widget: Literal["stacked"]
+    series: list[Series] = Field(min_length=1)
+    agg: Agg = "sum"
+    group: Period = "week"
+    last: int = Field(12, ge=1)
+
+
+class BoxByWidget(_Widget):
+    """A metric's spread for each value of a field (Tukey box plots: quartiles, whiskers at
+    1.5 IQR, the values beyond as points), with n."""
+
+    widget: Literal["box_by"]
+    metric: str  # a numeric `entity.field`
+    by: str  # `entity.field` of the metric's entity, e.g. session.weekday
+    order: list[
+        str
+    ] = []  # the values' order (default: the choices', weekdays Mon to Sun, else A to Z)
+    bins: list[str] = []  # a time of day in named bins: not drawn yet (backlog, 05 §3.5)
+
+
+class ScatterWidget(_Widget):
+    """Two metrics against each other with a least-squares trend line and n: one point per
+    record (one entity) or per day (two entities, `lag` days apart)."""
+
+    widget: Literal["scatter"]
+    x: str  # a numeric `entity.field`
+    y: str
+    color: str | None = None  # `entity.field` of x's entity: a colour per value
+    lag: int = Field(0, ge=-31, le=31)
+
+
 class LaterWidget(BaseModel):
     """A widget of the planned library (03 §2.7) the app doesn't draw yet (M4/M5): its options
     are checked when it is."""
@@ -729,11 +798,6 @@ class LaterWidget(BaseModel):
     model_config = ConfigDict(extra="allow", frozen=True)
     widget: Literal[
         "status_strip",
-        "bars",
-        "weekbars",
-        "stacked",
-        "box_by",
-        "scatter",
         "radar",
         "delta_table",
         "ladder",
@@ -751,6 +815,11 @@ Widget = Annotated[
     | TextFeedWidget
     | TableWidget
     | MonthlyWidget
+    | BarsWidget
+    | WeekbarsWidget
+    | StackedWidget
+    | BoxByWidget
+    | ScatterWidget
     | LaterWidget,
     Field(discriminator="widget"),
 ]

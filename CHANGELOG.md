@@ -12,6 +12,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   `GET /api/metrics/query` lines metrics up by record, day, week or month, with an aggregate,
   a rolling mean, a lag for "the day after", filters and the n behind every value; modules are
   joined by calendar day.
+- Widget library v1 (#98, D-091): `bars` (per period or per value of a field), `weekbars`
+  (counts per week by value, or sums stacked by a field), `stacked`, `box_by` (Tukey box plots
+  with n) and `scatter` (with a trend line, across entities with a lag), and the `line`'s
+  `split_by` and `x`, drawn on the dashboard.
 
 ### Changed
 - M4 scoped (`design/07-roadmap.md`): eight issues, the analyses useful on little data first

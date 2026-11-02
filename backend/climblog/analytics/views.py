@@ -12,27 +12,35 @@ yet come back as `planned`.
 """
 
 import datetime as dt
+import statistics
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from climblog.analytics.metrics import Query, run_query
 from climblog.expr import Value
 from climblog.expr.functions import sheet_round
 from climblog.modules.compute import Timeline
 from climblog.modules.forms import field_label
 from climblog.modules.schema import (
     Band,
+    BarsWidget,
     BaseField,
+    BoxByWidget,
+    ChoiceField,
     HeatmapWidget,
     KpiWidget,
     LineWidget,
     Module,
     MonthlyWidget,
     Otherwise,
+    ScatterWidget,
     SideBySideWidget,
+    StackedWidget,
     StatusBoardWidget,
     TableWidget,
     TextFeedWidget,
+    WeekbarsWidget,
     Widget,
 )
 
@@ -88,7 +96,7 @@ def compute_view(
         elif isinstance(widget, StatusBoardWidget):
             result.append(_status_board(widget, records, settings))
         elif isinstance(widget, LineWidget):
-            result.append(_line(widget, records, settings))
+            result.append(_line(module, widget, records, settings))
         elif isinstance(widget, HeatmapWidget):
             result.append(_heatmap(widget, records, day))
         elif isinstance(widget, SideBySideWidget):
@@ -99,6 +107,16 @@ def compute_view(
             result.append(_table(module, widget, records, day))
         elif isinstance(widget, MonthlyWidget):
             result.append(_monthly(widget, records, day))
+        elif isinstance(widget, BarsWidget):
+            result.append(_bars(module, widget, tables, records, day))
+        elif isinstance(widget, WeekbarsWidget):
+            result.append(_weekbars(module, widget, records, day))
+        elif isinstance(widget, StackedWidget):
+            result.append(_stacked(module, widget, tables, day))
+        elif isinstance(widget, BoxByWidget):
+            result.append(_box_by(module, widget, records))
+        elif isinstance(widget, ScatterWidget):
+            result.append(_scatter(module, widget, tables, records, day))
         else:
             result.append(_planned(widget))
     return result
@@ -110,9 +128,17 @@ def _metrics(widget: Widget) -> list[str]:
     if isinstance(widget, StatusBoardWidget):
         return [m for row in widget.classes for m in (row.score, row.status)]
     if isinstance(widget, LineWidget):
-        return [series.metric for series in widget.series]
+        return [series.metric for series in widget.series] + ([widget.x] if widget.x else [])
     if isinstance(widget, HeatmapWidget):
         return [widget.metric, *([widget.extra] if widget.extra else [])]
+    if isinstance(widget, BarsWidget | BoxByWidget):
+        return [widget.metric]
+    if isinstance(widget, WeekbarsWidget):
+        return [widget.metric]
+    if isinstance(widget, StackedWidget):
+        return [series.metric for series in widget.series]
+    if isinstance(widget, ScatterWidget):
+        return [widget.x, widget.y]
     if isinstance(widget, MonthlyWidget):
         means = [extra.mean for extra in widget.extra if extra.mean is not None]
         return [c.score for c in widget.classes] + ([widget.low] if widget.low else []) + means
@@ -178,41 +204,82 @@ def _status_board(
     }
 
 
-def _line(widget: LineWidget, records: Records, settings: Mapping[str, Value]) -> dict[str, Any]:
-    if widget.split_by:
-        return _planned(widget, "a line per protocol (split_by) comes with M4")
-    if widget.x is not None:
-        return _planned(widget, "an x axis other than the date comes with M4")
+def _line(
+    module: Module, widget: LineWidget, records: Records, settings: Mapping[str, Value]
+) -> dict[str, Any]:
     entity = _split(widget.series[0].metric)[0]
+    if any(_split(f)[0] != entity for f in widget.split_by):
+        return _planned(widget, "a line per value of another entity's fields is a backlog item")
     found = records(entity)
-    points = [
-        {"date": day.isoformat(), "key": {p: _json(row.get(p)) for p in found.key}}
-        for day, row in zip(found.days, found.rows, strict=True)
-    ]
-    series = []
-    for item in widget.series:
-        name = _split(item.metric)[1]
-        values = [_number(row.get(name)) for row in found.rows]
-        series.append(
-            {
-                "metric": item.metric,
-                "label": item.label or name,
-                "values": values,
-                "rolling": _rolling(values, widget.rolling) if widget.rolling else None,
-            }
-        )
-    return {
+    label = _labeller(module, entity, {})
+    data: dict[str, Any] = {
         "widget": "line",
         "label": widget.label,
-        "points": points,
-        "series": series,
+        "points": [],
+        "series": [],
         "bands": _bands(widget, settings),
         "rolling": widget.rolling,
         "last": widget.last,
+        "x": None,
+        "x_label": None,
     }
+    splits = [_split(f)[1] for f in widget.split_by]
+    combos = [" · ".join(_text(row.get(f)) for f in splits) for row in found.rows]
+    groups = list(dict.fromkeys(combos)) if splits else [""]
+    if widget.x is not None:
+        # one point per value of x (ascending): each series' mean there
+        x_name = _split(widget.x)[1]
+        xs = sorted({x for row in found.rows if (x := _number(row.get(x_name))) is not None})
+        data["x"], data["x_label"] = xs, label(x_name)
+        for item in widget.series:
+            name = _split(item.metric)[1]
+            for group in groups:
+                at: dict[float, list[float]] = {}
+                for row, combo in zip(found.rows, combos, strict=True):
+                    x, y = _number(row.get(x_name)), _number(row.get(name))
+                    if x is not None and y is not None and (not splits or combo == group):
+                        at.setdefault(x, []).append(y)
+                values = [_mean(at.get(x, [])) for x in xs]
+                data["series"].append(
+                    _series(item.metric, item.label or label(name), group, values, None)
+                )
+        return data
+    data["points"] = [
+        {"date": day.isoformat(), "key": {p: _json(row.get(p)) for p in found.key}}
+        for day, row in zip(found.days, found.rows, strict=True)
+    ]
+    for item in widget.series:
+        name = _split(item.metric)[1]
+        for group in groups:
+            values = [
+                _number(row.get(name)) if not splits or combo == group else None
+                for row, combo in zip(found.rows, combos, strict=True)
+            ]
+            rolling = _rolling(values, widget.rolling) if widget.rolling else None
+            data["series"].append(_series(item.metric, item.label or name, group, values, rolling))
+    return data
 
 
-def _planned(widget: Widget, why: str = "comes with M4") -> dict[str, Any]:
+def _series(
+    metric: str,
+    label: str,
+    group: str,
+    values: list[float | None],
+    rolling: list[float | None] | None,
+) -> dict[str, Any]:
+    shown = f"{label} · {group}" if group else label
+    return {"metric": metric, "label": shown, "values": values, "rolling": rolling}
+
+
+def _text(value: Value) -> str:
+    if value is None or value == "":
+        return "(blank)"
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
+def _planned(widget: Widget, why: str = "comes with M5 or later") -> dict[str, Any]:
     label = getattr(widget, "label", None)
     return {"widget": "planned", "label": label, "kind": widget.widget, "why": why}
 
@@ -464,6 +531,258 @@ def _monthly(widget: MonthlyWidget, records: Records, day: dt.date) -> dict[str,
         "months": widget.months,
         "rows": rows,
     }
+
+
+SELF = "m"  # the module's name in the metric layer's ids, inside a view
+WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]  # as weekday()
+
+
+def _query(module: Module, tables: Tables, day: dt.date, metrics: Sequence[str], **kw: Any) -> Any:
+    """The metric layer (D-090) on this module's records up to the day."""
+    asked = Query([f"{SELF}.{m}" for m in metrics], end=day, **kw)
+    return run_query(asked, {SELF: (module, tables)}, day)
+
+
+def _bars(
+    module: Module, widget: BarsWidget, tables: Tables, records: Records, day: dt.date
+) -> dict[str, Any]:
+    entity, name = _split(widget.metric)
+    data: dict[str, Any] = {
+        "widget": "bars",
+        "label": widget.label,
+        "metric": _labeller(module, entity, {})(name),
+        "agg": widget.agg,
+        "last": widget.last,
+    }
+    if widget.by is None:
+        result = _query(module, tables, day, [widget.metric], group=widget.group, agg=widget.agg)
+        [series] = result.series
+        data |= {
+            "categories": [p.label for p in result.points],
+            "values": series.values,
+            "n": series.n,
+        }
+        return data
+    found = records(entity)
+    by = _split(widget.by)[1]
+    groups: dict[str, list[float]] = {}
+    for row in found.rows:
+        value = _number(row.get(name))
+        if value is not None and row.get(by) not in (None, ""):
+            groups.setdefault(_text(row.get(by)), []).append(value)
+    order = _order(module, entity, by, list(groups), [])
+    data |= {
+        "categories": order,
+        "values": [_aggregate(widget.agg, groups[c]) for c in order],
+        "n": [len(groups[c]) for c in order],
+    }
+    return data
+
+
+def _weekbars(
+    module: Module, widget: WeekbarsWidget, records: Records, day: dt.date
+) -> dict[str, Any]:
+    if widget.group == "program_week":
+        return _planned(widget, "program weeks come with the program modules (M5)")
+    entity, name = _split(widget.metric)
+    found = records(entity)
+    if not found.days:
+        weeks: list[dt.date] = []
+    else:
+        first = found.days[0] - dt.timedelta(days=found.days[0].weekday())
+        last = day - dt.timedelta(days=day.weekday())
+        weeks = [first + dt.timedelta(days=7 * i) for i in range((last - first).days // 7 + 1)]
+    index = {w: i for i, w in enumerate(weeks)}
+    split = _split(widget.split_by)[1] if widget.split_by else None
+    stacks: dict[str, list[list[float]]] = {}
+    for when, row in zip(found.days, found.rows, strict=True):
+        week = index[when - dt.timedelta(days=when.weekday())]
+        if widget.agg == "count_by_value":
+            if row.get(name) in (None, ""):
+                continue
+            stack, value = _text(row.get(name)), 1.0
+        else:
+            number = _number(row.get(name))
+            if number is None:
+                continue
+            stack, value = (_text(row.get(split)) if split else ""), number
+        stacks.setdefault(stack, [[] for _ in weeks])[week].append(value)
+    by = name if widget.agg == "count_by_value" else split
+    order = _order(module, entity, by, list(stacks), []) if by else list(stacks)
+    agg = "sum" if widget.agg == "count_by_value" else widget.agg
+    return {
+        "widget": "weekbars",
+        "label": widget.label,
+        "agg": widget.agg,
+        "weeks": [_week_label(w) for w in weeks],
+        "starts": [w.isoformat() for w in weeks],
+        "stacks": [
+            {"label": stack, "values": [_aggregate(agg, v) or 0 for v in stacks[stack]]}
+            for stack in order
+        ],
+        "shown": widget.weeks,
+    }
+
+
+def _stacked(module: Module, widget: StackedWidget, tables: Tables, day: dt.date) -> dict[str, Any]:
+    metrics = [series.metric for series in widget.series]
+    result = _query(module, tables, day, metrics, group=widget.group, agg=widget.agg)
+    return {
+        "widget": "stacked",
+        "label": widget.label,
+        "agg": widget.agg,
+        "categories": [p.label for p in result.points],
+        "series": [
+            {
+                "metric": item.metric,
+                "label": item.label or _metric_label(module, item.metric),
+                "values": found.values,
+            }
+            for item, found in zip(widget.series, result.series, strict=True)
+        ],
+        "last": widget.last,
+    }
+
+
+def _metric_label(module: Module, metric: str) -> str:
+    entity, name = _split(metric)
+    return _labeller(module, entity, {})(name)
+
+
+def _box_by(module: Module, widget: BoxByWidget, records: Records) -> dict[str, Any]:
+    if widget.bins:
+        return _planned(widget, "a time of day in named bins is a backlog item")
+    entity, name = _split(widget.metric)
+    by = _split(widget.by)[1]
+    groups: dict[str, list[float]] = {}
+    for row in records(entity).rows:
+        value = _number(row.get(name))
+        if value is not None and row.get(by) not in (None, ""):
+            groups.setdefault(_text(row.get(by)), []).append(value)
+    order = _order(module, entity, by, list(groups), widget.order)
+    label = _labeller(module, entity, {})
+    return {
+        "widget": "box_by",
+        "label": widget.label,
+        "metric": label(name),
+        "by": label(by),
+        "boxes": [{"label": c, **_box(groups[c])} for c in order if c in groups],
+    }
+
+
+def _box(values: list[float]) -> dict[str, Any]:
+    """Tukey's box: quartiles (inclusive, as the sheets' QUARTILE), whiskers to the furthest
+    values within 1.5 IQR of the box, the values beyond as outliers."""
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        q1 = median = q3 = ordered[0]
+    else:
+        q1, median, q3 = statistics.quantiles(ordered, n=4, method="inclusive")
+    reach = 1.5 * (q3 - q1)
+    inside = [v for v in ordered if q1 - reach <= v <= q3 + reach]
+    return {
+        "n": len(ordered),
+        "low": inside[0],
+        "q1": _round(q1),
+        "median": _round(median),
+        "q3": _round(q3),
+        "high": inside[-1],
+        "outliers": [v for v in ordered if v < inside[0] or v > inside[-1]],
+    }
+
+
+def _scatter(
+    module: Module, widget: ScatterWidget, tables: Tables, records: Records, day: dt.date
+) -> dict[str, Any]:
+    if widget.color is not None and widget.color.count(".") > 1:
+        return _planned(widget, "a colour through a reference comes with M5")
+    (x_entity, x_name), (y_entity, y_name) = _split(widget.x), _split(widget.y)
+    points: list[dict[str, Any]] = []
+    if x_entity == y_entity and widget.lag == 0:
+        found = records(x_entity)
+        color = _split(widget.color)[1] if widget.color else None
+        for when, row in zip(found.days, found.rows, strict=True):
+            x, y = _number(row.get(x_name)), _number(row.get(y_name))
+            if x is not None and y is not None:
+                group = _text(row.get(color)) if color else None
+                points.append({"x": x, "y": y, "date": when.isoformat(), "group": group})
+    else:  # by day, the second metric `lag` days later (D-088)
+        result = _query(module, tables, day, [widget.x, widget.y], lag=widget.lag)
+        xs, ys = result.series
+        for point, x, y in zip(result.points, xs.values, ys.values, strict=True):
+            if x is not None and y is not None:
+                points.append({"x": x, "y": y, "date": point.start.isoformat(), "group": None})
+    label_x, label_y = _labeller(module, x_entity, {}), _labeller(module, y_entity, {})
+    return {
+        "widget": "scatter",
+        "label": widget.label,
+        "x_label": label_x(x_name),
+        "y_label": label_y(y_name),
+        "lag": widget.lag,
+        "points": points,
+        "n": len(points),
+        "trend": _trend([p["x"] for p in points], [p["y"] for p in points]),
+    }
+
+
+def _trend(xs: list[float], ys: list[float]) -> dict[str, float] | None:
+    """The least-squares line through the points (3 or more, x not all equal)."""
+    if len(xs) < 3:
+        return None
+    mean_x, mean_y = sum(xs) / len(xs), sum(ys) / len(ys)
+    sxx = sum((x - mean_x) ** 2 for x in xs)
+    if sxx == 0:
+        return None
+    slope = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys, strict=True)) / sxx
+    intercept = mean_y - slope * mean_x
+    return {
+        "slope": _round(slope),
+        "intercept": _round(intercept),
+        "from": min(xs),
+        "to": max(xs),
+    }
+
+
+def _order(module: Module, entity: str, name: str, seen: list[str], given: list[str]) -> list[str]:
+    """Categories in a sensible order: as given; else a choice field's choices, the status
+    levels, the weekdays; else A to Z. Values not listed come last."""
+    field = module.entities[entity].fields.get(name)
+    if given:
+        base = given
+    elif isinstance(field, ChoiceField) and field.choices:
+        base = field.choices
+    elif seen and set(seen) <= set(module.status_levels):
+        base = list(module.status_levels)
+    elif seen and set(seen) <= set(WEEKDAYS):
+        base = WEEKDAYS
+    else:
+        base = sorted(seen)
+    return [c for c in base if c in seen] + [c for c in seen if c not in base]
+
+
+def _aggregate(agg: str, values: list[float]) -> float | None:
+    if agg == "count":
+        return float(len(values))
+    if not values:
+        return None
+    if agg == "min":
+        return min(values)
+    if agg == "max":
+        return max(values)
+    if agg == "sum":
+        return _round(sum(values))
+    if agg == "latest":
+        return values[-1]
+    return _round(sum(values) / len(values))
+
+
+def _week_label(start: dt.date) -> str:
+    year, week, _ = start.isocalendar()
+    return f"{year}-W{week:02d}"
+
+
+def _round(value: float) -> float:
+    return round(value, 6)
 
 
 def _labeller(module: Module, entity: str, labels: Mapping[str, str]) -> Callable[[str], str]:

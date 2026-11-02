@@ -190,16 +190,18 @@ export function LineCard({ data, today }: { data: LineData; today: string }) {
               }}
             />
           )}
-          <SegmentedControl
-            aria-label="Range"
-            size="xs"
-            data={ranges}
-            value={range}
-            onChange={setRange}
-          />
+          {data.x == null && (
+            <SegmentedControl
+              aria-label="Range"
+              size="xs"
+              data={ranges}
+              value={range}
+              onChange={setRange}
+            />
+          )}
         </Group>
       </Group>
-      {data.points.length === 0 ? (
+      {data.points.length === 0 && (data.x ?? []).length === 0 ? (
         <Text c="dimmed">No sessions yet.</Text>
       ) : (
         <Chart option={option} label={data.label ?? "Trend"} />
@@ -211,8 +213,13 @@ export function LineCard({ data, today }: { data: LineData; today: string }) {
 const NAMES: Record<string, string> = {
   weekbars: "Weekly bars",
   box_by: "Distribution",
-  scatter: "Scatter",
+  line: "Trend",
   radar: "Radar",
+  status_strip: "Status strip",
+  delta_table: "Changes",
+  ladder: "Ladder",
+  program_grid: "Program",
+  before_after: "Before and after",
 };
 
 /** A widget the app doesn't draw yet. */

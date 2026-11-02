@@ -71,6 +71,8 @@ class LineData(BaseModel):
     bands: list[BandData]
     rolling: int | None
     last: int  # how many of the latest points to show at first
+    x: list[float] | None = None  # with an x axis other than the date: its values (no points)
+    x_label: str | None = None
 
 
 class HeatmapDay(BaseModel):
@@ -199,11 +201,96 @@ class MonthlyData(BaseModel):
     rows: list[MonthRow]  # every month from the first record's, oldest first
 
 
+class BarsData(BaseModel):
+    widget: Literal["bars"]
+    label: str | None
+    metric: str  # its label
+    agg: str
+    categories: list[str]  # periods (2026-W44, 2026-10, 2026-10-30) or a field's values
+    values: list[float | None]
+    n: list[int]  # the values behind each bar
+    last: int  # bars shown at first (periods)
+
+
+class Stack(BaseModel):
+    label: str  # a value of the field (or "" for a single stack)
+    values: list[float]  # one per week
+
+
+class WeekbarsData(BaseModel):
+    widget: Literal["weekbars"]
+    label: str | None
+    agg: str
+    weeks: list[str]  # 2026-W44, every week from the first record's
+    starts: list[dt.date]  # their Mondays
+    stacks: list[Stack]
+    shown: int  # weeks shown at first
+
+
+class StackedSeries(BaseModel):
+    metric: str
+    label: str
+    values: list[float | None]
+
+
+class StackedData(BaseModel):
+    widget: Literal["stacked"]
+    label: str | None
+    agg: str
+    categories: list[str]
+    series: list[StackedSeries]
+    last: int
+
+
+class Box(BaseModel):
+    label: str
+    n: int
+    low: float  # the lower whisker
+    q1: float
+    median: float
+    q3: float
+    high: float
+    outliers: list[float]
+
+
+class BoxByData(BaseModel):
+    widget: Literal["box_by"]
+    label: str | None
+    metric: str
+    by: str
+    boxes: list[Box]
+
+
+class ScatterPoint(BaseModel):
+    x: float
+    y: float
+    date: dt.date
+    group: str | None  # the colour's value
+
+
+class Trend(BaseModel):
+    slope: float
+    intercept: float
+    from_: float = Field(alias="from")
+    to: float
+
+
+class ScatterData(BaseModel):
+    widget: Literal["scatter"]
+    label: str | None
+    x_label: str
+    y_label: str
+    lag: int
+    points: list[ScatterPoint]
+    n: int
+    trend: Trend | None  # least squares, from 3 points
+
+
 class PlannedData(BaseModel):
     widget: Literal["planned"]
     label: str | None
     kind: str  # the widget's name in the YAML
-    why: str  # e.g. "comes with M4"
+    why: str  # e.g. "program weeks come with the program modules (M5)"
 
 
 WidgetData = Annotated[
@@ -215,6 +302,11 @@ WidgetData = Annotated[
     | TextFeedData
     | TableData
     | MonthlyData
+    | BarsData
+    | WeekbarsData
+    | StackedData
+    | BoxByData
+    | ScatterData
     | PlannedData,
     Field(discriminator="widget"),
 ]

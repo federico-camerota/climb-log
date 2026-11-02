@@ -18,7 +18,9 @@ from climblog.grades import SUPPORTED
 from climblog.modules.derived import DerivedPlan, check_derived
 from climblog.modules.schema import (
     NEXT,
+    BarsWidget,
     BaseField,
+    BoxByWidget,
     ChoiceField,
     DateField,
     Entity,
@@ -35,11 +37,14 @@ from climblog.modules.schema import (
     ReferenceTemplateUse,
     RefField,
     ScaleField,
+    ScatterWidget,
     SideBySideWidget,
+    StackedWidget,
     StatusBoardWidget,
     TableWidget,
     TemplateUse,
     TextFeedWidget,
+    WeekbarsWidget,
     YamlPath,
 )
 from climblog.modules.schema import (
@@ -566,6 +571,10 @@ def _views(module: Module) -> list[Problem]:
             elif isinstance(widget, LineWidget):
                 for j, series in enumerate(widget.series):
                     metrics.append(((*at, "series", j, "metric"), series.metric))
+                metrics += [((*at, "split_by", j), f) for j, f in enumerate(widget.split_by)]
+                if widget.x is not None:
+                    metrics.append(((*at, "x"), widget.x))
+                    problems += _same_entity(widget.x, widget.series[0].metric, (*at, "x"))
                 for j, band in enumerate(widget.bands):
                     if isinstance(band, BandItemModel) and isinstance(band.le, str):
                         name = band.le.removeprefix("settings.")
@@ -603,6 +612,26 @@ def _views(module: Module) -> list[Problem]:
                         problems += _entity_named(module, extra.count, (*at, "extra", j, "count"))
                     if extra.mean is not None:
                         metrics.append(((*at, "extra", j, "mean"), extra.mean))
+            elif isinstance(widget, BarsWidget | BoxByWidget):
+                metrics.append(((*at, "metric"), widget.metric))
+                if widget.by is not None:
+                    metrics.append(((*at, "by"), widget.by))
+                    problems += _same_entity(widget.by, widget.metric, (*at, "by"))
+            elif isinstance(widget, WeekbarsWidget):
+                metrics.append(((*at, "metric"), widget.metric))
+                if widget.split_by is not None:
+                    metrics.append(((*at, "split_by"), widget.split_by))
+                    problems += _same_entity(widget.split_by, widget.metric, (*at, "split_by"))
+            elif isinstance(widget, StackedWidget):
+                metrics += [
+                    ((*at, "series", j, "metric"), x.metric) for j, x in enumerate(widget.series)
+                ]
+            elif isinstance(widget, ScatterWidget):
+                metrics += [((*at, "x"), widget.x), ((*at, "y"), widget.y)]
+                # a colour through a reference (fall.rung.track) is checked with M5's references
+                if widget.color is not None and widget.color.count(".") == 1:
+                    metrics.append(((*at, "color"), widget.color))
+                    problems += _same_entity(widget.color, widget.x, (*at, "color"))
             else:
                 problems += _entity_fields(module, widget, at)
             for path, text in metrics:
@@ -610,6 +639,13 @@ def _views(module: Module) -> list[Problem]:
                 if isinstance(found, str):
                     problems.append(Problem(path, found))
     return problems
+
+
+def _same_entity(text: str, metric: str, at: YamlPath) -> list[Problem]:
+    entity = metric.partition(".")[0]
+    if text.partition(".")[0] == entity:
+        return []
+    return [Problem(at, f"'{text}' is not a field of '{entity}', the metric's entity")]
 
 
 def _entity_named(module: Module, name: str, at: YamlPath) -> list[Problem]:

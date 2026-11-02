@@ -528,8 +528,41 @@ Drawn with #78 (D-084):
   extra: [{label: Rest days logged, count: rest_day}, {label: Rest-day wellbeing, mean: rest_day.wellbeing_score}]
 ```
 
-The other widgets of the library are accepted and shown as "not drawn yet" (M4/M5); a `line`
-with `split_by` or `x` too (M4).
+Drawn with #98 (D-091), computed with the metric layer (D-090) where they group by period:
+
+```yaml
+- widget: bars               # a metric per period, or per value of a field (`by`)
+  metric: session.session_load
+  agg: sum                   # mean (default) | min | max | sum | count | latest
+  group: week                # day | week (default) | month
+  by: session.session_type   # instead of periods: one bar per value (choices' order)
+  last: 12                   # periods shown at first; a slider shows more
+- widget: weekbars           # records per week counted by value, stacked
+  metric: session.overall_status
+  agg: count_by_value        # or count | sum | mean of a numeric metric,
+  split_by: session.setting  #   stacked by a field (not with count_by_value)
+  weeks: 12
+- widget: stacked            # several metrics per period, stacked (any entities, by day)
+  series: [{metric: session.session_load, label: Climbing}]
+  agg: sum
+  group: week
+- widget: box_by             # Tukey boxes: quartiles, whiskers at 1.5 IQR, outliers, n
+  metric: session.feel_score
+  by: session.weekday        # order: the choices', status levels, Mon to Sun, else A to Z
+  order: []                  # or given
+- widget: scatter            # per record (one entity) or per day (two entities, `lag`)
+  x: session.wb_sleep_hours
+  y: session.feel_score
+  color: session.setting     # a colour per value (a field of x's entity)
+  lag: 0                     # y read k days later
+- widget: line               # as above, plus:
+  split_by: [session.setting]   # one line per value (fields of the series' entity)
+  x: session.days_since_prev    # x axis other than the date: each series' mean per x value
+```
+
+Still shown as "not drawn yet": `status_strip`, `radar`, `delta_table`, `ladder`,
+`program_grid`, `before_after` (M5 or later); `weekbars` by `program_week` (M5); a line split by
+another entity's fields and `box_by` time-of-day `bins` (backlog, 05 §3.5).
 
 Every numeric/scale field and derived numeric field is automatically a **metric** in the
 analysis explorer (see `05-analytics.md`). No view config is needed for that.
