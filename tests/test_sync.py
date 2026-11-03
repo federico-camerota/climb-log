@@ -20,9 +20,11 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.worksheet import Worksheet
 from workbooks import SYNC_MODULE, existing_tabs, write_workbook
 
+from climblog.expr import Value
 from climblog.modules import Module, load_module
 from climblog.storage import (
     Backups,
+    EntityData,
     WorkbookLocked,
     XlsxBackend,
     check_schema,
@@ -193,7 +195,11 @@ def test_the_finger_strength_mockup_keeps_its_data(tmp_path: Path) -> None:
     repo = XlsxBackend(path)
     records = load_data(module, repo).entities
     done = sync_module(module, repo)
-    assert done[:2] == [
+    assert done[:6] == [
+        "Sessions: added column 'wb_mood_pre'",  # v4 (D-101)
+        "Sessions: added column 'wb_energy_pre'",  # v4 (D-101)
+        "Sessions: added column 'wb_fatigue_post'",  # v4 (D-101)
+        "Sessions: added column 'wb_mood_post'",  # v4 (D-101)
         "Sessions: added column 'auto:curl_volume'",
         "Curl sets: added column 'auto:lr_imbalance_pct'",
     ]
@@ -209,7 +215,17 @@ def test_the_finger_strength_mockup_keeps_its_data(tmp_path: Path) -> None:
                 assert [c.value for c in old[get_column_letter(column)]] == [
                     c.value for c in new[get_column_letter(column)]
                 ][: old.max_row], key
-    assert load_data(module, repo).entities == records
+
+    # the same records; the columns added are blank
+    def filled(entities: dict[str, EntityData]) -> dict[str, list[dict[str, Value]]]:
+        return {
+            name: [{k: v for k, v in r.items() if v is not None} for r in e.records]
+            for name, e in entities.items()
+        }
+
+    loaded = load_data(module, repo).entities
+    assert filled(loaded) == filled(records)
+    assert {n: e.places for n, e in loaded.items()} == {n: e.places for n, e in records.items()}
     assert check_schema(module, repo) == []
     assert sync_module(module, repo) == []  # a second sync has nothing to do
 

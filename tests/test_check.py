@@ -185,11 +185,17 @@ def test_difference_without_a_tab() -> None:
     assert str(Difference("error", None, None, "broken")) == "broken"
 
 
-def test_the_finger_strength_mockup_lacks_two_formula_columns(tmp_path: Path) -> None:
-    # The YAML gained two derived fields after the mock-up was made (D-054 checks formulas).
+def test_the_finger_strength_mockup_lacks_newer_columns(tmp_path: Path) -> None:
+    # The YAML gained two derived fields after the mock-up was made (D-054 checks formulas), and
+    # the wellbeing fields of v4 (D-101).
     module = load_module(Path("modules/finger-strength.yaml"))
     path = shutil.copy("design/mockups/mockup-finger-strength.xlsx", tmp_path)
     assert [str(d) for d in check_schema(module, XlsxBackend(Path(path)))] == [
+        "_meta: synced with v3, the YAML is v4",
+        "Sessions: column 'wb_mood_pre' is missing",
+        "Sessions: column 'wb_energy_pre' is missing",
+        "Sessions: column 'wb_fatigue_post' is missing",
+        "Sessions: column 'wb_mood_post' is missing",
         "Sessions: column 'auto:curl_volume' is missing",
         "Curl sets: column 'auto:lr_imbalance_pct' is missing",
     ]

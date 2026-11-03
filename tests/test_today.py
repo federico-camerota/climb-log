@@ -316,3 +316,34 @@ def test_forms_are_checked(problems: Problems, old: str, new: str, message: str)
     text = DIARY.replace(old, new)
     assert text != DIARY
     assert any(message in line for line in problems(text)), problems(text)
+
+
+# ---- forms with child rows (finger-strength sets, D-101) ----
+
+FINGERS = load_module(Path(__file__).parent.parent / "modules" / "finger-strength.yaml")
+
+
+def test_a_form_with_sets_is_listed_and_judged_on_its_own_fields() -> None:
+    day = due(FINGERS, {"session": []}, DAY)
+    assert [(i.form, i.status, i.key) for i in day.items] == [("session", "missing", {"date": DAY})]
+    assert day.notes == []  # no longer "forms with repeated rows come later"
+    hangs: Row = {"date": DAY, "session_type": "Max hangs"}
+    scored = {"pre_fingers": 3, "pre_forearms": 2, "pre_shoulders": 2, "session_rpe": 8}
+    found = due(FINGERS, {"session": [hangs | scored]}, DAY).items
+    assert [(i.form, i.key["session_type"], i.status) for i in found] == [
+        ("session", "Max hangs", "done")  # the sets don't decide it: logged or not
+    ]
+    found = due(FINGERS, {"session": [hangs | {"pre_fingers": 3}]}, DAY).items
+    assert found[0].status == "partial"
+
+
+def test_the_finger_wellbeing_counts_from_its_since_day() -> None:
+    later = dt.date(2026, 11, 5)
+    scored: Row = {"pre_fingers": 3, "pre_forearms": 2, "pre_shoulders": 2, "session_rpe": 8}
+    old: Row = {"date": DAY, "session_type": "Max hangs", **scored}
+    assert due(FINGERS, {"session": [old]}, DAY).items[0].status == "done"  # before `since`
+    new: Row = old | {"date": later}
+    found = due(FINGERS, {"session": [new]}, later).items[0]
+    assert (found.status, found.missing) == ("partial", ["Wellbeing · before", "Wellbeing · after"])
+    wellbeing: Row = {"wb_mood_pre": 7, "wb_energy_pre": 6, "wb_fatigue_post": 5, "wb_mood_post": 8}
+    assert due(FINGERS, {"session": [new | wellbeing]}, later).items[0].status == "done"

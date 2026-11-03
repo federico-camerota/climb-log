@@ -30,7 +30,7 @@ class Form:
     entity: str
     phase: str | None
     sections: tuple[str, ...] | None  # None: every field of the entity
-    repeats: bool  # child rows repeated in the form (finger-strength sets): not handled yet
+    repeats: bool  # child rows in the form (finger-strength sets): the form's own fields count
 
 
 @dataclass(frozen=True)
@@ -122,12 +122,8 @@ def due(
     """The module's forms on `day`. `tables[entity]` holds each record's stored and derived
     values (deleted ones left out)."""
     forms = forms_of(module)
-    notes = [
-        f"{form_label(f.name)}: forms with repeated rows come later"
-        for f in forms.values()
-        if f.repeats
-    ]
-    usable = [f for f in forms.values() if not f.repeats and f.phase != "next_day"]
+    notes: list[str] = []
+    usable = [f for f in forms.values() if f.phase != "next_day"]
     if not usable:
         return Day([], False, None, notes=notes)
     on_day = {

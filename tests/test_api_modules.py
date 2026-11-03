@@ -43,7 +43,7 @@ def test_modules_are_listed_with_their_schema(client: TestClient) -> None:
     assert (fingers["id"], fingers["name"], fingers["version"], fingers["kind"]) == (
         "finger_strength",
         "Finger strength",
-        3,
+        4,
         "journal",
     )
     assert fingers["problems"] == []

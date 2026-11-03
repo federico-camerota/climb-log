@@ -55,6 +55,9 @@ curls on the same day are two rows, each with its own start time and readiness, 
 may be at different moments of the day and you may feel different.
 
 ### `Sessions`
+From module v4 (D-101) the tab also has `wb_mood_pre`, `wb_energy_pre`, `wb_fatigue_post` and
+`wb_mood_post` (wellbeing before and after), added at the end by the additive sync.
+
 | Date | Session type | Start time | Fingers before ↓ | Forearms before ↓ | Shoulders before ↓ | Session effort | Notes | Readiness | Readiness status | Sets | Top added kg (hangs) | Est. 1RM left (curls) | Est. 1RM right (curls) | L/R imbalance % |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 14/10/2026 | Max hangs | 18:30 | 2 | 3 | 4 | 8 | [ESEMPIO] Dita fresche… | 8 | GOOD | 4 | 12.5 | | | |

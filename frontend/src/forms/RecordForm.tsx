@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   addRecord,
   ApiError,
+  getRecord,
   type FieldProblem,
   type Issue,
   updateRecord,
@@ -16,6 +17,7 @@ import {
   type Written,
 } from "../api/client";
 import { useHidden, useRecord, useRecords } from "../api/queries";
+import { ChildRows, type ChildApi } from "./ChildRows";
 import { FieldInput } from "./FieldInput";
 import { formGroups, scaleOf, type EntityDef, type FormDef } from "./schema";
 import { isScale, problem, toApi, toInput, unchanged, type InputValue } from "./values";
@@ -99,6 +101,7 @@ function Editor({
   const [restored, setRestored] = useState(draft !== null);
   const [nothing, setNothing] = useState(false);
   const hiddenRef = useRef(new Set<string>()); // the fields hidden now (below), for validation
+  const children = useRef(new Map<string, ChildApi>()); // the child rows' blocks (sets)
   const editor = useForm<Record<string, InputValue>>({
     mode: "controlled",
     initialValues: { ...initial, ...(draft ?? {}) },
@@ -146,22 +149,38 @@ function Editor({
 
   const queryClient = useQueryClient();
   const save = useMutation({
-    mutationFn: (values: Record<string, InputValue>) => {
+    mutationFn: async (values: Record<string, InputValue>): Promise<Written> => {
       const changed = shownFields.filter(
         ([name, field]) => !unchanged(field, read?.[name], values[name] ?? null),
       );
       const payload = Object.fromEntries(
         changed.map(([name, field]) => [name, toApi(field, values[name] ?? null)]),
       );
-      if (read === null) return addRecord(module.id, form.entity, { ...recordKey, ...payload });
-      const expected = Object.fromEntries(fields.map(([name]) => [name, read[name] ?? null]));
-      return updateRecord(module.id, form.entity, recordKey, payload, expected);
+      const blocks = [...children.current.values()];
+      const rows = blocks.filter((block) => block.dirty());
+      let written: Written | null = null;
+      if (read === null) {
+        // the record first: its child rows need it
+        written = await addRecord(module.id, form.entity, { ...recordKey, ...payload });
+      } else if (changed.length > 0) {
+        const expected = Object.fromEntries(fields.map(([name]) => [name, read[name] ?? null]));
+        written = await updateRecord(module.id, form.entity, recordKey, payload, expected);
+      }
+      for (const block of rows) await block.save();
+      if (rows.length === 0 && written !== null) return written;
+      // the child rows changed the record's derived values (the number of sets): read it again
+      const fresh = await getRecord(module.id, form.entity, recordKey);
+      if (fresh === null) throw new Error("The record is gone: reload the page");
+      return fresh;
     },
     onSuccess: (written) => {
       dropDraft(draftKey);
       onSaved(written);
       queryClient.setQueryData(["record", module.id, form.entity, recordKey], written);
       void queryClient.invalidateQueries({ queryKey: ["records", module.id, form.entity] });
+      for (const child of form.children ?? []) {
+        void queryClient.invalidateQueries({ queryKey: ["records", module.id, child.entity] });
+      }
       void queryClient.invalidateQueries({ queryKey: ["recommendation"] });
       void queryClient.invalidateQueries({ queryKey: ["today"] });
     },
@@ -171,18 +190,52 @@ function Editor({
     },
   });
 
-  const submit = editor.onSubmit((values) => {
-    const same = shownFields.every(([name, field]) =>
-      unchanged(field, read?.[name], values[name] ?? null),
-    );
+  // an event handler (not called while rendering): it reads the child rows' blocks
+  const submit = (event: React.SubmitEvent<HTMLFormElement>) => {
+    editor.onSubmit(onValid)(event);
+  };
+  function onValid(values: Record<string, InputValue>) {
+    const blocks = [...children.current.values()];
+    if (!blocks.every((block) => block.validate())) return;
+    const same =
+      shownFields.every(([name, field]) => unchanged(field, read?.[name], values[name] ?? null)) &&
+      !blocks.some((block) => block.dirty());
     setNothing(read !== null && same);
     if (!(read !== null && same)) save.mutate(values);
-  });
+  }
   const error = save.error;
   const conflict = error instanceof ApiError && error.status === 409;
   // each problem on a field of the form shows under it; the rest (or a problem with no field)
   // in the "Not saved" alert
   const [onForm, elsewhere] = splitProblems(error, editor.getValues());
+
+  // the groups shown; a form's child rows (sets) come before its first "after" group
+  const shown = groups
+    .map((group) => ({ ...group, fields: group.fields.filter(([n]) => !hidden.has(n)) }))
+    .filter((group) => group.fields.length > 0);
+  const post = shown.findIndex(
+    (group) => group.section !== null && entity.sections?.[group.section]?.phase === "post",
+  );
+  const setsAt = post === -1 ? shown.length : post;
+  const renderGroup = (group: (typeof shown)[number]) => (
+    <Stack key={group.section ?? ""} gap="xs">
+      {group.label !== null && <Title order={4}>{group.label}</Title>}
+      {group.fields.map(([name, field]) => (
+        <FieldInput
+          key={name}
+          name={name}
+          field={field}
+          scale={scale(name)}
+          value={editor.getValues()[name] ?? null}
+          onChange={(value) => {
+            editor.setFieldValue(name, value);
+          }}
+          error={editor.errors[name] as string | undefined}
+          suggestions={suggestions[name]}
+        />
+      ))}
+    </Stack>
+  );
 
   return (
     <form onSubmit={submit} noValidate>
@@ -207,28 +260,11 @@ function Editor({
             </Group>
           </Alert>
         )}
-        {groups
-          .map((group) => ({ ...group, fields: group.fields.filter(([n]) => !hidden.has(n)) }))
-          .filter((group) => group.fields.length > 0)
-          .map((group) => (
-            <Stack key={group.section ?? ""} gap="xs">
-              {group.label !== null && <Title order={4}>{group.label}</Title>}
-              {group.fields.map(([name, field]) => (
-                <FieldInput
-                  key={name}
-                  name={name}
-                  field={field}
-                  scale={scale(name)}
-                  value={editor.getValues()[name] ?? null}
-                  onChange={(value) => {
-                    editor.setFieldValue(name, value);
-                  }}
-                  error={editor.errors[name] as string | undefined}
-                  suggestions={suggestions[name]}
-                />
-              ))}
-            </Stack>
-          ))}
+        {shown.slice(0, setsAt).map(renderGroup)}
+        {form.children !== undefined && (
+          <ChildRows module={module} form={form} recordKey={recordKey} registry={children} />
+        )}
+        {shown.slice(setsAt).map(renderGroup)}
         {conflict && (
           <Alert color="orange" title="Changed in the sheet since you opened the form">
             <Stack gap="xs">

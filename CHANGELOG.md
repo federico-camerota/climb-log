@@ -12,8 +12,16 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   venue and partners) suggest the values typed before (#122, D-100).
 - The `forms:` block of a module YAML is checked at load: its entity, sections and child forms
   (D-100).
+- The finger-strength Log form edits the session's sets: hang sets or curl sets by session
+  type, "+ set" copying the previous set's protocol and load, sets removed or changed, all saved
+  with the session; Today lists the finger-strength form (#124, D-101).
+- Finger-strength sessions log wellbeing: mood and energy before, fatigue and mood after, from
+  2026-11-03 (module v4: run `climblog check finger_strength --apply` to add the columns)
+  (D-101).
 
 ### Changed
+- The finger-strength session's start time is optional: Today no longer counts it as missing
+  (D-101).
 - The unused field options `hidden_in_form` and `searchable` are removed: a module that sets
   them no longer loads (D-099, D-100).
 - The commit check refuses the app's snapshots (`*.json.gz`) outside the fictional-data folders,
