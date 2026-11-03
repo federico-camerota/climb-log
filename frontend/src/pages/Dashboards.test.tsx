@@ -138,7 +138,61 @@ const VIEW = {
         extra: [2],
       })),
     },
-    { widget: "planned", label: null, kind: "weekbars", why: "comes with M4" },
+    { widget: "planned", label: null, kind: "radar", why: "comes with M5 or later" },
+    {
+      widget: "bars",
+      label: "Load per week",
+      metric: "Session load",
+      agg: "sum",
+      categories: ["2026-W43", "2026-W44"],
+      values: [300, null],
+      n: [3, 0],
+      last: 12,
+    },
+    {
+      widget: "weekbars",
+      label: "Statuses per week",
+      agg: "count_by_value",
+      weeks: ["2026-W44"],
+      starts: ["2026-10-26"],
+      stacks: [{ label: "GOOD", values: [2] }],
+      shown: 12,
+    },
+    {
+      widget: "stacked",
+      label: null,
+      agg: "sum",
+      categories: ["2026-W44"],
+      series: [{ metric: "session.session_load", label: "Climbing", values: [120] }],
+      last: 12,
+    },
+    {
+      widget: "box_by",
+      label: null,
+      metric: "Feel score",
+      by: "Weekday",
+      boxes: [{ label: "Mon", n: 3, low: 5, q1: 6, median: 7, q3: 8, high: 9, outliers: [] }],
+    },
+    {
+      widget: "scatter",
+      label: null,
+      x_label: "Sleep hours",
+      y_label: "Feel score",
+      lag: 1,
+      points: [{ x: 7, y: 8, date: "2026-10-28", group: null }],
+      n: 1,
+      trend: null,
+    },
+    {
+      widget: "scatter",
+      label: "Nothing yet",
+      x_label: "Sleep hours",
+      y_label: "Mood",
+      lag: 0,
+      points: [],
+      n: 0,
+      trend: null,
+    },
   ],
 };
 
@@ -166,8 +220,17 @@ describe("Dashboards", () => {
     );
     expect(screen.getByRole("img", { name: "Scores by class" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Last 12" })).toBeChecked();
-    expect(screen.getByText("Not drawn yet: comes with M4.")).toBeInTheDocument();
-    expect(screen.getByText("Weekly bars")).toBeInTheDocument();
+    expect(screen.getByText("Not drawn yet: comes with M5 or later.")).toBeInTheDocument();
+    expect(screen.getByText("Radar")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Load per week" })).toBeInTheDocument();
+    expect(screen.getByText("sum of Session load; n = 3")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Statuses per week" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Climbing" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Feel score by Weekday" })).toBeInTheDocument();
+    expect(screen.getByText(/whiskers to the furthest values/)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Feel score vs Sleep hours" })).toBeInTheDocument();
+    expect(screen.getByText("n = 1; Feel score 1 day(s) later")).toBeInTheDocument();
+    expect(screen.getByText("Nothing logged yet.")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Training calendar" })).toBeInTheDocument();
     expect(screen.getByText(/Each square is a day/)).toBeInTheDocument();
     const legend = screen.getByLabelText("Legend");

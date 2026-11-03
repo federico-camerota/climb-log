@@ -4,7 +4,7 @@
 // not on a canvas (D-097): Firefox's GPU canvas on Linux can leave a drawn chart blank until a
 // click repaints it, and our charts are a few hundred points at most.
 import { useComputedColorScheme } from "@mantine/core";
-import { HeatmapChart, LineChart } from "echarts/charts";
+import { BarChart, BoxplotChart, HeatmapChart, LineChart, ScatterChart } from "echarts/charts";
 import {
   CalendarComponent,
   DataZoomComponent,
@@ -20,6 +20,9 @@ import { useEffect, useRef } from "react";
 register([
   LineChart,
   HeatmapChart,
+  BarChart,
+  BoxplotChart,
+  ScatterChart,
   CalendarComponent,
   GridComponent,
   LegendComponent,

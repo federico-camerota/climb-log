@@ -17,6 +17,13 @@ import { viewNames, type ModuleInfo, type View } from "../api/client";
 import { useView } from "../api/queries";
 import { DataStatus } from "../components/DataStatus";
 import {
+  BarsCard,
+  BoxByCard,
+  ScatterCard,
+  StackedCard,
+  WeekbarsCard,
+} from "../components/ChartWidgets";
+import {
   HeatmapCard,
   KpiCard,
   LineCard,
@@ -126,6 +133,16 @@ function Widgets({ view }: { view: View }) {
             return <TableCard key={i} data={w} />;
           case "monthly":
             return <MonthlyCard key={i} data={w} />;
+          case "bars":
+            return <BarsCard key={i} data={w} />;
+          case "weekbars":
+            return <WeekbarsCard key={i} data={w} />;
+          case "stacked":
+            return <StackedCard key={i} data={w} />;
+          case "box_by":
+            return <BoxByCard key={i} data={w} />;
+          case "scatter":
+            return <ScatterCard key={i} data={w} />;
           case "planned":
             return <PlannedCard key={i} data={w} />;
           default:

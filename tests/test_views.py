@@ -105,13 +105,13 @@ def test_the_line_has_every_session_with_bands_and_a_rolling_mean() -> None:
 
 
 def test_a_widget_not_drawn_yet_says_when_it_comes(load: LoadYaml) -> None:
-    module = load(VIEW + "    - {widget: weekbars, metric: session.mood}\n")
+    module = load(VIEW + "    - {widget: radar, entity: session}\n")
     assert module.views is not None
     [planned] = compute_view(module, module.views["main"], {}, {}, OCT)
     assert (planned["widget"], planned["kind"], planned["why"]) == (
         "planned",
-        "weekbars",
-        "comes with M4",
+        "radar",
+        "comes with M5 or later",
     )
 
 

@@ -270,6 +270,63 @@ export interface components {
             /** To */
             to: number | null;
         };
+        /** BarsData */
+        BarsData: {
+            /** Agg */
+            agg: string;
+            /** Categories */
+            categories: string[];
+            /** Label */
+            label: string | null;
+            /** Last */
+            last: number;
+            /** Metric */
+            metric: string;
+            /** N */
+            n: number[];
+            /** Values */
+            values: (number | null)[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "bars";
+        };
+        /** Box */
+        Box: {
+            /** High */
+            high: number;
+            /** Label */
+            label: string;
+            /** Low */
+            low: number;
+            /** Median */
+            median: number;
+            /** N */
+            n: number;
+            /** Outliers */
+            outliers: number[];
+            /** Q1 */
+            q1: number;
+            /** Q3 */
+            q3: number;
+        };
+        /** BoxByData */
+        BoxByData: {
+            /** Boxes */
+            boxes: components["schemas"]["Box"][];
+            /** By */
+            by: string;
+            /** Label */
+            label: string | null;
+            /** Metric */
+            metric: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "box_by";
+        };
         /** DueForm */
         DueForm: {
             /** Form */
@@ -454,6 +511,10 @@ export interface components {
              * @enum {string}
              */
             widget: "line";
+            /** X */
+            x?: number[] | null;
+            /** X Label */
+            x_label?: string | null;
         };
         /** MetricCatalogue */
         MetricCatalogue: {
@@ -752,6 +813,41 @@ export interface components {
             /** Label */
             label: string;
         };
+        /** ScatterData */
+        ScatterData: {
+            /** Label */
+            label: string | null;
+            /** Lag */
+            lag: number;
+            /** N */
+            n: number;
+            /** Points */
+            points: components["schemas"]["ScatterPoint"][];
+            trend: components["schemas"]["Trend"] | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "scatter";
+            /** X Label */
+            x_label: string;
+            /** Y Label */
+            y_label: string;
+        };
+        /** ScatterPoint */
+        ScatterPoint: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Group */
+            group: string | null;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
         /** SideBySideData */
         SideBySideData: {
             /** Groups */
@@ -801,6 +897,40 @@ export interface components {
             module: string;
             /** Offline */
             offline: boolean;
+        };
+        /** Stack */
+        Stack: {
+            /** Label */
+            label: string;
+            /** Values */
+            values: (number | null)[];
+        };
+        /** StackedData */
+        StackedData: {
+            /** Agg */
+            agg: string;
+            /** Categories */
+            categories: string[];
+            /** Label */
+            label: string | null;
+            /** Last */
+            last: number;
+            /** Series */
+            series: components["schemas"]["StackedSeries"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "stacked";
+        };
+        /** StackedSeries */
+        StackedSeries: {
+            /** Label */
+            label: string;
+            /** Metric */
+            metric: string;
+            /** Values */
+            values: (number | null)[];
         };
         /** StatusBoardData */
         StatusBoardData: {
@@ -883,6 +1013,17 @@ export interface components {
             /** Problems */
             problems: string[];
         };
+        /** Trend */
+        Trend: {
+            /** From */
+            from: number;
+            /** Intercept */
+            intercept: number;
+            /** Slope */
+            slope: number;
+            /** To */
+            to: number;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -912,7 +1053,27 @@ export interface components {
             /** View */
             view: string;
             /** Widgets */
-            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["HeatmapData"] | components["schemas"]["SideBySideData"] | components["schemas"]["TextFeedData"] | components["schemas"]["TableData"] | components["schemas"]["MonthlyData"] | components["schemas"]["PlannedData"])[];
+            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["HeatmapData"] | components["schemas"]["SideBySideData"] | components["schemas"]["TextFeedData"] | components["schemas"]["TableData"] | components["schemas"]["MonthlyData"] | components["schemas"]["BarsData"] | components["schemas"]["WeekbarsData"] | components["schemas"]["StackedData"] | components["schemas"]["BoxByData"] | components["schemas"]["ScatterData"] | components["schemas"]["PlannedData"])[];
+        };
+        /** WeekbarsData */
+        WeekbarsData: {
+            /** Agg */
+            agg: string;
+            /** Label */
+            label: string | null;
+            /** Shown */
+            shown: number;
+            /** Stacks */
+            stacks: components["schemas"]["Stack"][];
+            /** Starts */
+            starts: string[];
+            /** Weeks */
+            weeks: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "weekbars";
         };
         /** WriteProblem */
         WriteProblem: {

@@ -107,6 +107,7 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
   `GET /api/metrics` and `GET /api/metrics/query`.
 - Widget library v1: `bars`, `weekbars`/`stacked`, `box_by` and `scatter`, and the `line`'s
   `split_by` and `x` (kpi, line with bands and the calendar heatmap are done, D-083/D-084).
+  → done (D-091, #98).
 - Training load: weekly session-RPE load, ACWR (EWMA, shown with zones, not as a rule),
   monotony and strain, sessions per week, streaks; as widgets on the journal dashboard.
 - Pre → post deltas by session type (paired dots per body part) and soreness by body part ×
