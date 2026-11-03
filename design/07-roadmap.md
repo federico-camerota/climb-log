@@ -154,16 +154,19 @@ meanwhile. One PR each, in this order:
   its plan.
 - **More body parts** in the journal's `soreness` template: lower back, upper back, core / abs,
   hips / glutes, knees / ankles, legs (the rest of the legs), each with `since:` (old sessions
-  stay blank). They **count like the others** (owner): in Physical readiness (the mean), Physical
+  stay blank) (#128). They **count like the others** (owner): in Physical readiness (the mean), Physical
   status (the max), the log check (every part before and after), the rest day's body readiness,
   the body heatmap and the before/after pairs. An additive sync on the live journal (`climblog
   check journal --apply`, run by the owner).
-- **Protein log**: a new small module, one row per meal or snack with its grams, the day's total
+- **Protein log** (#129): a new small module, one row per meal or snack with its grams, the day's total
   derived (a day record with meal rows as children, or meal rows summed per day: settled in its
   plan), a daily target in g/day as a setting (body weight isn't logged, D-025), on Today and in
   a dashboard line against the target.
 
 ### M5 · Program modules ☐
+Issues #130–#142 in milestone "M5 · Program modules", in build order: program block, training
+plan, reference tables, `ref` fields, prefill and next-morning items, batch forms, shoulder
+module and dashboard, fear rules, module and dashboard, combined recommendation, close.
 - `program:` block (weeks, phases, runs), reference tables, `ref` fields, prefilled fields.
   A program starts on an **ISO week** (`2026-W42`), not a date: week 1 is that week's Monday,
   and `program.week` counts from there (D-103).
