@@ -212,6 +212,33 @@ const VIEW = {
       current_streak: 0,
     },
     {
+      widget: "pre_post",
+      label: "Before → after",
+      groups: ["Climbing"],
+      pairs: [
+        {
+          label: "Fingers",
+          lower_better: true,
+          all: { n: 4, pre: 2, post: 4.5, change: 2.5 },
+          groups: [{ n: 2, pre: 3, post: 2, change: -1 }],
+        },
+      ],
+    },
+    {
+      widget: "body_heatmap",
+      label: "Soreness by week",
+      parts: ["Fingers"],
+      weeks: ["2026-W44"],
+      starts: ["2026-10-26"],
+      sources: [
+        { label: "Before sessions", values: [[3]], n: [[2]] },
+        { label: "Rest days", values: [[null]], n: [[0]] },
+      ],
+      scale: [1, 10],
+      lower_better: true,
+      shown: 12,
+    },
+    {
       widget: "scatter",
       label: "Nothing yet",
       x_label: "Sleep hours",
@@ -263,6 +290,11 @@ describe("Dashboards", () => {
     expect(screen.getByText(/building a baseline until 01\/11/)).toBeInTheDocument();
     expect(screen.getByText(/3 day\(s\), 26\/10–28\/10/)).toBeInTheDocument();
     const week = screen.getByRole("row", { name: /2026-W44/ });
+    const fingers = screen.getByRole("row", { name: /Fingers ↓/ });
+    expect(fingers).toHaveTextContent("Fingers ↓24,5+2,54");
+    expect(screen.getByRole("img", { name: "Before → after" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Soreness by week" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Rest days" })).toBeInTheDocument();
     expect(week).toHaveTextContent("2026-W44 (26/10)1250 (1 without load)4832–1,21500");
     expect(screen.getByRole("img", { name: "Training calendar" })).toBeInTheDocument();
     expect(screen.getByText(/Each square is a day/)).toBeInTheDocument();

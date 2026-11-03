@@ -824,6 +824,52 @@ class TrainingLoadWidget(_Widget):
         return self
 
 
+class Pair(Strict):
+    label: str
+    pre: str  # `entity.field` before
+    post: str  # the same question after, `entity.field` of the same entity
+
+
+class TemplatePairs(Strict):
+    """A pair per field of a template, e.g. each body part's soreness before and after."""
+
+    template: Key
+    pre: str  # `entity.prefix` of the fields before, e.g. session.ph_pre_
+    post: str  # e.g. session.ph_post_
+
+
+class PrePostWidget(_Widget):
+    """How a session changes the same questions asked before and after (05 §3.1): per pair the
+    mean before, after and of the change of the records with both, with n; per value of `by`
+    too (e.g. the session type)."""
+
+    widget: Literal["pre_post"]
+    pairs: list[Pair] = []
+    template_pairs: list[TemplatePairs] = []
+    by: str | None = None  # `entity.field` of the pairs' entity
+
+    @model_validator(mode="after")
+    def _some(self) -> Self:
+        if not self.pairs and not self.template_pairs:
+            raise ValueError("give pairs or template_pairs")
+        return self
+
+
+class BodySource(Strict):
+    label: str  # e.g. Before
+    fields: str  # `entity.prefix`: the template's fields there, e.g. session.ph_pre_
+
+
+class BodyHeatmapWidget(_Widget):
+    """A template's fields (e.g. body parts) by week: each cell the week's mean, per source
+    (before and after sessions, rest days)."""
+
+    widget: Literal["body_heatmap"]
+    template: Key
+    sources: list[BodySource] = Field(min_length=1)
+    weeks: int = Field(12, ge=1)  # shown at first
+
+
 class LaterWidget(BaseModel):
     """A widget of the planned library (03 §2.7) the app doesn't draw yet (M4/M5): its options
     are checked when it is."""
@@ -854,6 +900,8 @@ Widget = Annotated[
     | BoxByWidget
     | ScatterWidget
     | TrainingLoadWidget
+    | PrePostWidget
+    | BodyHeatmapWidget
     | LaterWidget,
     Field(discriminator="widget"),
 ]

@@ -18,7 +18,9 @@ import { useView } from "../api/queries";
 import { DataStatus } from "../components/DataStatus";
 import {
   BarsCard,
+  BodyHeatmapCard,
   BoxByCard,
+  PrePostCard,
   ScatterCard,
   StackedCard,
   TrainingLoadCard,
@@ -146,6 +148,10 @@ function Widgets({ view }: { view: View }) {
             return <ScatterCard key={i} data={w} />;
           case "training_load":
             return <TrainingLoadCard key={i} data={w} />;
+          case "pre_post":
+            return <PrePostCard key={i} data={w} />;
+          case "body_heatmap":
+            return <BodyHeatmapCard key={i} data={w} />;
           case "planned":
             return <PlannedCard key={i} data={w} />;
           default:

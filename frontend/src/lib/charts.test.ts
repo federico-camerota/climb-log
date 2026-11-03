@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import type {
   BarsData,
+  BodyHeatmapData,
   BoxByData,
+  PrePostData,
   LineData,
   ScatterData,
   TrainingLoadData,
@@ -11,10 +13,14 @@ import type {
 } from "../api/client";
 import {
   barsOption,
+  bodyOption,
   boxLabel,
   boxOption,
+  changeTone,
   decimal,
   loadOption,
+  pairStats,
+  prePostOption,
   scatterOption,
   shortDate,
   stackedOption,
@@ -227,5 +233,78 @@ describe("the chart options", () => {
       "very high",
     ]);
     expect(shortDate("2026-10-05")).toBe("05/10");
+  });
+
+  it("draws before and after per pair, for all sessions or a group", () => {
+    const data: PrePostData = {
+      widget: "pre_post",
+      label: null,
+      groups: ["Climbing"],
+      pairs: [
+        {
+          label: "Mood",
+          lower_better: false,
+          all: { n: 2, pre: 6, post: 7, change: 1 },
+          groups: [{ n: 1, pre: 5, post: 8, change: 3 }],
+        },
+        {
+          label: "Skin",
+          lower_better: true,
+          all: { n: 0, pre: null, post: null, change: null },
+          groups: [{ n: 0, pre: null, post: null, change: null }],
+        },
+      ],
+    };
+    expect(pairStats(data, 0).map((s) => s.change)).toEqual([3, null]);
+    const option = prePostOption(data, -1) as Option;
+    const before = option.series.find((s) => s.name === "Before");
+    expect(before?.data).toEqual([[6, "Mood"], null]);
+    expect(option.series[0]?.data).toEqual([
+      [6, "Mood"],
+      [7, "Mood"],
+    ]);
+    expect(option.series[1]?.data).toEqual([]); // no pair for skin
+    expect([
+      changeTone(1, false),
+      changeTone(-1, true),
+      changeTone(2, true),
+      changeTone(0, true),
+      changeTone(1, null),
+    ]).toEqual(["green", "green", "red", "dimmed", "dimmed"]);
+  });
+
+  it("maps body parts by week, red at the bad end of the scale", () => {
+    const data: BodyHeatmapData = {
+      widget: "body_heatmap",
+      label: null,
+      parts: ["Fingers", "Skin"],
+      weeks: ["2026-W43", "2026-W44"],
+      starts: ["2026-10-19", "2026-10-26"],
+      sources: [
+        {
+          label: "Before",
+          values: [
+            [3, null],
+            [null, 6],
+          ],
+          n: [
+            [1, 0],
+            [0, 2],
+          ],
+        },
+      ],
+      scale: [1, 10],
+      lower_better: true,
+      shown: 12,
+    };
+    const option = bodyOption(data, 0) as Option;
+    expect(option.series[0]?.data).toEqual([
+      [0, 0, 3],
+      [1, 1, 6],
+    ]);
+    const map = option.visualMap as { min: number; max: number; inRange: { color: string[] } };
+    expect([map.min, map.max, map.inRange.color.at(-1)]).toEqual([1, 10, "#e03131"]);
+    const better = bodyOption({ ...data, lower_better: false }, 0) as Option;
+    expect((better.visualMap as { inRange: { color: string[] } }).inRange.color[0]).toBe("#e03131");
   });
 });

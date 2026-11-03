@@ -209,6 +209,74 @@
       "title": "BarsWidget",
       "type": "object"
     },
+    "BodyHeatmapWidget": {
+      "additionalProperties": false,
+      "description": "A template's fields (e.g. body parts) by week: each cell the week's mean, per source\n(before and after sessions, rest days).",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "body_heatmap",
+          "title": "Widget",
+          "type": "string"
+        },
+        "template": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Template",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/BodySource"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array"
+        },
+        "weeks": {
+          "default": 12,
+          "minimum": 1,
+          "title": "Weeks",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "widget",
+        "template",
+        "sources"
+      ],
+      "title": "BodyHeatmapWidget",
+      "type": "object"
+    },
+    "BodySource": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "fields": {
+          "title": "Fields",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "fields"
+      ],
+      "title": "BodySource",
+      "type": "object"
+    },
     "BoolField": {
       "additionalProperties": false,
       "properties": {
@@ -2249,6 +2317,30 @@
       "title": "Otherwise",
       "type": "object"
     },
+    "Pair": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "pre": {
+          "title": "Pre",
+          "type": "string"
+        },
+        "post": {
+          "title": "Post",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "pre",
+        "post"
+      ],
+      "title": "Pair",
+      "type": "object"
+    },
     "Parent": {
       "additionalProperties": false,
       "description": "Makes an entity a child (many rows per parent row, e.g. sets of a session; D-025).\n\n`key` lists the parent key fields repeated in the child's rows; `fixed` gives the rest,\nimplied by the child's tab (`Hang sets` → `session_type: Max hangs`; D-032).",
@@ -2453,6 +2545,62 @@
         "plugin"
       ],
       "title": "PluginDerived",
+      "type": "object"
+    },
+    "PrePostWidget": {
+      "additionalProperties": false,
+      "description": "How a session changes the same questions asked before and after (05 §3.1): per pair the\nmean before, after and of the change of the records with both, with n; per value of `by`\ntoo (e.g. the session type).",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "pre_post",
+          "title": "Widget",
+          "type": "string"
+        },
+        "pairs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Pair"
+          },
+          "title": "Pairs",
+          "type": "array"
+        },
+        "template_pairs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TemplatePairs"
+          },
+          "title": "Template Pairs",
+          "type": "array"
+        },
+        "by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "By"
+        }
+      },
+      "required": [
+        "widget"
+      ],
+      "title": "PrePostWidget",
       "type": "object"
     },
     "Recommendation": {
@@ -3552,6 +3700,32 @@
       "title": "TableWidget",
       "type": "object"
     },
+    "TemplatePairs": {
+      "additionalProperties": false,
+      "description": "A pair per field of a template, e.g. each body part's soreness before and after.",
+      "properties": {
+        "template": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Template",
+          "type": "string"
+        },
+        "pre": {
+          "title": "Pre",
+          "type": "string"
+        },
+        "post": {
+          "title": "Post",
+          "type": "string"
+        }
+      },
+      "required": [
+        "template",
+        "pre",
+        "post"
+      ],
+      "title": "TemplatePairs",
+      "type": "object"
+    },
     "TemplateUse": {
       "additionalProperties": false,
       "description": "A field entry that expands a template: `ph_pre_: {template: soreness, section: ph_pre}`\nadds `ph_pre_fingers`, `ph_pre_forearms`, … in its place. Only placement can be set here.",
@@ -4250,6 +4424,7 @@
                   "mapping": {
                     "bars": "#/$defs/BarsWidget",
                     "before_after": "#/$defs/LaterWidget",
+                    "body_heatmap": "#/$defs/BodyHeatmapWidget",
                     "box_by": "#/$defs/BoxByWidget",
                     "delta_table": "#/$defs/LaterWidget",
                     "heatmap_calendar": "#/$defs/HeatmapWidget",
@@ -4257,6 +4432,7 @@
                     "ladder": "#/$defs/LaterWidget",
                     "line": "#/$defs/LineWidget",
                     "monthly": "#/$defs/MonthlyWidget",
+                    "pre_post": "#/$defs/PrePostWidget",
                     "program_grid": "#/$defs/LaterWidget",
                     "radar": "#/$defs/LaterWidget",
                     "scatter": "#/$defs/ScatterWidget",
@@ -4313,6 +4489,12 @@
                   },
                   {
                     "$ref": "#/$defs/TrainingLoadWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/PrePostWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/BodyHeatmapWidget"
                   },
                   {
                     "$ref": "#/$defs/LaterWidget"

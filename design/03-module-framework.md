@@ -575,6 +575,19 @@ Training load (#99, D-092), computed in `analytics/load.py`:
   zones: [0.8, 1.3, 1.5]                # low, high, very high: context, not a rule
 ```
 
+Before/after and body maps (#100, D-093):
+
+```yaml
+- widget: pre_post           # the same question before and after: means, change, n
+  pairs: [{label: Mood, pre: session.wb_mood_pre, post: session.wb_mood_post}]
+  template_pairs: [{template: soreness, pre: session.ph_pre_, post: session.ph_post_}]
+  by: session.session_type   # also per value of a field of the pairs' entity
+- widget: body_heatmap       # a template's fields by week: the week's mean
+  template: soreness
+  sources: [{label: Before sessions, fields: session.ph_pre_}, {label: Rest days, fields: rest_day.body_}]
+  weeks: 12
+```
+
 Still shown as "not drawn yet": `status_strip`, `radar`, `delta_table`, `ladder`,
 `program_grid`, `before_after` (M5 or later); `weekbars` by `program_week` (M5); a line split by
 another entity's fields and `box_by` time-of-day `bins` (backlog, 05 §3.5).

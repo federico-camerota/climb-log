@@ -19,6 +19,7 @@ from typing import Any
 
 from climblog.analytics.load import Other, training_load
 from climblog.analytics.metrics import Query, run_query
+from climblog.analytics.progress import body_heatmap, pre_post
 from climblog.expr import Value
 from climblog.expr.functions import sheet_round
 from climblog.modules.compute import Timeline
@@ -27,6 +28,7 @@ from climblog.modules.schema import (
     Band,
     BarsWidget,
     BaseField,
+    BodyHeatmapWidget,
     BoxByWidget,
     ChoiceField,
     HeatmapWidget,
@@ -35,6 +37,7 @@ from climblog.modules.schema import (
     Module,
     MonthlyWidget,
     Otherwise,
+    PrePostWidget,
     ScatterWidget,
     SideBySideWidget,
     StackedWidget,
@@ -123,6 +126,10 @@ def compute_view(
             result.append(_scatter(module, widget, tables, records, day))
         elif isinstance(widget, TrainingLoadWidget):
             result.append(training_load(module, widget, tables, day, others or _none))
+        elif isinstance(widget, PrePostWidget):
+            result.append(pre_post(module, widget, tables, day))
+        elif isinstance(widget, BodyHeatmapWidget):
+            result.append(body_heatmap(module, widget, tables, day))
         else:
             result.append(_planned(widget))
     return result

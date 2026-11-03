@@ -20,6 +20,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   load (sessions without duration or effort flagged), rest days, finger training stacked, the
   acute:chronic workload ratio with zones as context, monotony, strain and training streaks,
   and sessions per week by type.
+- Before → after (#100, D-093): the journal's new `progress` dashboard shows how sessions change
+  mood and each body part's soreness (means before and after, the change and n, per session
+  type), and soreness by body part and week before sessions, after them and on rest days.
 
 ### Changed
 - M4 scoped (`design/07-roadmap.md`): eight issues, the analyses useful on little data first

@@ -322,6 +322,45 @@ class TrainingLoadData(BaseModel):
     current_streak: int
 
 
+class PairStats(BaseModel):
+    n: int  # records with both values
+    pre: float | None  # their mean before
+    post: float | None
+    change: float | None  # after - before
+
+
+class PairData(BaseModel):
+    label: str
+    lower_better: bool | None  # a drop is good (soreness); None: neutral or unknown
+    all: PairStats
+    groups: list[PairStats]  # one per value of `by`
+
+
+class PrePostData(BaseModel):
+    widget: Literal["pre_post"]
+    label: str | None
+    groups: list[str]  # the values of `by`, in order
+    pairs: list[PairData]
+
+
+class BodySourceData(BaseModel):
+    label: str
+    values: list[list[float | None]]  # [part][week]: the week's mean
+    n: list[list[int]]
+
+
+class BodyHeatmapData(BaseModel):
+    widget: Literal["body_heatmap"]
+    label: str | None
+    parts: list[str]
+    weeks: list[str]
+    starts: list[dt.date]
+    sources: list[BodySourceData]
+    scale: tuple[float, float] | None
+    lower_better: bool | None
+    shown: int
+
+
 class PlannedData(BaseModel):
     widget: Literal["planned"]
     label: str | None
@@ -344,6 +383,8 @@ WidgetData = Annotated[
     | BoxByData
     | ScatterData
     | TrainingLoadData
+    | PrePostData
+    | BodyHeatmapData
     | PlannedData,
     Field(discriminator="widget"),
 ]

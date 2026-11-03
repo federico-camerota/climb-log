@@ -20,6 +20,7 @@ from climblog.modules.schema import (
     NEXT,
     BarsWidget,
     BaseField,
+    BodyHeatmapWidget,
     BoxByWidget,
     ChoiceField,
     DateField,
@@ -33,6 +34,7 @@ from climblog.modules.schema import (
     NumberField,
     NumericScale,
     OrdinalScale,
+    PrePostWidget,
     Problem,
     ReferenceTemplateUse,
     RefField,
@@ -641,6 +643,35 @@ def _views(module: Module) -> list[Problem]:
                 if widget.rest is not None:
                     problems += _entity_named(module, widget.rest, (*at, "rest"))
                 # other modules are known only from the app config: checked when computed
+            elif isinstance(widget, PrePostWidget):
+                for j, pair in enumerate(widget.pairs):
+                    metrics += [
+                        ((*at, "pairs", j, "pre"), pair.pre),
+                        ((*at, "pairs", j, "post"), pair.post),
+                    ]
+                    problems += _same_entity(pair.post, pair.pre, (*at, "pairs", j, "post"))
+                entities = {p.pre.partition(".")[0] for p in widget.pairs}
+                for j, tp in enumerate(widget.template_pairs):
+                    for side in ("pre", "post"):
+                        problems += _template_fields(
+                            module, tp.template, getattr(tp, side), (*at, "template_pairs", j, side)
+                        )
+                    entities |= {tp.pre.partition(".")[0], tp.post.partition(".")[0]}
+                if len(entities) > 1:
+                    problems.append(Problem((*at, "pairs"), "the pairs must be of one entity"))
+                if widget.by is not None:
+                    metrics.append(((*at, "by"), widget.by))
+                    if entities and widget.by.partition(".")[0] not in entities:
+                        problems.append(
+                            Problem(
+                                (*at, "by"), f"'{widget.by}' is not a field of the pairs' entity"
+                            )
+                        )
+            elif isinstance(widget, BodyHeatmapWidget):
+                for j, source in enumerate(widget.sources):
+                    problems += _template_fields(
+                        module, widget.template, source.fields, (*at, "sources", j, "fields")
+                    )
             else:
                 problems += _entity_fields(module, widget, at)
             for path, text in metrics:
@@ -648,6 +679,21 @@ def _views(module: Module) -> list[Problem]:
                 if isinstance(found, str):
                     problems.append(Problem(path, found))
     return problems
+
+
+def _template_fields(module: Module, template: str, prefix: str, at: YamlPath) -> list[Problem]:
+    """`entity.prefix` names, with each field of the template appended, fields of the entity."""
+    if template not in module.templates:
+        known = ", ".join(module.templates) or "none"
+        return [Problem(at, f"no template '{template}' (templates: {known})")]
+    entity, _, start = prefix.partition(".")
+    if entity not in module.entities:
+        return _entity_named(module, entity, at)
+    names = field_names(module, entity)
+    missing = [start + t for t in module.templates[template] if start + t not in names]
+    if missing:
+        return [Problem(at, f"'{entity}' has no field {', '.join(missing)}")]
+    return []
 
 
 def _same_entity(text: str, metric: str, at: YamlPath) -> list[Problem]:
