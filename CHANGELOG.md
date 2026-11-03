@@ -26,6 +26,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   mood and each body part's soreness (means before and after, the change and n, per session
   type), and soreness by body part and week before sessions, after them and on rest days. A
   body part counts from its `since:` date.
+- Click a day of the dashboard's training calendar to see its records in a drawer: statuses,
+  scores and the filled fields by section, with Edit and "Log this day" (D-098).
 
 ### Changed
 - M4 scoped (`design/07-roadmap.md`): eight issues, the analyses useful on little data first

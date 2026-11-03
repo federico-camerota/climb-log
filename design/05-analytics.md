@@ -63,7 +63,8 @@ next morning" joined to the previous day's session). A filter applies to its ent
 
 ### 3.1 Journal / training
 - **Calendar heatmap** (GitHub-style): each day coloured by overall status or any metric;
-  rest days and program sessions shown as markers. Click a day to open its records.
+  rest days and program sessions shown as markers. Click a day to open its records (done,
+  D-098).
 - **Trend lines with bands**: any metric with a rolling mean and the LOW/WATCH bands shaded.
 - **Pre → post deltas**: how a session changes mood, soreness per body part (paired dot
   plot), by session type.
