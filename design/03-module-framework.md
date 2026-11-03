@@ -132,7 +132,8 @@ with it blank gets the highest number so far plus one (#114).
 
 ### 2.1b Field templates, conditional fields, child entities
 - **Templates** are reusable field groups, e.g. the body-part list `soreness` (fingers,
-  forearms, elbows, shoulders, neck/traps, wrists, skin), expanded wherever they are used
+  forearms, elbows, shoulders, neck/traps, wrists, skin; upper back, lower back, core / abs,
+  hips / glutes, knees / ankles, legs from 2026-11-06, D-106), expanded wherever they are used
   (`ph_pre_`, `ph_post_`, rest-day `body_`). **Adding a body part is one line in the template**.
   Formulas refer to `fields(tag=soreness)`, not to named fields, so readiness, status, the
   log check and the body heatmap pick it up automatically. `since: <date>` marks when a field
