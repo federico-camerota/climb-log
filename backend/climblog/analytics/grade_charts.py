@@ -19,6 +19,7 @@ from climblog.expr import Value
 from climblog.grades import Grade, GradeError, parse_grade
 from climblog.modules.compute import Timeline
 from climblog.modules.schema import GradeField, GradesWidget, Module
+from climblog.storage.cells import VALUE_ISSUES
 
 Row = Mapping[str, Value]
 Tables = Mapping[str, Sequence[Row]]
@@ -44,7 +45,12 @@ def grade_charts(
     unparsed = 0
     for when, row in zip(timeline.days, timeline.rows, strict=True):
         text = row.get(name)
-        if when > day or text in (None, ""):
+        if when > day:
+            continue
+        if name in str(row.get(VALUE_ISSUES) or "").split(","):
+            unparsed += 1  # not a grade: a data issue, blanked on load
+            continue
+        if text in (None, ""):
             continue
         try:
             grade = parse_grade(str(text), systems)
@@ -83,7 +89,7 @@ def grade_charts(
         ],
         "french_ticks": _french_ticks(points),
         "pyramid": _pyramid(series, widget.group),
-        "by_setting": _table(points, "setting") if setting else [],
+        "by_setting": _table(points, "setting", gym_by_venue=venue is not None) if setting else [],
         "by_venue": _table(points, "venue") if venue else [],
         "unparsed": unparsed,
         "last": widget.last,
@@ -159,21 +165,27 @@ def _period_label(start: dt.date, group: str) -> str:
     return f"{year}-W{week:02d}"
 
 
-def _table(points: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
-    """Per value of `key` and grade system: sessions, the hardest grade and the median one."""
-    groups: dict[tuple[str, str], list[Grade]] = {}
+def _table(
+    points: list[dict[str, Any]], key: str, gym_by_venue: bool = False
+) -> list[dict[str, Any]]:
+    """Per value of `key` and grade system: sessions, the hardest grade and the median one.
+    With `gym_by_venue`, gym grades also per venue: each gym grades its own way (D-094)."""
+    groups: dict[tuple[str, str, str], list[Grade]] = {}
     for p in points:
         if p[key] is not None:
-            groups.setdefault((p[key], p["grade"].system), []).append(p["grade"])
+            system = p["grade"].system
+            where = (p["venue"] or "") if gym_by_venue and system == "gym" else ""
+            groups.setdefault((p[key], system, where), []).append(p["grade"])
     rows = []
-    for (value, system), grades in sorted(
-        groups.items(), key=lambda kv: (kv[0][1] != "french", kv[0][0])
+    for (value, system, where), grades in sorted(
+        groups.items(), key=lambda kv: (kv[0][1] != "french", kv[0][0], kv[0][2])
     ):
         indexes = [g.index for g in grades]
         texts = {g.index: g.text for g in grades}
         rows.append(
             {
                 key: value,
+                **({"venue": where or None} if gym_by_venue else {}),
                 "system": system,
                 "sessions": len(grades),
                 "hardest": texts[max(indexes)],

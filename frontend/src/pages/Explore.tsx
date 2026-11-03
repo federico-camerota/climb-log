@@ -8,20 +8,19 @@ import {
   NumberInput,
   SegmentedControl,
   Select,
-  SimpleGrid,
   Stack,
   Switch,
   Tabs,
   Text,
   Title,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
 import dayjs from "dayjs";
 import { useSearchParams } from "react-router";
 
 import type { MetricInfo } from "../api/client";
 import { useMetricQuery, useMetrics } from "../api/queries";
 import { Chart } from "../components/Chart";
+import { FilterPickers, RangePicker } from "../components/ScopeControls";
 import {
   readCorrelation,
   writeCorrelation,
@@ -32,23 +31,16 @@ import {
   exploreOption,
   fits,
   metricGroup,
+  metricNames,
   metricQuery,
   readState,
   writeState,
   type AggKey,
   type ExploreState,
   type GroupKey,
-  type RangeKey,
 } from "../lib/explore";
 import { MatrixPanel, PairPanel, PredictorsPanel } from "./ExploreCorrelation";
 
-const RANGES: { value: RangeKey; label: string }[] = [
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
-  { value: "90d", label: "90 days" },
-  { value: "all", label: "All" },
-  { value: "custom", label: "Custom" },
-];
 const GROUPS: { value: GroupKey; label: string }[] = [
   { value: "none", label: "Each record" },
   { value: "day", label: "Day" },
@@ -71,8 +63,6 @@ export function Explore() {
   const state = readState(params);
   const today = dayjs().format("YYYY-MM-DD");
   const catalogue = useMetrics();
-  const query = metricQuery(state, today);
-  const result = useMetricQuery(query);
 
   const correlation = readCorrelation(params);
 
@@ -88,26 +78,32 @@ export function Explore() {
   const byId = new Map(metrics.map((m) => [m.id, m]));
   const picked = state.metrics.map((id) => byId.get(id)).filter((m): m is MetricInfo => !!m);
   const entities = new Set(picked.map((m) => `${m.module}.${m.entity}`));
+  // one point per record needs metrics of one entity: by day otherwise (the URL may ask)
+  const oneEntity = entities.size <= 1;
+  const group = state.group === "none" && !oneEntity ? "day" : state.group;
+  const names = metricNames(metrics);
+  const result = useMetricQuery(metricQuery({ ...state, group }, today));
   const filters = (catalogue.data?.filters ?? []).filter((f) =>
     entities.has(`${f.module}.${f.entity}`),
   );
   // the React compiler memoizes this (D-070's lint): no useMemo by hand
-  const option = result.data ? exploreOption(result.data, metrics, state.chart) : null;
+  // the chart names the picked metrics apart from each other only ("Sleep hours", not
+  // "Sleep hours · Wellbeing · before" when no other sleep hours is picked)
+  const shown = metricNames(picked);
+  const option = result.data ? exploreOption(result.data, metrics, state.chart, shown) : null;
 
   const groups = new Map<string, { value: string; label: string; disabled: boolean }[]>();
   for (const m of metrics) {
     const items = groups.get(metricGroup(m)) ?? [];
     items.push({
       value: m.id,
-      label: m.label,
+      label: names.get(m.id) ?? m.label,
       disabled: !state.metrics.includes(m.id) && !fits(m, picked),
     });
     groups.set(metricGroup(m), items);
   }
 
-  // the correlation tabs use the trends' date range, and a good session is a high feel score
-  // by default (D-096)
-  const window = new URLSearchParams(metricQuery({ ...state, metrics: ["any"] }, today) ?? "");
+  // a good session is a high feel score by default (D-096)
   const feel = metrics.find((m) => m.field === "feel_score");
   const withTarget = { ...correlation, target: correlation.target ?? feel?.id ?? null };
 
@@ -154,42 +150,19 @@ export function Explore() {
                         update({ metrics: value, filters: kept });
                       }}
                     />
-                    <Group align="end">
-                      <SegmentedControl
-                        aria-label="Range"
-                        data={RANGES}
-                        value={state.range}
-                        onChange={(value) => {
-                          update({ range: value });
-                        }}
-                      />
-                      {state.range === "custom" && (
-                        <>
-                          <DateInput
-                            label="From"
-                            valueFormat="DD/MM/YYYY"
-                            value={state.start}
-                            onChange={(value) => {
-                              update({ start: value });
-                            }}
-                          />
-                          <DateInput
-                            label="To"
-                            valueFormat="DD/MM/YYYY"
-                            value={state.end}
-                            onChange={(value) => {
-                              update({ end: value });
-                            }}
-                          />
-                        </>
-                      )}
-                    </Group>
+                    <RangePicker scope={state} onChange={update} />
                     <Group align="end">
                       <Select
                         label="Points"
-                        data={GROUPS}
+                        data={GROUPS.map((g) => ({
+                          ...g,
+                          disabled: g.value === "none" && !oneEntity,
+                        }))}
+                        description={
+                          oneEntity ? undefined : "Each record: metrics of one entity only"
+                        }
                         allowDeselect={false}
-                        value={state.group}
+                        value={group}
                         onChange={(value) => {
                           update({ group: value ?? "day" });
                         }}
@@ -198,7 +171,7 @@ export function Explore() {
                         label="Aggregate"
                         data={AGGS}
                         allowDeselect={false}
-                        disabled={state.group === "none"}
+                        disabled={group === "none"}
                         value={state.agg}
                         onChange={(value) => {
                           update({ agg: value ?? "mean" });
@@ -236,28 +209,7 @@ export function Explore() {
                         }}
                       />
                     </Group>
-                    {filters.length > 0 && (
-                      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-                        {filters.map((f) => (
-                          <MultiSelect
-                            key={f.id}
-                            label={`Only ${f.label.toLowerCase()}`}
-                            placeholder="All"
-                            clearable
-                            data={f.choices}
-                            value={state.filters[f.id] ?? []}
-                            onChange={(value) => {
-                              const next = Object.fromEntries(
-                                Object.entries(state.filters).filter(([id]) => id !== f.id),
-                              );
-                              update({
-                                filters: value.length > 0 ? { ...next, [f.id]: value } : next,
-                              });
-                            }}
-                          />
-                        ))}
-                      </SimpleGrid>
-                    )}
+                    <FilterPickers scope={state} filters={filters} onChange={update} />
                   </Stack>
                 </Card>
               )}
@@ -277,7 +229,7 @@ export function Explore() {
                         {result.data.series
                           .map((s) => {
                             const n = s.n.reduce((a, b) => a + b, 0);
-                            return `${byId.get(s.metric)?.label ?? s.metric}: n = ${String(n)}`;
+                            return `${shown.get(s.metric) ?? s.metric}: n = ${String(n)}`;
                           })
                           .join(" · ")}
                       </Text>
@@ -293,18 +245,13 @@ export function Explore() {
             ];
             return (
               <Tabs.Panel key={tab} value={tab} pt="md">
-                <Stack>
-                  <Text size="sm" c="dimmed">
-                    Over the range picked in Over time (
-                    {RANGES.find((r) => r.value === state.range)?.label}).
-                  </Text>
-                  <Panel
-                    state={withTarget}
-                    metrics={metrics}
-                    window={window}
-                    update={updateCorrelation}
-                  />
-                </Stack>
+                <Panel
+                  state={withTarget}
+                  metrics={metrics}
+                  filters={catalogue.data?.filters ?? []}
+                  today={today}
+                  update={updateCorrelation}
+                />
               </Tabs.Panel>
             );
           })}

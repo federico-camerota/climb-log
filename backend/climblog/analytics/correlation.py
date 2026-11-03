@@ -72,7 +72,11 @@ def aligned(
     chosen = group or ("none" if same and lag == 0 else "day")
     if chosen == "none" and not (same and lag == 0):
         raise QueryError("one point per record needs both metrics of one entity and no lag")
-    query = Query([x, y], start=start, end=end, group=chosen, lag=lag, filters=filters or {})
+    # a filter applies to its entity's metrics: those of other entities are left out here (a
+    # matrix pair of rest days and finger sessions under an "only Climbing" filter)
+    entities = {x.rpartition(".")[0], y.rpartition(".")[0]}
+    kept = {f: v for f, v in (filters or {}).items() if f.rpartition(".")[0] in entities}
+    query = Query([x, y], start=start, end=end, group=chosen, lag=lag, filters=kept)
     result = run_query(query, sources, today)
     xs, ys = result.series
     return [
@@ -141,6 +145,7 @@ def matrix(
     method: Method = "spearman",
     start: dt.date | None = None,
     end: dt.date | None = None,
+    filters: Mapping[str, Sequence[str]] | None = None,
 ) -> list[list[Cell]]:
     """Every pair of metrics (pairwise: each over its own common points); the diagonal is 1."""
     if not 2 <= len(metrics) <= 12:
@@ -148,12 +153,15 @@ def matrix(
     cells = [[Cell(1.0, 0) for _ in metrics] for _ in metrics]
     for i, a in enumerate(metrics):
         for j in range(i + 1, len(metrics)):
-            points = aligned(a, metrics[j], sources, today, group="day", start=start, end=end)
+            points = aligned(
+                a, metrics[j], sources, today, group="day", start=start, end=end, filters=filters
+            )
             found = _stat([p[0] for p in points], [p[1] for p in points], method)
             shown = found.r if len(points) >= min_n else None
             cells[i][j] = cells[j][i] = Cell(shown, len(points))
         cells[i][i] = Cell(
-            1.0, len(aligned(a, a, sources, today, group="day", start=start, end=end))
+            1.0,
+            len(aligned(a, a, sources, today, group="day", start=start, end=end, filters=filters)),
         )
     return cells
 
@@ -205,6 +213,7 @@ def predictors(
     method: Method = "spearman",
     start: dt.date | None = None,
     end: dt.date | None = None,
+    filters: Mapping[str, Sequence[str]] | None = None,
 ) -> list[Predictor]:
     """Each pre-session metric of the target's entity against it, ranked: the ones with enough
     points by |r| (largest first), then the others by n."""
@@ -216,7 +225,7 @@ def predictors(
     for metric in pre_session(module, name, entity):
         if metric.id == target:
             continue
-        points = aligned(metric.id, target, sources, today, start=start, end=end)
+        points = aligned(metric.id, target, sources, today, start=start, end=end, filters=filters)
         stat = _stat([p[0] for p in points], [p[1] for p in points], method)
         found.append(Predictor(metric.id, len(points), len(points) < min_n, stat))
     return sorted(

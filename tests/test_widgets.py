@@ -124,6 +124,16 @@ def test_weekbars_sum_split_by_a_field() -> None:
     ]
 
 
+def test_weekbars_mean_leaves_a_week_without_records_empty() -> None:
+    sessions = [session(1, feel_score=6), session(2, feel_score=7), session(12, feel_score=8)]
+    spec = {"widget": "weekbars", "metric": "session.feel_score", "agg": "mean"}
+    assert one(spec, sessions)["stacks"] == [
+        {"label": "", "values": [6.5, None, 8, None, None]}  # no bar, not a mean of 0
+    ]
+    counted = one({**spec, "agg": "count"}, sessions)["stacks"]
+    assert counted == [{"label": "", "values": [2, 0, 1, 0, 0]}]
+
+
 def test_weekbars_without_records_and_program_weeks() -> None:
     assert one({"widget": "weekbars", "metric": "session.overall_status"}, [])["weeks"] == []
     spec = {"widget": "weekbars", "metric": "session.overall_status", "group": "program_week"}
@@ -263,6 +273,18 @@ def test_a_line_over_another_x() -> None:
     found = one(spec, sessions)
     assert (found["x"], found["x_label"], found["points"]) == ([1, 2], "Days since prev", [])
     assert found["series"][0]["values"] == [5.5, 8]
+    found = one(spec, [*sessions, session(6, days_since_prev=1, feel_score=6)])
+    assert found["series"][0]["values"] == [5.666667, 8]  # as the bars: not to one decimal
+
+
+def test_line_legends_are_the_fields_labels() -> None:
+    spec = {"widget": "line", "series": [{"metric": "session.wb_sleep_hours"}]}
+    found = one(spec, [session(1, wb_sleep_hours=7, setting="Indoor")])
+    assert found["series"][0]["label"] == "Sleep hours"
+    found = one(
+        {**spec, "split_by": ["session.setting"]}, [session(1, wb_sleep_hours=7, setting="Indoor")]
+    )
+    assert found["series"][0]["label"] == "Sleep hours · Indoor"
 
 
 def test_a_split_by_another_entity_is_planned() -> None:
@@ -302,6 +324,33 @@ def test_fields_must_be_of_the_metrics_entity(problems: Problems) -> None:
     assert any("views.overview[2].color" in p for p in found)
     assert any("views.overview[3].x" in p for p in found)
     assert any("views.overview[4].split_by" in p for p in found)
+
+
+def test_charts_plot_numbers_only(problems: Problems) -> None:
+    text = (ROOT / "modules" / "journal.yaml").read_text(encoding="utf-8")
+    text = text.replace(
+        "views:\n  overview:\n",
+        "views:\n  overview:\n"
+        "    - {widget: bars, metric: session.venue}\n"
+        "    - {widget: box_by, metric: session.notes, by: session.weekday}\n"
+        "    - {widget: stacked,\n"
+        "       series: [{metric: session.duration_min}, {metric: session.setting}]}\n"
+        "    - {widget: scatter, x: session.hardest_grade, y: session.feel_score}\n"
+        "    - {widget: line, series: [{metric: session.overall_status}]}\n"
+        "    - {widget: weekbars, metric: session.venue, agg: mean}\n"
+        "    - {widget: weekbars, metric: session.venue, agg: count}\n"
+        "    - {widget: bars, metric: session.wb_score}\n",
+    )
+    found = [p for p in problems(text) if "is not a number" in p]
+    at = [p.partition(": '")[0].rpartition(" ")[2] for p in found]
+    assert at == [
+        "views.overview[0].metric",
+        "views.overview[1].metric",
+        "views.overview[2].series[1].metric",
+        "views.overview[3].x",
+        "views.overview[4].series[0].metric",
+        "views.overview[5].metric",
+    ]  # counting any value (6) and a derived number (7) are fine
 
 
 def test_count_by_value_cannot_split(problems: Problems) -> None:

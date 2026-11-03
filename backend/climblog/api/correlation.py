@@ -9,7 +9,7 @@ against a session score, ranked.
 """
 
 import datetime as dt
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -88,11 +88,13 @@ def get_pair(
     x: str,
     y: str,
     lag: Annotated[int, Query(ge=-31, le=31)] = 0,
+    group: Literal["none", "day", "week", "month"] | None = None,  # default: record or day
     start: dt.date | None = None,
     end: dt.date | None = None,
     filter: Annotated[list[str] | None, Query()] = None,  # `filter` as in the URL
 ) -> CorrelationPair:
-    """X against Y, per record (one entity, no lag) or per day with Y read `lag` days later."""
+    """X against Y, per record (one entity, no lag) or per day with Y read `lag` days later;
+    `group` asks for days, weeks or months instead (each point a period's means)."""
     sources, read = read_sources(request, [x, y])
     min_n = _min_n(request)
     try:
@@ -102,6 +104,7 @@ def get_pair(
             sources,
             dt.date.today(),
             lag=lag,
+            group=group,
             start=start,
             end=end,
             filters=parse_filters(filter),
@@ -128,12 +131,22 @@ def get_matrix(
     method: Method = "spearman",
     start: dt.date | None = None,
     end: dt.date | None = None,
+    filter: Annotated[list[str] | None, Query()] = None,  # each applies to its entity's metrics
 ) -> MatrixData:
     """Every pair of the metrics per day; a cell under the minimum n is hidden."""
     sources, read = read_sources(request, metric)
     min_n = _min_n(request)
     try:
-        cells = matrix(metric, sources, dt.date.today(), min_n, method, start=start, end=end)
+        cells = matrix(
+            metric,
+            sources,
+            dt.date.today(),
+            min_n,
+            method,
+            start=start,
+            end=end,
+            filters=parse_filters(filter),
+        )
     except QueryError as error:
         raise HTTPException(400, str(error)) from None
     return MatrixData(
@@ -152,12 +165,22 @@ def get_predictors(
     method: Method = "spearman",
     start: dt.date | None = None,
     end: dt.date | None = None,
+    filter: Annotated[list[str] | None, Query()] = None,  # each applies to its entity's metrics
 ) -> PredictorsData:
     """Each pre-session metric of the target's entity against it, ranked by |r|."""
     sources, read = read_sources(request, [target])
     min_n = _min_n(request)
     try:
-        found = predictors(target, sources, dt.date.today(), min_n, method, start=start, end=end)
+        found = predictors(
+            target,
+            sources,
+            dt.date.today(),
+            min_n,
+            method,
+            start=start,
+            end=end,
+            filters=parse_filters(filter),
+        )
     except QueryError as error:
         raise HTTPException(400, str(error)) from None
     return PredictorsData(

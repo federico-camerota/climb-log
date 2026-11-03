@@ -1,14 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ModuleInfo } from "../api/client";
 import { DIARY, HEALTH, stubApi } from "../test/api";
 import { renderApp } from "../test/render";
 
-// jsdom draws no canvas: the chart is a labelled box here (lib/lineChart.test.ts checks its option)
+// The chart is a labelled box here (lib/lineChart.test.ts checks its option); a clickable one
+// gets a button that clicks its item of 28/10 (a calendar day).
 vi.mock("../components/Chart", () => ({
-  Chart: ({ label }: { label: string }) => <div role="img" aria-label={label} />,
+  Chart: ({ label, onClick }: { label: string; onClick?: (item: { value: unknown }) => void }) => (
+    <div role="img" aria-label={label}>
+      {onClick !== undefined && (
+        <button
+          type="button"
+          onClick={() => {
+            onClick({ value: ["2026-10-28", 0] });
+          }}
+        >
+          Click 28/10
+        </button>
+      )}
+    </div>
+  ),
 }));
 
 const WITH_VIEW: ModuleInfo = {
@@ -64,6 +79,7 @@ const VIEW = {
     {
       widget: "heatmap_calendar",
       label: "Training calendar",
+      entity: "session",
       start: "2026-10-01",
       end: "2026-10-30",
       extra: "rest_day",
@@ -199,9 +215,11 @@ const VIEW = {
           start: "2026-10-26",
           load: 1250,
           sessions: 3,
+          days: 2,
           without_load: 1,
           rest_days: 2,
           others: [48],
+          others_without: [2],
           acwr: null,
           monotony: 1.2,
           strain: 1500,
@@ -253,6 +271,14 @@ const VIEW = {
       pyramid: { periods: ["2026-10"], rows: [{ label: "French", grades: ["6b"], counts: [[1]] }] },
       by_setting: [
         { setting: "Outdoor", system: "french", sessions: 1, hardest: "6b", median: "6b" },
+        {
+          setting: "Indoor",
+          venue: "[TEST] Gym A",
+          system: "gym",
+          sessions: 2,
+          hardest: "6",
+          median: "5",
+        },
       ],
       by_venue: [],
       unparsed: 2,
@@ -313,13 +339,23 @@ describe("Dashboards", () => {
     expect(screen.getByRole("img", { name: "Hardest grade tried" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Sessions by grade, French" })).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /Outdoor/ })).toHaveTextContent("OutdoorFrench16b6b");
-    expect(screen.getByText(/2 value\(s\) that aren't grades left out/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/2 value\(s\) that aren't grades left out \(see Records\)/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /Indoor/ })).toHaveTextContent(
+      "IndoorGym · [TEST] Gym A265", // gym grades per venue
+    );
     const fingers = screen.getByRole("row", { name: /Fingers ↓/ });
     expect(fingers).toHaveTextContent("Fingers ↓24,5+2,54");
     expect(screen.getByRole("img", { name: "Before → after" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Soreness by week" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Rest days" })).toBeInTheDocument();
-    expect(week).toHaveTextContent("2026-W44 (26/10)1250 (1 without load)4832–1,21500");
+    // load, finger training, sessions, days trained, rest days, ratio, monotony, strain
+    expect(week).toHaveTextContent(
+      "2026-W44 (26/10)1250 (1 without load)48 (2 without load)322–1,21500",
+    );
+    expect(screen.getByRole("img", { name: "Finger training" })).toBeInTheDocument();
+    expect(screen.getByText(/in its own units, not in the ratio/)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Training calendar" })).toBeInTheDocument();
     expect(screen.getByText(/Each square is a day/)).toBeInTheDocument();
     const legend = screen.getByLabelText("Legend");
@@ -381,5 +417,59 @@ describe("Dashboards", () => {
     stubApi({ "/api/health": HEALTH, "/api/modules": { modules: [DIARY], problems: [] } });
     renderApp("/dashboards/diary");
     expect(await screen.findByText("Module 'diary' has no views.")).toBeInTheDocument();
+  });
+
+  it("opens a calendar day's records in a drawer, read-only, with Edit and Log", async () => {
+    const records = (entity: string, rows: object[]) => ({
+      module: "diary",
+      entity,
+      as_of: "2026-10-30T09:05:00",
+      offline: false,
+      issues: [],
+      records: rows,
+    });
+    stubApi({
+      "/api/health": HEALTH,
+      "/api/modules": { modules: [WITH_VIEW], problems: [] },
+      "/api/modules/diary/views/overview?date=2026-10-30": VIEW,
+      "/api/modules/diary/session": records("session", [
+        {
+          values: {
+            date: "2026-10-28",
+            session_no: 1,
+            venue: "[TEST] Wall",
+            setting: "Outdoor",
+            notes: "Fictional note",
+            wb_sleep_hours: 7.5,
+            wb_mood_pre: null,
+          },
+          derived: { overall_status: "LOW", wb_score: 6.5, weekday: "Wed" },
+          rows: { Sessions: 3 },
+        },
+        { values: { date: "2026-10-29", session_no: 1 }, derived: {}, rows: { Sessions: 4 } },
+      ]),
+      "/api/modules/diary/rest_day": records("rest_day", []),
+    });
+    renderApp("/dashboards/diary?date=2026-10-30");
+    expect(await screen.findByText(/click it to see its records/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Click 28/10" }));
+    const drawer = await screen.findByRole("dialog", { name: "Wed 28/10/2026" });
+    const inside = within(drawer);
+    expect(await inside.findByText("Session 1")).toBeInTheDocument();
+    expect(inside.getByText("Overall status")).toBeInTheDocument();
+    expect(inside.getByText("LOW")).toBeInTheDocument();
+    expect(inside.getByText("Wb score 6,5")).toBeInTheDocument();
+    expect(inside.getByText("Session details")).toBeInTheDocument();
+    expect(inside.getByText("Venue [TEST] Wall · Setting Outdoor")).toBeInTheDocument();
+    expect(inside.getByText("Sleep hours 7,5")).toBeInTheDocument(); // the blank mood left out
+    expect(inside.getByText(/Fictional note/)).toBeInTheDocument();
+    expect(inside.queryByText(/2026-10-29/)).toBeNull(); // another day's session
+    expect(inside.getByText("Rest day: none that day.")).toBeInTheDocument();
+    expect(inside.getByRole("link", { name: "Log this day" })).toHaveAttribute(
+      "href",
+      "/log/diary?date=2026-10-28",
+    );
+    await userEvent.click(inside.getByRole("button", { name: "Edit" }));
+    expect(await screen.findAllByRole("dialog")).toHaveLength(2); // the edit drawer on top
   });
 });

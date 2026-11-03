@@ -262,7 +262,7 @@ def _line(
                     x, y = _number(row.get(x_name)), _number(row.get(name))
                     if x is not None and y is not None and (not splits or combo == group):
                         at.setdefault(x, []).append(y)
-                values = [_mean(at.get(x, [])) for x in xs]
+                values = [_aggregate("mean", at.get(x, [])) for x in xs]
                 data["series"].append(
                     _series(item.metric, item.label or label(name), group, values, None)
                 )
@@ -279,7 +279,9 @@ def _line(
                 for row, combo in zip(found.rows, combos, strict=True)
             ]
             rolling = _rolling(values, widget.rolling) if widget.rolling else None
-            data["series"].append(_series(item.metric, item.label or name, group, values, rolling))
+            data["series"].append(
+                _series(item.metric, item.label or label(name), group, values, rolling)
+            )
     return data
 
 
@@ -360,6 +362,7 @@ def _heatmap(widget: HeatmapWidget, records: Records, day: dt.date) -> dict[str,
     return {
         "widget": "heatmap_calendar",
         "label": widget.label,
+        "entity": entity,  # whose records a day opens (with the extra entity's)
         "start": start.isoformat(),
         "end": day.isoformat(),
         "extra": extra_label,
@@ -640,11 +643,18 @@ def _weekbars(
         "weeks": [_week_label(w) for w in weeks],
         "starts": [w.isoformat() for w in weeks],
         "stacks": [
-            {"label": stack, "values": [_aggregate(agg, v) or 0 for v in stacks[stack]]}
+            {"label": stack, "values": [_week_value(agg, v) for v in stacks[stack]]}
             for stack in order
         ],
         "shown": widget.weeks,
     }
+
+
+def _week_value(agg: str, values: list[float]) -> float | None:
+    """A week's bar: 0 for a count or sum of nothing, no bar (a gap) for a mean of nothing."""
+    if not values:
+        return None if agg == "mean" else 0.0
+    return _aggregate(agg, values)
 
 
 def _stacked(module: Module, widget: StackedWidget, tables: Tables, day: dt.date) -> dict[str, Any]:
@@ -839,6 +849,22 @@ def _month_start(day: dt.date, back: int) -> dt.date:
 
 def _next_month(month: dt.date) -> dt.date:
     return _month_start(month, -1)
+
+
+def line_bands(
+    module: Module, metric: str, settings: Mapping[str, Value]
+) -> list[dict[str, Any]] | None:
+    """The status bands a dashboard line draws behind `metric` (`entity.field`), e.g. the class
+    scores' LOW/WATCH/GOOD; None when no line of the module's views gives it bands."""
+    for widgets in (module.views or {}).values():
+        for widget in widgets:
+            if (
+                isinstance(widget, LineWidget)
+                and widget.bands
+                and any(series.metric == metric for series in widget.series)
+            ):
+                return _bands(widget, settings)
+    return None
 
 
 def _bands(widget: LineWidget, settings: Mapping[str, Value]) -> list[dict[str, Any]]:

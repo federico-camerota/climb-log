@@ -3,20 +3,36 @@
 // charts. Every number comes with n and a 95% CI; under the minimum n it is greyed out.
 import type { EChartsCoreOption } from "echarts/core";
 
-import type { CorrelationPair, MatrixData, MetricInfo } from "../api/client";
+import type { CorrelationPair, MatrixData } from "../api/client";
 import { decimal, PALETTE } from "./charts";
+import { readScope, scopeParams, writeScope, type Scope } from "./explore";
 
 export type Tab = "trends" | "pair" | "matrix" | "predictors";
 export type Method = "spearman" | "pearson";
+/** A pair's points: per record within one entity without a lag, else per day ("auto"); or
+ * per day, week or month (each point the period's means; 05-analytics §3.2). */
+export type PairGroup = "auto" | "none" | "day" | "week" | "month";
+const PAIR_GROUPS: readonly PairGroup[] = ["auto", "none", "day", "week", "month"];
+
+export type CorrelationTab = "pair" | "matrix" | "predictors";
+/** Each correlation tab's own range and filters live under its prefix in the URL. */
+export const SCOPE_PREFIX: Record<CorrelationTab, string> = {
+  pair: "pair-",
+  matrix: "matrix-",
+  predictors: "good-",
+};
+const TABS = Object.keys(SCOPE_PREFIX) as CorrelationTab[];
 
 export interface CorrelationState {
   tab: Tab;
   x: string | null;
   y: string | null;
   lag: number;
+  group: PairGroup;
   matrix: string[];
   target: string | null;
   method: Method;
+  scopes: Record<CorrelationTab, Scope>; // each tab's own range and filters
 }
 
 export function readCorrelation(params: URLSearchParams): CorrelationState {
@@ -27,9 +43,13 @@ export function readCorrelation(params: URLSearchParams): CorrelationState {
     x: params.get("x"),
     y: params.get("y"),
     lag: Number.isInteger(lag) && Math.abs(lag) <= 31 ? lag : 0,
+    group: PAIR_GROUPS.find((g) => g === params.get("points")) ?? "auto",
     matrix: params.getAll("mx"),
     target: params.get("target"),
     method: params.get("method") === "pearson" ? "pearson" : "spearman",
+    scopes: Object.fromEntries(
+      TABS.map((tab) => [tab, readScope(params, SCOPE_PREFIX[tab])]),
+    ) as Record<CorrelationTab, Scope>,
   };
 }
 
@@ -39,25 +59,29 @@ export function writeCorrelation(
   state: CorrelationState,
 ): URLSearchParams {
   const next = new URLSearchParams(params);
-  for (const key of ["tab", "x", "y", "lag", "mx", "target", "method"]) next.delete(key);
+  for (const key of ["tab", "x", "y", "lag", "points", "mx", "target", "method"]) next.delete(key);
   if (state.tab !== "trends") next.set("tab", state.tab);
   if (state.x) next.set("x", state.x);
   if (state.y) next.set("y", state.y);
   if (state.lag !== 0) next.set("lag", String(state.lag));
+  if (state.group !== "auto") next.set("points", state.group);
   for (const m of state.matrix) next.append("mx", m);
   if (state.target) next.set("target", state.target);
   if (state.method !== "spearman") next.set("method", state.method);
+  for (const tab of TABS) writeScope(next, state.scopes[tab], SCOPE_PREFIX[tab]);
   return next;
 }
 
-/** The API query of a tab, over the trends' date range (`window`: start/end parameters). */
-export function correlationQuery(state: CorrelationState, window: URLSearchParams): string | null {
+/** The API query of a tab, over the tab's own range and filters (`today` ends the 7, 30 and
+ * 90 days; a filter applies to its own entity's metrics). */
+export function correlationQuery(state: CorrelationState, today: string): string | null {
   const params = new URLSearchParams();
   if (state.tab === "pair") {
     if (!state.x || !state.y) return null;
     params.set("x", state.x);
     params.set("y", state.y);
     if (state.lag !== 0) params.set("lag", String(state.lag));
+    if (state.group !== "auto") params.set("group", state.group);
   } else if (state.tab === "matrix") {
     if (state.matrix.length < 2) return null;
     for (const m of state.matrix) params.append("metric", m);
@@ -69,9 +93,8 @@ export function correlationQuery(state: CorrelationState, window: URLSearchParam
   } else {
     return null;
   }
-  for (const key of ["start", "end"]) {
-    const value = window.get(key);
-    if (value) params.set(key, value);
+  for (const [key, value] of scopeParams(state.scopes[state.tab], today)) {
+    params.append(key, value);
   }
   return params.toString();
 }
@@ -89,25 +112,32 @@ export function withCi(stat: {
   return `${r} (${low ?? ""} to ${high ?? ""})`;
 }
 
-/** Plain words for an r, never causal (05-analytics §0). */
-export function strength(r: number | null): string {
+/** Plain words for an r, never causal (05-analytics §0); when its 95% interval includes 0,
+ * they say there could be none. */
+export function strength(stat: {
+  r: number | null;
+  low?: number | null;
+  high?: number | null;
+}): string {
+  const { r, low = null, high = null } = stat;
   if (r === null) return "no estimate";
   const size = Math.abs(r);
   if (size < 0.1) return "no clear association";
   const word = size < 0.3 ? "weak" : size < 0.5 ? "moderate" : "strong";
-  return `a ${word} ${r > 0 ? "positive" : "negative"} association`;
+  const words = `a ${word} ${r > 0 ? "positive" : "negative"} association`;
+  const unsure = low !== null && high !== null && low <= 0 && high >= 0;
+  return unsure ? `${words} (could be none: the interval includes 0)` : words;
 }
 
 export function pairOption(
   data: CorrelationPair,
-  x: MetricInfo | undefined,
-  y: MetricInfo | undefined,
+  names: Map<string, string>, // the metrics' names, told apart (lib/explore metricNames)
 ): EChartsCoreOption {
-  const xName = x?.label ?? data.x;
+  const xName = names.get(data.x) ?? data.x;
   const yName =
     data.lag === 0
-      ? (y?.label ?? data.y)
-      : `${y?.label ?? data.y} (${String(data.lag)} day(s) later)`;
+      ? (names.get(data.y) ?? data.y)
+      : `${names.get(data.y) ?? data.y} (${String(data.lag)} day(s) later)`;
   const series: Record<string, unknown>[] = [
     {
       type: "scatter",
@@ -127,7 +157,7 @@ export function pairOption(
         [from, data.intercept + data.slope * from],
         [to, data.intercept + data.slope * to],
       ],
-      showSymbol: false,
+      symbol: "none",
       lineStyle: { color: "#868e96", type: "dashed" },
     });
   }

@@ -33,7 +33,8 @@ export interface paths {
         };
         /**
          * Get Pair
-         * @description X against Y, per record (one entity, no lag) or per day with Y read `lag` days later.
+         * @description X against Y, per record (one entity, no lag) or per day with Y read `lag` days later;
+         *     `group` asks for days, weeks or months instead (each point a period's means).
          */
         get: operations["get_pair_api_correlation_pair_get"];
         put?: never;
@@ -591,6 +592,8 @@ export interface components {
              * Format: date
              */
             end: string;
+            /** Entity */
+            entity: string;
             /** Extra */
             extra: string | null;
             /** Label */
@@ -701,6 +704,8 @@ export interface components {
         LoadWeek: {
             /** Acwr */
             acwr: number | null;
+            /** Days */
+            days: number;
             /** Label */
             label: string;
             /** Load */
@@ -709,6 +714,8 @@ export interface components {
             monotony: number | null;
             /** Others */
             others: number[];
+            /** Others Without */
+            others_without: number[];
             /** Rest Days */
             rest_days: number;
             /** Sessions */
@@ -774,6 +781,8 @@ export interface components {
         };
         /** MetricSeries */
         MetricSeries: {
+            /** Bands */
+            bands?: components["schemas"]["BandData"][] | null;
             /** Metric */
             metric: string;
             /** N */
@@ -1194,6 +1203,8 @@ export interface components {
             setting: string;
             /** System */
             system: string;
+            /** Venue */
+            venue?: string | null;
         };
         /** SideBySideData */
         SideBySideData: {
@@ -1250,7 +1261,7 @@ export interface components {
             /** Label */
             label: string;
             /** Values */
-            values: number[];
+            values: (number | null)[];
         };
         /** StackedData */
         StackedData: {
@@ -1533,6 +1544,7 @@ export interface operations {
                 method?: "pearson" | "spearman";
                 start?: string | null;
                 end?: string | null;
+                filter?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -1566,6 +1578,7 @@ export interface operations {
                 x: string;
                 y: string;
                 lag?: number;
+                group?: ("none" | "day" | "week" | "month") | null;
                 start?: string | null;
                 end?: string | null;
                 filter?: string[] | null;
@@ -1603,6 +1616,7 @@ export interface operations {
                 method?: "pearson" | "spearman";
                 start?: string | null;
                 end?: string | null;
+                filter?: string[] | null;
             };
             header?: never;
             path?: never;

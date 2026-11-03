@@ -27,6 +27,13 @@ const STATUS_HEX: Record<string, string> = {
 };
 
 /** "7,5": numbers as the rest of the app shows them (decimal comma, one decimal at most). */
+// Legend icons for lines drawn without dots. A line series' own legend icon always has a dot
+// (ECharts draws a circle when its symbol is "none"), so these entries get a drawn icon: a
+// thick bar (a rolling mean) or dashes (a trend line). A path icon is stretched to the legend
+// box, so the invisible moves at the top and bottom keep the bar thin.
+export const THICK_LINE_ICON = "path://M0,0M0,5H24V9H0ZM0,14";
+export const DASHED_LINE_ICON = "path://M0,0M0,6H6V8H0ZM9,6H15V8H9ZM18,6H24V8H18ZM0,14";
+
 export function decimal(value: number | null | undefined): string {
   if (value === null || value === undefined) return "–";
   const rounded = Math.round(value * 10) / 10;
@@ -144,7 +151,7 @@ export function scatterOption(data: ScatterData): EChartsCoreOption {
         [from, intercept + slope * from],
         [to, intercept + slope * to],
       ],
-      showSymbol: false,
+      symbol: "none", // a dashed line, in the legend too (DASHED_LINE_ICON)
       lineStyle: { color: "#868e96", type: "dashed" },
     });
   }
@@ -154,7 +161,16 @@ export function scatterOption(data: ScatterData): EChartsCoreOption {
       formatter: (p: { value: [number, number, string?] }) =>
         `${p.value[2] ?? ""}<br/>${data.x_label}: ${decimal(p.value[0])}<br/>${data.y_label}: ${decimal(p.value[1])}`,
     },
-    legend: groups.length > 1 ? { top: 0 } : undefined,
+    legend:
+      groups.length > 1
+        ? {
+            top: 0,
+            data: [
+              ...series.filter((s) => s.type === "scatter").map((s) => s.name),
+              ...(data.trend ? [{ name: "Trend", icon: DASHED_LINE_ICON }] : []),
+            ],
+          }
+        : undefined,
     grid: { left: 56, right: 24, top: groups.length > 1 ? 48 : 24, bottom: 48 },
     xAxis: { type: "value", scale: true, name: data.x_label, nameLocation: "middle", nameGap: 28 },
     yAxis: { type: "value", scale: true, name: data.y_label },
@@ -196,18 +212,10 @@ export function loadOption(data: TrainingLoadData): EChartsCoreOption {
     series: [
       {
         type: "bar",
-        stack: "load",
         name: "Climbing journal",
         data: data.weeks.map((w) => w.load),
         itemStyle: { color: PALETTE[0] },
       },
-      ...data.others.map((label, i) => ({
-        type: "bar",
-        stack: "load",
-        name: label,
-        data: data.weeks.map((w) => w.others[i] ?? 0),
-        itemStyle: { color: PALETTE[(i + 2) % PALETTE.length] },
-      })),
       {
         type: "line",
         name: "ACWR",
@@ -228,6 +236,27 @@ export function loadOption(data: TrainingLoadData): EChartsCoreOption {
   };
 }
 
+/** The other sources' weekly loads (e.g. finger training, sets × effort), stacked on a chart
+ * of their own: their units differ from the journal's (D-092). */
+export function othersOption(data: TrainingLoadData): EChartsCoreOption {
+  const weeks = data.weeks.map((w) => w.label);
+  return {
+    tooltip: { trigger: "axis" },
+    legend: { top: 0 },
+    grid: { left: 56, right: 48, top: 40, bottom: 64 },
+    xAxis: { type: "category", data: weeks },
+    yAxis: { type: "value" },
+    series: data.others.map((label, i) => ({
+      type: "bar",
+      stack: "others",
+      name: label,
+      data: data.weeks.map((w) => w.others[i] ?? 0),
+      itemStyle: { color: PALETTE[(i + 2) % PALETTE.length] },
+    })),
+    ...zoom(weeks.length, data.shown),
+  };
+}
+
 /** Where a ratio lies among the zones. */
 export function zoneOf(ratio: number, zones: number[]): string {
   const [low = 0.8, high = 1.3, top = 1.5] = zones;
@@ -244,10 +273,12 @@ export function pairStats(data: PrePostData, group: number): PairStats[] {
   return data.pairs.map((p) => (group < 0 ? p.all : (p.groups[group] ?? p.all)));
 }
 
-/** Whether a change is for the better: up on a higher-is-better scale, down on a lower one. */
+/** A change's colour: green up and red down on a higher-is-better scale (mood); neutral on a
+ * lower-is-better one (soreness), which is expected to rise after a session (D-093). */
 export function changeTone(change: number | null, lowerBetter: boolean | null): string {
   if (change === null || change === 0 || lowerBetter === null) return "dimmed";
-  return change < 0 === lowerBetter ? "green" : "red";
+  if (lowerBetter) return "inherit";
+  return change > 0 ? "green" : "red";
 }
 
 /** A dumbbell per pair: the mean before and after, joined. */
@@ -321,6 +352,7 @@ export function bodyOption(data: BodyHeatmapData, source: number): EChartsCoreOp
       left: "center",
       bottom: 0,
       inRange: { color: data.lower_better === false ? [...ramp].reverse() : ramp },
+      text: [decimal(max), decimal(min)], // the scale's ends, at the colour bar
     },
     series: [
       {

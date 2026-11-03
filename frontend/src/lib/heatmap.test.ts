@@ -8,6 +8,7 @@ import { dayKey, heatmapOption, weeks } from "./heatmap";
 const DATA: HeatmapData = {
   widget: "heatmap_calendar",
   label: "Training calendar",
+  entity: "session",
   start: "2026-10-01",
   end: "2026-10-31",
   extra: "rest_day",

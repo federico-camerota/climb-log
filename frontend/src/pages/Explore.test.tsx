@@ -137,7 +137,9 @@ describe("Explore", () => {
           sources: [],
         },
     });
-    renderApp(`${PAGE}&tab=pair&x=diary.session.sleep&y=diary.session.mood`);
+    renderApp(
+      `${PAGE}&tab=pair&x=diary.session.sleep&y=diary.session.mood&pair-range=custom&pair-start=2026-10-01&pair-end=2026-10-30`,
+    );
     expect(await screen.findByRole("img", { name: "Pair chart" })).toBeInTheDocument();
     expect(screen.getByText(/Only 6 point\(s\): under 10/)).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /Pearson/ })).toHaveTextContent(
@@ -182,7 +184,7 @@ describe("Explore", () => {
           sources: [],
         },
     });
-    renderApp(`${PAGE}&tab=predictors`);
+    renderApp(`${PAGE}&tab=predictors&good-range=custom&good-start=2026-10-01&good-end=2026-10-30`);
     expect(await screen.findByRole("row", { name: /Sleep hours/ })).toHaveTextContent(
       "Sleep hours0,40 (0,10 to 0,70)14a moderate positive association",
     );
@@ -195,5 +197,69 @@ describe("Explore", () => {
     renderApp(`${PAGE}&tab=matrix`);
     expect(await screen.findByPlaceholderText("Pick two or more")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Matrix" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("asks by day when the metrics are of two entities, and names repeated labels apart", async () => {
+    const rest = {
+      ...CATALOGUE.metrics[1],
+      id: "diary.rest_day.mood",
+      entity: "rest_day",
+      section: null,
+    };
+    const both = "/explore?metric=diary.session.mood&metric=diary.rest_day.mood&group=none";
+    const query =
+      "/api/metrics/query?metric=diary.session.mood&metric=diary.rest_day.mood&start=2026-08-06&end=2026-11-03&group=day&agg=mean";
+    vi.useFakeTimers({ toFake: ["Date"] }); // "90 days" ends today
+    vi.setSystemTime(new Date("2026-11-03T12:00:00"));
+    api({
+      "/api/metrics": { ...CATALOGUE, metrics: [...CATALOGUE.metrics, rest] },
+      [query]: {
+        ...RESULT,
+        series: [
+          { metric: "diary.session.mood", values: [6], n: [2], rolling: null },
+          { metric: "diary.rest_day.mood", values: [8], n: [1], rolling: null },
+        ],
+      },
+    });
+    renderApp(both);
+    // one point per record needs one entity: the page asks by day instead of failing
+    expect(
+      await screen.findByText("Mood · Before: n = 2 · Mood · Rest day: n = 1"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Each record: metrics of one entity only")).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("gives each correlation tab its own range and filters", async () => {
+    const calls = api({
+      "/api/correlation/pair?x=diary.session.sleep&y=diary.session.mood&group=week&start=2026-10-01&end=2026-10-30&filter=diary.session.kind%3DClimbing":
+        {
+          x: "diary.session.sleep",
+          y: "diary.session.mood",
+          lag: 0,
+          n: 12,
+          min_n: 10,
+          too_few: false,
+          pearson: { r: 0.62, low: 0.05, high: 0.88, p: 0.03 },
+          spearman: { r: 0.5, low: -0.1, high: 0.83, p: 0.09 },
+          slope: 1,
+          intercept: 0,
+          points: [{ x: 7, y: 6, date: "2026-10-05" }],
+          sources: [],
+        },
+    });
+    // Over time's own filter (Hangboard) doesn't reach the pair, which has its own (Climbing)
+    renderApp(
+      `${PAGE}&filter=diary.session.kind=Hangboard&tab=pair&x=diary.session.sleep&y=diary.session.mood&points=week&pair-range=custom&pair-start=2026-10-01&pair-end=2026-10-30&pair-filter=diary.session.kind=Climbing`,
+    );
+    expect(await screen.findByRole("img", { name: "Pair chart" })).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Only session type").length).toBeGreaterThan(0);
+    expect(screen.getByRole("radio", { name: "Custom" })).toBeChecked();
+    const pairs = calls.filter((c) => c.path.startsWith("/api/correlation/pair"));
+    expect(pairs.every((c) => !c.path.includes("Hangboard"))).toBe(true);
+    expect(screen.getByRole("row", { name: /Spearman/ })).toHaveTextContent(
+      "could be none: the interval includes 0",
+    );
+    expect(screen.getByRole("row", { name: /^n/ })).toHaveTextContent("per week (means)");
   });
 });

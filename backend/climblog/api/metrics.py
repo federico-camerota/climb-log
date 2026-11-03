@@ -19,12 +19,15 @@ from climblog.analytics.metrics import (
     Agg,
     Group,
     QueryError,
+    Series,
     Source,
     catalogue,
     run_query,
 )
 from climblog.analytics.metrics import Query as MetricQuery
+from climblog.analytics.views import line_bands
 from climblog.api.modules import catalog
+from climblog.api.views import BandData
 from climblog.storage import StorageError
 
 router = APIRouter()
@@ -69,6 +72,7 @@ class MetricSeries(BaseModel):
     values: list[float | None]
     n: list[int]
     rolling: list[float | None] | None
+    bands: list[BandData] | None = None  # LOW/WATCH/GOOD, as a dashboard line draws them
 
 
 class SourceInfo(BaseModel):
@@ -115,7 +119,8 @@ def query_metrics(
 ) -> QueryResult:
     """The metrics lined up by record, day, week or month (see the module docstring)."""
     filters = parse_filters(filter)
-    sources, read = read_sources(request, metric)
+    settings: dict[str, dict[str, Any]] = {}
+    sources, read = read_sources(request, metric, settings)
     asked = MetricQuery(metric, start, end, group, agg, rolling, lag, filters)
     try:
         result = run_query(asked, sources, dt.date.today())
@@ -126,7 +131,7 @@ def query_metrics(
         agg=result.agg,
         lag=result.lag,
         points=[PointData.model_validate(p, from_attributes=True) for p in result.points],
-        series=[MetricSeries.model_validate(s, from_attributes=True) for s in result.series],
+        series=[_series(s, sources, settings) for s in result.series],
         sources=read,
     )
 
@@ -143,10 +148,11 @@ def parse_filters(items: list[str] | None) -> dict[str, list[str]]:
 
 
 def read_sources(
-    request: Request, metrics: list[str]
+    request: Request, metrics: list[str], settings: dict[str, dict[str, Any]] | None = None
 ) -> tuple[dict[str, Source], list[SourceInfo]]:
     """The records of the modules the metrics belong to (unknown modules are left out: the
-    query then says their metrics are unknown); 503 if one can't be read."""
+    query then says their metrics are unknown); 503 if one can't be read. With `settings`,
+    each module's settings are put there too (for the status bands)."""
     current = catalog(request)
     sources: dict[str, Source] = {}
     read: list[SourceInfo] = []
@@ -155,9 +161,23 @@ def read_sources(
         if entry is None or entry.module is None or entry.repo is None:
             continue
         try:
-            tables, _ = current.full_tables(entry)
+            tables, found = current.full_tables(entry)
         except StorageError as error:
             raise HTTPException(503, str(error)) from None
         sources[name] = (entry.module, tables)
+        if settings is not None:
+            settings[name] = dict(found)
         read.append(SourceInfo(module=name, as_of=entry.repo.as_of, offline=entry.repo.offline))
     return sources, read
+
+
+def _series(
+    found: Series, sources: dict[str, Source], settings: dict[str, dict[str, Any]]
+) -> MetricSeries:
+    """A series of the answer, with the status bands of its metric if a dashboard line has them."""
+    data = MetricSeries.model_validate(found, from_attributes=True)
+    name, _, metric = found.metric.partition(".")
+    bands = line_bands(sources[name][0], metric, settings.get(name, {}))
+    if bands is not None:
+        data.bands = [BandData.model_validate(b) for b in bands]
+    return data
