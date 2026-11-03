@@ -417,7 +417,10 @@ export function GradesCard({ data }: { data: GradesData }) {
             />
           )}
           {data.by_venue.length > 0 && (
-            <GradeTable head="Venue" rows={data.by_venue.map((r) => ({ ...r, name: r.venue }))} />
+            <GradeTable
+              head="Venue"
+              rows={data.by_venue.map((r) => ({ ...r, name: r.venue, venue: null }))}
+            />
           )}
           <Text size="xs" c="dimmed">
             The hardest grade tried per session (not sends). French and gym grades are never
