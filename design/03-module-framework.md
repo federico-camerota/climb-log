@@ -126,7 +126,8 @@ Common field options: `label`, `help`, `required`, `default`, `phase` (`pre`, `p
 leave blank: its form still counts as done on Today, D-080; not with `required`).
 `default` is what a blank cell means. `default: next` on an integer key field (set numbers)
 makes a blank cell the row's position among the rows with the same other key parts, in sheet
-order (D-050); it needs other key parts and an entity on one tab.
+order (D-050); it needs other key parts and an entity on one tab. A record added in the app
+with it blank gets the highest number so far plus one (#114).
 
 ### 2.1b Field templates, conditional fields, child entities
 - **Templates** are reusable field groups, e.g. the body-part list `soreness` (fingers,
