@@ -34,7 +34,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   scores and the filled fields by section, with Edit and "Log this day" (D-098).
 - Explore page (#102, D-095): any metrics of any module over a range, per record, day, week or
   month, with an aggregate, a rolling mean, filters on choice fields, as a line or bars, with
-  n; two units at most, each on its own axis; the view is in the URL, so it can be bookmarked.
+  n; two units at most, each on its own axis (a metric without a unit gets an axis of its
+  own); the class scores' LOW/WATCH/GOOD bands behind a line; repeated labels told apart
+  ("Mood · Wellbeing · before"); the view is in the URL, so it can be bookmarked.
 
 ### Changed
 - M4 scoped (`design/07-roadmap.md`): eight issues, the analyses useful on little data first

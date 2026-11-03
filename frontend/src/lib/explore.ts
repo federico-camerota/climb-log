@@ -102,12 +102,45 @@ export function metricQuery(state: ExploreState, today: string): string | null {
   return params.toString();
 }
 
-/** What a metric's values are measured in, for the axes: its unit, a 1–10 scale, or a plain
- * number. */
+/** What a metric's values are measured in, for the axes: its unit or its scale (1–10). A
+ * metric with neither is a unit of its own (its id), so two of them never share an axis where
+ * one could hide the other (a weekly load of 2000 next to one of 40). */
 export function unitOf(metric: MetricInfo): string {
   if (metric.unit) return metric.unit;
   if (metric.scale) return `${String(metric.scale[0])}–${String(metric.scale[1])}`;
-  return "value";
+  return `#${metric.id}`;
+}
+
+/** An axis's name: the unit, else the metric's own name. */
+export function axisName(metric: MetricInfo, names: Map<string, string>): string {
+  const unit = unitOf(metric);
+  return unit.startsWith("#") ? (names.get(metric.id) ?? metric.label) : unit;
+}
+
+/** Every metric's name, told apart where labels repeat: "Mood · Wellbeing · before",
+ * "Mood · Rest day" (its section, else its entity, else its module). */
+export function metricNames(metrics: MetricInfo[]): Map<string, string> {
+  const byLabel = new Map<string, MetricInfo[]>();
+  for (const m of metrics) byLabel.set(m.label, [...(byLabel.get(m.label) ?? []), m]);
+  const names = new Map<string, string>();
+  const entity = (m: MetricInfo) =>
+    m.entity.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
+  for (const [label, same] of byLabel) {
+    if (same.length === 1) {
+      for (const m of same) names.set(m.id, label);
+      continue;
+    }
+    const ways = [
+      (m: MetricInfo) => m.section ?? entity(m),
+      entity,
+      (m: MetricInfo) => `${m.module} · ${entity(m)}`,
+      (m: MetricInfo) => m.id,
+    ];
+    const way =
+      ways.find((w) => new Set(same.map(w)).size === same.length) ?? ((m: MetricInfo) => m.id);
+    for (const m of same) names.set(m.id, `${label} · ${way(m)}`);
+  }
+  return names;
 }
 
 /** Whether `metric` can join `picked` without a third unit. */
@@ -131,21 +164,30 @@ export function pointLabel(point: QueryResult["points"][number]): string {
   return n === undefined ? label : `${label} (${String(n)})`;
 }
 
+const BAND_COLOURS: Record<string, string> = {
+  LOW: "rgba(250, 82, 82, 0.12)",
+  WATCH: "rgba(250, 176, 5, 0.12)",
+  GOOD: "rgba(64, 192, 87, 0.12)",
+};
+
 export function exploreOption(
   result: QueryResult,
   metrics: MetricInfo[],
   chart: ChartKind,
+  names: Map<string, string> = metricNames(metrics),
 ): EChartsCoreOption {
   const byId = new Map(metrics.map((m) => [m.id, m]));
-  const units = [...new Set(result.series.map((s) => unitOf(byId.get(s.metric) as MetricInfo)))];
+  const known = result.series.map((s) => byId.get(s.metric)).filter((m) => m !== undefined);
+  const units = [...new Set(known.map(unitOf))];
   const labels = result.points.map(pointLabel);
   const lines = result.series.flatMap((series, i) => {
     const metric = byId.get(series.metric);
-    const name = metric?.label ?? series.metric;
+    const name = names.get(series.metric) ?? series.metric;
     const axis = metric ? units.indexOf(unitOf(metric)) : 0;
     const colour = PALETTE[i % PALETTE.length];
     const main = {
       type: chart === "bars" ? "bar" : "line",
+      id: series.metric,
       name,
       yAxisIndex: axis,
       data: series.values,
@@ -159,6 +201,7 @@ export function exploreOption(
       main,
       {
         type: "line",
+        id: `${series.metric} rolling`,
         name: `${name} (rolling mean)`,
         yAxisIndex: axis,
         data: series.rolling,
@@ -169,31 +212,74 @@ export function exploreOption(
       },
     ];
   });
+  // a line's status bands (the class scores' LOW/WATCH/GOOD), when its axis has one set of them
+  const banded = result.series.filter((s) => s.bands);
+  const sameBands = new Set(banded.map((s) => JSON.stringify(s.bands))).size === 1;
+  const first = banded[0];
+  const bandAxis = first ? units.indexOf(unitOf(byId.get(first.metric) as MetricInfo)) : -1;
+  const bandSeries =
+    chart === "line" && first?.bands && sameBands && bandAxis >= 0
+      ? [
+          {
+            type: "line",
+            id: "bands",
+            name: "bands",
+            yAxisIndex: bandAxis,
+            data: labels.map(() => null),
+            silent: true,
+            markArea: {
+              silent: true,
+              data: first.bands.map((band) => [
+                {
+                  name: band.label,
+                  yAxis: band.from ?? byId.get(first.metric)?.scale?.[0] ?? 0,
+                  itemStyle: { color: BAND_COLOURS[band.label] ?? "rgba(134, 142, 150, 0.1)" },
+                  label: { position: "insideRight", opacity: 0.6 },
+                },
+                { yAxis: band.to ?? unitScaleTop(byId.get(first.metric)) },
+              ]),
+            },
+          },
+        ]
+      : [];
   return {
     tooltip: {
       trigger: "axis",
-      formatter: (params: { dataIndex: number; seriesName: string; value: number | null }[]) => {
+      formatter: (
+        params: { dataIndex: number; seriesId: string; seriesName: string; value: number | null }[],
+      ) => {
         const i = params[0]?.dataIndex ?? 0;
-        const rows = params.map((p) => {
-          const series = result.series.find(
-            (s) => (byId.get(s.metric)?.label ?? s.metric) === p.seriesName,
-          );
-          const n = series ? ` (n = ${String(series.n[i] ?? 0)})` : "";
-          return `${p.seriesName}: ${decimal(p.value)}${n}`;
-        });
+        const rows = params
+          .filter((p) => p.seriesId !== "bands")
+          .map((p) => {
+            const series = result.series.find((s) => s.metric === p.seriesId); // by id, not name
+            const n = series ? ` (n = ${String(series.n[i] ?? 0)})` : "";
+            return `${p.seriesName}: ${decimal(p.value)}${n}`;
+          });
         return [labels[i] ?? "", ...rows].join("<br/>");
       },
     },
-    legend: { top: 0 },
+    legend: { top: 0, data: lines.map((l) => l.name) },
     grid: { left: 56, right: units.length > 1 ? 56 : 24, top: 48, bottom: 64 },
     xAxis: { type: "category", data: labels, boundaryGap: chart === "bars" },
-    yAxis: units.map((unit, i) => ({
-      type: "value",
-      name: unit,
-      scale: chart === "line",
-      splitLine: { show: i === 0 },
-    })),
+    yAxis: units.map((unit, i) => {
+      const metric = known.find((m) => unitOf(m) === unit);
+      const banded = i === bandAxis && bandSeries.length > 0;
+      return {
+        type: "value",
+        name: metric ? axisName(metric, names) : unit,
+        // a banded axis shows the whole scale, so the bands keep their place
+        ...(banded ? { min: metric?.scale?.[0] ?? 0, max: unitScaleTop(metric) } : {}),
+        scale: chart === "line" && !banded,
+        splitLine: { show: i === 0 },
+      };
+    }),
     dataZoom: [{ type: "slider" }, { type: "inside" }],
-    series: lines,
+    series: [...bandSeries, ...lines],
   };
+}
+
+/** The top of a metric's scale (10 for a 1–10 score), for the bands' last range. */
+function unitScaleTop(metric: MetricInfo | undefined): number {
+  return metric?.scale?.[1] ?? 10;
 }

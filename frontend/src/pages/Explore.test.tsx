@@ -118,4 +118,35 @@ describe("Explore", () => {
     renderApp(PAGE);
     expect(await screen.findByText(/failed with HTTP 404|Not Found/)).toBeInTheDocument();
   });
+
+  it("asks by day when the metrics are of two entities, and names repeated labels apart", async () => {
+    const rest = {
+      ...CATALOGUE.metrics[1],
+      id: "diary.rest_day.mood",
+      entity: "rest_day",
+      section: null,
+    };
+    const both = "/explore?metric=diary.session.mood&metric=diary.rest_day.mood&group=none";
+    const query =
+      "/api/metrics/query?metric=diary.session.mood&metric=diary.rest_day.mood&start=2026-08-06&end=2026-11-03&group=day&agg=mean";
+    vi.useFakeTimers({ toFake: ["Date"] }); // "90 days" ends today
+    vi.setSystemTime(new Date("2026-11-03T12:00:00"));
+    api({
+      "/api/metrics": { ...CATALOGUE, metrics: [...CATALOGUE.metrics, rest] },
+      [query]: {
+        ...RESULT,
+        series: [
+          { metric: "diary.session.mood", values: [6], n: [2], rolling: null },
+          { metric: "diary.rest_day.mood", values: [8], n: [1], rolling: null },
+        ],
+      },
+    });
+    renderApp(both);
+    // one point per record needs one entity: the page asks by day instead of failing
+    expect(
+      await screen.findByText("Mood · Before: n = 2 · Mood · Rest day: n = 1"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Each record: metrics of one entity only")).toBeInTheDocument();
+    vi.useRealTimers();
+  });
 });

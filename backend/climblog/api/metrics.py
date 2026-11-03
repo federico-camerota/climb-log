@@ -19,12 +19,15 @@ from climblog.analytics.metrics import (
     Agg,
     Group,
     QueryError,
+    Series,
     Source,
     catalogue,
     run_query,
 )
 from climblog.analytics.metrics import Query as MetricQuery
+from climblog.analytics.views import line_bands
 from climblog.api.modules import catalog
+from climblog.api.views import BandData
 from climblog.storage import StorageError
 
 router = APIRouter()
@@ -69,6 +72,7 @@ class SeriesData(BaseModel):
     values: list[float | None]
     n: list[int]
     rolling: list[float | None] | None
+    bands: list[BandData] | None = None  # LOW/WATCH/GOOD, as a dashboard line draws them
 
 
 class SourceInfo(BaseModel):
@@ -122,13 +126,14 @@ def query_metrics(
         filters.setdefault(f_id, []).append(value)
     current = catalog(request)
     sources: dict[str, Source] = {}
+    settings: dict[str, dict[str, Any]] = {}
     read: list[SourceInfo] = []
     for name in dict.fromkeys(m.partition(".")[0] for m in metric):
         entry = current.entries.get(name)
         if entry is None or entry.module is None or entry.repo is None:
             continue  # its metrics are unknown: run_query says so
         try:
-            tables, _ = current.full_tables(entry)
+            tables, settings[name] = current.full_tables(entry)
         except StorageError as error:
             raise HTTPException(503, str(error)) from None
         sources[name] = (entry.module, tables)
@@ -143,6 +148,18 @@ def query_metrics(
         agg=result.agg,
         lag=result.lag,
         points=[PointData.model_validate(p, from_attributes=True) for p in result.points],
-        series=[SeriesData.model_validate(s, from_attributes=True) for s in result.series],
+        series=[_series(s, sources, settings) for s in result.series],
         sources=read,
     )
+
+
+def _series(
+    found: Series, sources: dict[str, Source], settings: dict[str, dict[str, Any]]
+) -> SeriesData:
+    """A series of the answer, with the status bands of its metric if a dashboard line has them."""
+    data = SeriesData.model_validate(found, from_attributes=True)
+    name, _, metric = found.metric.partition(".")
+    bands = line_bands(sources[name][0], metric, settings.get(name, {}))
+    if bands is not None:
+        data.bands = [BandData.model_validate(b) for b in bands]
+    return data

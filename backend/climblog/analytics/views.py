@@ -851,6 +851,22 @@ def _next_month(month: dt.date) -> dt.date:
     return _month_start(month, -1)
 
 
+def line_bands(
+    module: Module, metric: str, settings: Mapping[str, Value]
+) -> list[dict[str, Any]] | None:
+    """The status bands a dashboard line draws behind `metric` (`entity.field`), e.g. the class
+    scores' LOW/WATCH/GOOD; None when no line of the module's views gives it bands."""
+    for widgets in (module.views or {}).values():
+        for widget in widgets:
+            if (
+                isinstance(widget, LineWidget)
+                and widget.bands
+                and any(series.metric == metric for series in widget.series)
+            ):
+                return _bands(widget, settings)
+    return None
+
+
 def _bands(widget: LineWidget, settings: Mapping[str, Value]) -> list[dict[str, Any]]:
     """The status bands as ranges: up to the first threshold, between thresholds, the rest."""
     bands: list[dict[str, Any]] = []

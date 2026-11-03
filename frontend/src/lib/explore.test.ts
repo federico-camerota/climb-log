@@ -5,7 +5,9 @@ import type { MetricInfo, QueryResult } from "../api/client";
 import {
   exploreOption,
   fits,
+  axisName,
   metricGroup,
+  metricNames,
   metricQuery,
   pointLabel,
   readState,
@@ -37,6 +39,12 @@ function metric(
 const SLEEP = metric("journal.session.wb_sleep_hours", "Sleep hours", "h", [0, 14]);
 const MOOD = metric("journal.session.wb_mood_pre", "Mood", null, [1, 10]);
 const LOAD = metric("journal.session.session_load", "Session load", null, null);
+const FINGER_LOAD = metric("finger_strength.session.set_load", "Set load", null, null);
+const MOOD_AFTER = {
+  ...metric("journal.session.wb_mood_post", "Mood", null, [1, 10]),
+  section: "Wellbeing · after",
+};
+const REST_MOOD = { ...metric("journal.rest_day.mood", "Mood", null, [1, 10]), section: null };
 
 type Option = Record<string, unknown> & { series: Record<string, unknown>[] };
 
@@ -87,11 +95,29 @@ describe("the Explore page's state", () => {
   });
 
   it("allows two units at most", () => {
-    expect([unitOf(SLEEP), unitOf(MOOD), unitOf(LOAD)]).toEqual(["h", "1–10", "value"]);
+    // a metric without unit or scale is a unit of its own: never on another's axis
+    expect([unitOf(SLEEP), unitOf(MOOD), unitOf(LOAD)]).toEqual([
+      "h",
+      "1–10",
+      "#journal.session.session_load",
+    ]);
     expect(fits(LOAD, [SLEEP])).toBe(true);
     expect(fits(LOAD, [SLEEP, MOOD])).toBe(false);
     expect(fits(SLEEP, [SLEEP, MOOD])).toBe(true);
+    expect(fits(FINGER_LOAD, [LOAD])).toBe(true); // two axes
+    expect(fits(SLEEP, [LOAD, FINGER_LOAD])).toBe(false);
+    expect(axisName(LOAD, metricNames([LOAD]))).toBe("Session load");
     expect(metricGroup(SLEEP)).toBe("journal · session · Wellbeing · before");
+  });
+
+  it("tells metrics with the same label apart", () => {
+    const names = metricNames([SLEEP, MOOD, MOOD_AFTER, REST_MOOD]);
+    expect([...names.values()]).toEqual([
+      "Sleep hours", // unique: as is
+      "Mood · Wellbeing · before",
+      "Mood · Wellbeing · after",
+      "Mood · Rest day", // no section: its entity
+    ]);
   });
 
   it("labels days shortly, a day's second record, and periods as given", () => {
@@ -124,15 +150,75 @@ describe("the Explore page's state", () => {
       ["Mood", 1],
     ]);
     const tooltip = option.tooltip as {
-      formatter: (p: { dataIndex: number; seriesName: string; value: number | null }[]) => string;
+      formatter: (
+        p: { dataIndex: number; seriesId: string; seriesName: string; value: number | null }[],
+      ) => string;
     };
     expect(
       tooltip.formatter([
-        { dataIndex: 1, seriesName: "Sleep hours", value: 7.5 },
-        { dataIndex: 1, seriesName: "Mood", value: null },
+        { dataIndex: 1, seriesId: SLEEP.id, seriesName: "Sleep hours", value: 7.5 },
+        { dataIndex: 1, seriesId: MOOD.id, seriesName: "Mood", value: null },
       ]),
     ).toBe("2026-W44<br/>Sleep hours: 7,5 (n = 2)<br/>Mood: – (n = 0)");
     const bars = exploreOption(result, [SLEEP, MOOD], "bars") as Option;
     expect(bars.series[0]?.type).toBe("bar");
+  });
+
+  it("finds n by the metric, not its name, when labels repeat", () => {
+    const result: QueryResult = {
+      group: "week",
+      agg: "mean",
+      lag: 0,
+      points: [{ start: "2026-10-26", end: "2026-11-01", label: "2026-W44", key: null }],
+      series: [
+        { metric: MOOD.id, values: [7], n: [3], rolling: null },
+        { metric: REST_MOOD.id, values: [8], n: [1], rolling: null },
+      ],
+      sources: [],
+    };
+    const option = exploreOption(result, [MOOD, REST_MOOD], "line") as Option;
+    expect(option.series.map((s) => s.name)).toEqual([
+      "Mood · Wellbeing · before",
+      "Mood · Rest day",
+    ]);
+    const tooltip = option.tooltip as {
+      formatter: (
+        p: { dataIndex: number; seriesId: string; seriesName: string; value: number }[],
+      ) => string;
+    };
+    expect(
+      tooltip.formatter([
+        { dataIndex: 0, seriesId: MOOD.id, seriesName: "Mood · Wellbeing · before", value: 7 },
+        { dataIndex: 0, seriesId: REST_MOOD.id, seriesName: "Mood · Rest day", value: 8 },
+      ]),
+    ).toBe("2026-W44<br/>Mood · Wellbeing · before: 7 (n = 3)<br/>Mood · Rest day: 8 (n = 1)");
+  });
+
+  it("draws a line's status bands behind it, on the whole scale", () => {
+    const bands = [
+      { label: "LOW", from: null, to: 4 },
+      { label: "WATCH", from: 4, to: 6 },
+      { label: "GOOD", from: 6, to: null },
+    ];
+    const result: QueryResult = {
+      group: "week",
+      agg: "mean",
+      lag: 0,
+      points: [{ start: "2026-10-26", end: "2026-11-01", label: "2026-W44", key: null }],
+      series: [{ metric: MOOD.id, values: [7], n: [3], rolling: null, bands }],
+      sources: [],
+    };
+    const option = exploreOption(result, [MOOD], "line") as Option;
+    const [band] = option.series;
+    expect(band?.id).toBe("bands");
+    const areas = (band?.markArea as { data: { yAxis: number }[][] }).data;
+    expect(areas.map(([from, to]) => [from?.yAxis, to?.yAxis])).toEqual([
+      [1, 4],
+      [4, 6],
+      [6, 10],
+    ]);
+    expect((option.yAxis as Record<string, unknown>[])[0]).toMatchObject({ min: 1, max: 10 });
+    const bars = exploreOption(result, [MOOD], "bars") as Option; // bands only behind a line
+    expect(bars.series.map((s) => s.id)).toEqual([MOOD.id]);
   });
 });
