@@ -2,12 +2,13 @@
 # ruff: noqa: RUF001  (the journal's choices use en dashes, as in "Good - as planned")
 """A fictional climbing journal that looks like real use, for screenshots and demos (D-034).
 
-Every value is invented: ten weeks up to a day, about three sessions a week (now and then two
-on one day), rest days in between, scores that drift with a slow "form" curve and a few bad
+Every value is invented: 26 weeks up to a day (enough for the training-load ratio and a few
+correlations), about three sessions a week (now and then two on one day), rest days in
+between, scores (and a bit of the sleep) that drift with a slow "form" curve and a few bad
 days, and short `[ESEMPIO]` notes. Written through the app's own writer, so the workbook is
 exactly what logging in the app produces (formulas, Summary tab, `_settings`).
 
-    uv run python scripts/demo_journal.py OUT.xlsx [--end 2026-10-30] [--seed 3]
+    uv run python scripts/demo_journal.py OUT.xlsx [--end 2026-10-30] [--weeks 26] [--seed 3]
 """
 
 import argparse
@@ -48,7 +49,7 @@ def session(rng: random.Random, day: dt.date, n: int, form: float) -> dict[str, 
         "duration_min": rng.choice([60, 75, 90, 105, 120]),
         "hardest_grade": rng.choice(GRADES),
         "notes": rng.choice(NOTES),
-        "wb_sleep_hours": rng.choice([6, 6.5, 7, 7.5, 8, 8.5]),
+        "wb_sleep_hours": max(5.0, min(9.0, round(rng.gauss(5.4 + 0.25 * form, 0.6) * 2) / 2)),
         "wb_sleep_quality": scale(rng, form),
         "wb_mood_pre": scale(rng, form),
         "wb_energy_pre": scale(rng, form),
@@ -107,7 +108,7 @@ def rest_day(rng: random.Random, day: dt.date, form: float) -> dict[str, Any]:
     return values
 
 
-def write(path: Path, end: dt.date, seed: int, weeks: int = 10) -> int:
+def write(path: Path, end: dt.date, seed: int, weeks: int = 26) -> int:
     """The workbook at `path` (new), with the records up to `end`; how many were written."""
     module = load_module(JOURNAL)
     repo = XlsxBackend(path)
@@ -134,11 +135,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("out", type=Path, help="the workbook to write (must not exist)")
     parser.add_argument("--end", type=dt.date.fromisoformat, default=dt.date(2026, 10, 30))
+    parser.add_argument("--weeks", type=int, default=26)
     parser.add_argument("--seed", type=int, default=3)
     args = parser.parse_args()
     if args.out.exists():
         parser.error(f"{args.out} exists: give a new file")
-    count = write(args.out, args.end, args.seed)
+    count = write(args.out, args.end, args.seed, args.weeks)
     print(f"{args.out}: {count} fictional records up to {args.end}")
 
 

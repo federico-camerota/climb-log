@@ -8,8 +8,10 @@ interface (logging, visualization, analysis, planning). The data stays in spread
 Sheets backend) done, released as v0.2.0: the journal lives on Google and is typed on the phone.
 M3 (the journal app: logging in the app on the computer, Today, records with fixes, the
 dashboard at parity with the old Summary sheets, and the sheet's Summary tab) done, released
-as v0.3.0. Next is M4, analytics: scoped in eight issues (`07-roadmap.md`, D-086–D-088).
-Last updated 2026-11-02.
+as v0.3.0. M4 (analytics: the metric layer, widget library v1, training load, before/after and
+grades, the Explore page with correlations) is done in code, released as v0.4.0 once the
+owner has checked its done-when (`07-roadmap.md`, D-086–D-096). Next is M5, the program
+modules. Last updated 2026-11-03.
 
 ## Read in this order
 | File | What it covers |

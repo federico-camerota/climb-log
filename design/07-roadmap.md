@@ -121,7 +121,11 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
   optional lag, greyed out under the minimum n), a matrix (Spearman, cells hidden under the
   minimum n), and "what predicts a good session?" (pre-session metrics only).
   → done (D-096, #103): Explore's correlation tabs; scipy added (D-087).
-- Close M4: docs, README screenshots, v0.4.0.
+- Close M4: docs, README screenshots, v0.4.0. → done (#104): Training load and Explore
+  screenshots on the demo journal (now 26 weeks, so the ratio and correlations show
+  something); v0.4.0 in `pyproject.toml`, `package.json` and the CHANGELOG.
+- All M4 issues are done; the milestone is ticked once the owner has checked the done-when
+  below, and v0.4.0 is tagged then.
 - **Done when**: the explorer can answer "does sleep relate to my session feel?" with n and CI.
 
 ### M5 · Program modules ☐

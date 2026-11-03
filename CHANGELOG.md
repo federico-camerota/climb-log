@@ -6,7 +6,14 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-03
+
+M4: analytics: the metric layer, new charts, training load, before/after and grades, the
+Explore page with correlations (`design/07-roadmap.md`).
+
 ### Added
+- README screenshots of the training load and the Explore page (#104); the demo journal of
+  `scripts/demo_journal.py` covers 26 weeks (`--weeks`).
 - Metric catalogue and query API (#97, D-090): `GET /api/metrics` lists every numeric field and
   derived value of the loaded modules (and the choice fields that filter them);
   `GET /api/metrics/query` lines metrics up by record, day, week or month, with an aggregate,
@@ -275,7 +282,8 @@ M1: the module framework and local storage (`design/07-roadmap.md`).
   locally before changes to formulas, expressions or sync (D-057).
 - `make install` fails if `uv.lock` is out of date instead of updating it (`uv sync --locked`).
 
-[Unreleased]: https://github.com/federico-camerota/climb-log/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/federico-camerota/climb-log/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/federico-camerota/climb-log/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/federico-camerota/climb-log/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/federico-camerota/climb-log/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/federico-camerota/climb-log/releases/tag/v0.1.0
