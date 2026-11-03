@@ -7,12 +7,16 @@ you own (local `.xlsx` or Google Sheets) and can still edit by hand; the app add
 logging forms, interactive charts, cross-module analysis and a "next session" recommendation.
 What is tracked is defined in config files (module YAMLs), not in code.
 
-**Status: v0.3.0, the journal app (M3).** The climbing journal is logged in the app on the
-computer (pre-session, post-session and rest-day forms), with a Today page (what is still to
-log, the next-session recommendation), a records page that also fixes entries typed on the
-phone, and a dashboard at parity with the old Summary sheets. The data stays in Google Sheets
-or a local `.xlsx`, which also get a generated Summary tab for use on the phone. Other modules
-and the analysis explorer come next: see the [roadmap](design/07-roadmap.md).
+**Status: v0.4.0, analytics (M4).** The climbing journal is logged in the app on the computer
+(pre-session, post-session and rest-day forms), with a Today page (what is still to log, the
+next-session recommendation), a records page that also fixes entries typed on the phone, and
+dashboards: the old Summary sheets, training load (weekly session-RPE load, the acute:chronic
+ratio, monotony, streaks) and progress (how sessions change mood and soreness, soreness by
+body part, grades). The Explore page plots any metrics over time and shows correlations with
+n and 95% intervals (e.g. sleep vs session feel), honestly flagged while the data is thin. The
+data stays in Google Sheets or a local `.xlsx`, which also get a generated Summary tab for use
+on the phone. The program modules (shoulder, fear of falling) come next: see the
+[roadmap](design/07-roadmap.md).
 
 ## Screenshots
 
@@ -21,11 +25,14 @@ On a fictional journal (`scripts/demo_journal.py`; every value is invented):
 | Today | Dashboard |
 |---|---|
 | [![Today: the suggested next session and the forms due](docs/screenshots/today.png)](docs/screenshots/today.png) | [![Dashboard: status by class, calendar, scores by class, last sessions](docs/screenshots/dashboard.png)](docs/screenshots/dashboard.png) |
+| **Training load** | **Explore** |
+| [![Training load: weekly load, the acute:chronic ratio with zones, monotony and strain](docs/screenshots/load.png)](docs/screenshots/load.png) | [![Explore: sleep hours against feel score, with Spearman and Pearson r, 95% intervals and n](docs/screenshots/explore.png)](docs/screenshots/explore.png) |
 
 To make them again: `make build`, then
 `uv run python scripts/demo_journal.py build/demo/journal.xlsx` and
 `uv run python scripts/screenshots.py CONFIG docs/screenshots`, with an app config pointing the
-journal module to that workbook (Firefox is needed).
+journal module to that workbook (written by hand, see the script's docstring; Firefox is
+needed).
 
 ## Quick start
 

@@ -31,9 +31,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 DAY = "2026-10-30"  # the day the pages show (the demo journal ends there)
+START = "2026-05-01"  # the Explore page's range (the demo journal's 26 weeks)
+SLEEP, FEEL = "journal.session.wb_sleep_hours", "journal.session.feel_score"
 PAGES = {  # file → (path, height)
     "today.png": (f"/?date={DAY}", 1100),
     "dashboard.png": (f"/dashboards/journal?date={DAY}", 2100),
+    "load.png": (f"/dashboards/journal?date={DAY}&view=load", 1250),
+    "explore.png": (
+        f"/explore?tab=pair&x={SLEEP}&y={FEEL}&pair-range=custom&pair-start={START}&pair-end={DAY}",
+        1000,
+    ),
 }
 WIDTH = 1400
 PIXEL = bytes.fromhex(

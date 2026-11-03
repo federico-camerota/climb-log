@@ -2,12 +2,13 @@
 # ruff: noqa: RUF001  (the journal's choices use en dashes, as in "Good - as planned")
 """A fictional climbing journal that looks like real use, for screenshots and demos (D-034).
 
-Every value is invented: ten weeks up to a day, about three sessions a week (now and then two
-on one day), rest days in between, scores that drift with a slow "form" curve and a few bad
+Every value is invented: 26 weeks up to a day (enough for the training-load ratio and a few
+correlations), about three sessions a week (now and then two on one day), rest days in
+between, scores (and a bit of the sleep) that drift with a slow "form" curve and a few bad
 days, and short `[ESEMPIO]` notes. Written through the app's own writer, so the workbook is
 exactly what logging in the app produces (formulas, Summary tab, `_settings`).
 
-    uv run python scripts/demo_journal.py OUT.xlsx [--end 2026-10-30] [--seed 3]
+    uv run python scripts/demo_journal.py OUT.xlsx [--end 2026-10-30] [--weeks 26] [--seed 3]
 """
 
 import argparse
@@ -18,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from climblog.modules import load_module
+from climblog.modules.schema import Module
 from climblog.storage import RecordWriter, XlsxBackend, sync_module
 
 JOURNAL = Path(__file__).parent.parent / "modules" / "journal.yaml"
@@ -48,7 +50,7 @@ def session(rng: random.Random, day: dt.date, n: int, form: float) -> dict[str, 
         "duration_min": rng.choice([60, 75, 90, 105, 120]),
         "hardest_grade": rng.choice(GRADES),
         "notes": rng.choice(NOTES),
-        "wb_sleep_hours": rng.choice([6, 6.5, 7, 7.5, 8, 8.5]),
+        "wb_sleep_hours": max(5.0, min(9.0, round(rng.gauss(5.4 + 0.25 * form, 0.6) * 2) / 2)),
         "wb_sleep_quality": scale(rng, form),
         "wb_mood_pre": scale(rng, form),
         "wb_energy_pre": scale(rng, form),
@@ -107,7 +109,7 @@ def rest_day(rng: random.Random, day: dt.date, form: float) -> dict[str, Any]:
     return values
 
 
-def write(path: Path, end: dt.date, seed: int, weeks: int = 10) -> int:
+def write(path: Path, end: dt.date, seed: int, weeks: int = 26) -> int:
     """The workbook at `path` (new), with the records up to `end`; how many were written."""
     module = load_module(JOURNAL)
     repo = XlsxBackend(path)
@@ -126,19 +128,32 @@ def write(path: Path, end: dt.date, seed: int, weeks: int = 10) -> int:
                 records.append(("session", session(rng, day, 2, form - 0.5)))
         elif roll < 0.7:
             records.append(("rest_day", rest_day(rng, day, form)))
-    RecordWriter(module, repo).add_many(records)
+    RecordWriter(module, repo).add_many([(e, tracked(module, e, r)) for e, r in records])
     return len(records)
+
+
+def tracked(module: Module, entity: str, values: dict[str, Any]) -> dict[str, Any]:
+    """The values without the fields not tracked yet on the record's day (`since:`, 03 §2.2):
+    the app's form doesn't ask for them, so a real journal has them blank."""
+    day = dt.date.fromisoformat(values["date"])
+    fields = module.entities[entity].fields
+    return {
+        name: value
+        for name, value in values.items()
+        if (since := getattr(fields.get(name), "since", None)) is None or day >= since
+    }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("out", type=Path, help="the workbook to write (must not exist)")
     parser.add_argument("--end", type=dt.date.fromisoformat, default=dt.date(2026, 10, 30))
+    parser.add_argument("--weeks", type=int, default=26)
     parser.add_argument("--seed", type=int, default=3)
     args = parser.parse_args()
     if args.out.exists():
         parser.error(f"{args.out} exists: give a new file")
-    count = write(args.out, args.end, args.seed)
+    count = write(args.out, args.end, args.seed, args.weeks)
     print(f"{args.out}: {count} fictional records up to {args.end}")
 
 
