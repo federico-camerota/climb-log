@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Cards of the widget library v1 (#98, D-091): each draws the backend's numbers with ECharts.
-import { Card, Group, Stack, Table, Text, Title } from "@mantine/core";
-import { useMemo } from "react";
+import { Card, Group, SegmentedControl, Select, Stack, Table, Text, Title } from "@mantine/core";
+import { useMemo, useState } from "react";
 
 import type {
   BarsData,
+  BodyHeatmapData,
   BoxByData,
+  PrePostData,
   ScatterData,
   StackedData,
   TrainingLoadData,
@@ -13,10 +15,14 @@ import type {
 } from "../api/client";
 import {
   barsOption,
+  bodyOption,
   boxOption,
+  changeTone,
   decimal,
   loadOption,
   othersOption,
+  pairStats,
+  prePostOption,
   scatterOption,
   shortDate,
   stackedOption,
@@ -237,6 +243,113 @@ export function TrainingLoadCard({ data }: { data: TrainingLoadData }) {
             {data.absent.length > 0 && ` Not found in the app config: ${data.absent.join(", ")}.`}
           </Text>
         </Stack>
+      )}
+    </Card>
+  );
+}
+
+/** Before → after per pair (mood, each body part), for all sessions or one type (D-093). */
+export function PrePostCard({ data }: { data: PrePostData }) {
+  const [group, setGroup] = useState("-1");
+  const index = Number(group);
+  const option = useMemo(() => prePostOption(data, index), [data, index]);
+  const stats = pairStats(data, index);
+  const title = data.label ?? "Before → after";
+  const empty = data.pairs.every((p) => p.all.n === 0);
+  return (
+    <Card withBorder>
+      <Group justify="space-between" mb="xs">
+        <Title order={4}>{title}</Title>
+        {data.groups.length > 0 && (
+          <Select
+            aria-label="Session type"
+            size="xs"
+            allowDeselect={false}
+            data={[
+              { value: "-1", label: "All sessions" },
+              ...data.groups.map((g, i) => ({ value: String(i), label: g })),
+            ]}
+            value={group}
+            onChange={(value) => {
+              setGroup(value ?? "-1");
+            }}
+          />
+        )}
+      </Group>
+      {empty ? (
+        <Text c="dimmed">No session with both answers yet.</Text>
+      ) : (
+        <Stack gap="sm">
+          <Chart
+            option={option}
+            label={title}
+            height={Math.max(200, 40 * data.pairs.length + 72)}
+          />
+          <Table striped>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th />
+                <Table.Th>Before</Table.Th>
+                <Table.Th>After</Table.Th>
+                <Table.Th>Change</Table.Th>
+                <Table.Th>n</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {data.pairs.map((pair, i) => {
+                const s = stats[i] ?? pair.all;
+                const sign = s.change !== null && s.change > 0 ? "+" : "";
+                return (
+                  <Table.Tr key={pair.label}>
+                    <Table.Td>
+                      {pair.label}
+                      {pair.lower_better === true && " ↓"}
+                    </Table.Td>
+                    <Table.Td>{decimal(s.pre)}</Table.Td>
+                    <Table.Td>{decimal(s.post)}</Table.Td>
+                    <Table.Td>
+                      <Text span c={changeTone(s.change, pair.lower_better)}>
+                        {s.change === null ? "–" : sign + decimal(s.change)}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>{s.n}</Table.Td>
+                  </Table.Tr>
+                );
+              })}
+            </Table.Tbody>
+          </Table>
+          <Text size="xs" c="dimmed">
+            Means over the sessions with both answers (n). ↓: lower is better. Soreness changes
+            aren&apos;t coloured: it is expected to rise after a session.
+          </Text>
+        </Stack>
+      )}
+    </Card>
+  );
+}
+
+/** The template's fields (body parts) by week, for one source at a time (D-093). */
+export function BodyHeatmapCard({ data }: { data: BodyHeatmapData }) {
+  const [source, setSource] = useState("0");
+  const index = Number(source);
+  const option = useMemo(() => bodyOption(data, index), [data, index]);
+  const title = data.label ?? "By week";
+  return (
+    <Card withBorder>
+      <Group justify="space-between" mb="xs">
+        <Title order={4}>{title}</Title>
+        <SegmentedControl
+          aria-label="Source"
+          size="xs"
+          data={data.sources.map((s, i) => ({ value: String(i), label: s.label }))}
+          value={source}
+          onChange={setSource}
+        />
+      </Group>
+      {data.weeks.length === 0 ? (
+        <Text c="dimmed">Nothing logged yet.</Text>
+      ) : (
+        <Chart option={option} label={title} height={Math.max(220, 36 * data.parts.length + 96)} />
       )}
     </Card>
   );

@@ -292,6 +292,42 @@ export interface components {
              */
             widget: "bars";
         };
+        /** BodyHeatmapData */
+        BodyHeatmapData: {
+            /** Label */
+            label: string | null;
+            /** Lower Better */
+            lower_better: boolean | null;
+            /** Parts */
+            parts: string[];
+            /** Scale */
+            scale: [
+                number,
+                number
+            ] | null;
+            /** Shown */
+            shown: number;
+            /** Sources */
+            sources: components["schemas"]["BodySourceData"][];
+            /** Starts */
+            starts: string[];
+            /** Weeks */
+            weeks: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "body_heatmap";
+        };
+        /** BodySourceData */
+        BodySourceData: {
+            /** Label */
+            label: string;
+            /** N */
+            n: number[][];
+            /** Values */
+            values: (number | null)[][];
+        };
         /** Box */
         Box: {
             /** High */
@@ -708,6 +744,27 @@ export interface components {
             /** Text */
             text: string | null;
         };
+        /** PairData */
+        PairData: {
+            all: components["schemas"]["PairStats"];
+            /** Groups */
+            groups: components["schemas"]["PairStats"][];
+            /** Label */
+            label: string;
+            /** Lower Better */
+            lower_better: boolean | null;
+        };
+        /** PairStats */
+        PairStats: {
+            /** Change */
+            change: number | null;
+            /** N */
+            n: number;
+            /** Post */
+            post: number | null;
+            /** Pre */
+            pre: number | null;
+        };
         /** PlannedData */
         PlannedData: {
             /** Kind */
@@ -752,6 +809,20 @@ export interface components {
              * Format: date
              */
             start: string;
+        };
+        /** PrePostData */
+        PrePostData: {
+            /** Groups */
+            groups: string[];
+            /** Label */
+            label: string | null;
+            /** Pairs */
+            pairs: components["schemas"]["PairData"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "pre_post";
         };
         /** QueryResult */
         QueryResult: {
@@ -1129,7 +1200,7 @@ export interface components {
             /** View */
             view: string;
             /** Widgets */
-            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["HeatmapData"] | components["schemas"]["SideBySideData"] | components["schemas"]["TextFeedData"] | components["schemas"]["TableData"] | components["schemas"]["MonthlyData"] | components["schemas"]["BarsData"] | components["schemas"]["WeekbarsData"] | components["schemas"]["StackedData"] | components["schemas"]["BoxByData"] | components["schemas"]["ScatterData"] | components["schemas"]["TrainingLoadData"] | components["schemas"]["PlannedData"])[];
+            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["HeatmapData"] | components["schemas"]["SideBySideData"] | components["schemas"]["TextFeedData"] | components["schemas"]["TableData"] | components["schemas"]["MonthlyData"] | components["schemas"]["BarsData"] | components["schemas"]["WeekbarsData"] | components["schemas"]["StackedData"] | components["schemas"]["BoxByData"] | components["schemas"]["ScatterData"] | components["schemas"]["TrainingLoadData"] | components["schemas"]["PrePostData"] | components["schemas"]["BodyHeatmapData"] | components["schemas"]["PlannedData"])[];
         };
         /** WeekbarsData */
         WeekbarsData: {

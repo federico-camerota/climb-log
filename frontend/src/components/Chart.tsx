@@ -12,6 +12,7 @@ import {
   LegendComponent,
   MarkAreaComponent,
   TooltipComponent,
+  VisualMapComponent,
 } from "echarts/components";
 import { init, use as register, type EChartsCoreOption } from "echarts/core";
 import { SVGRenderer } from "echarts/renderers";
@@ -29,6 +30,7 @@ register([
   TooltipComponent,
   MarkAreaComponent,
   DataZoomComponent,
+  VisualMapComponent,
   SVGRenderer,
 ]);
 

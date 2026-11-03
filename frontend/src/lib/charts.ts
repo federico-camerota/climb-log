@@ -5,7 +5,9 @@ import type { EChartsCoreOption } from "echarts/core";
 
 import type {
   BarsData,
+  BodyHeatmapData,
   BoxByData,
+  PrePostData,
   ScatterData,
   StackedData,
   TrainingLoadData,
@@ -245,4 +247,103 @@ export function zoneOf(ratio: number, zones: number[]): string {
   if (ratio <= high) return "in the usual range";
   if (ratio <= top) return "high";
   return "very high";
+}
+
+type PairStats = PrePostData["pairs"][number]["all"];
+
+/** The stats of each pair for a group (-1: all records). */
+export function pairStats(data: PrePostData, group: number): PairStats[] {
+  return data.pairs.map((p) => (group < 0 ? p.all : (p.groups[group] ?? p.all)));
+}
+
+/** A change's colour: green up and red down on a higher-is-better scale (mood); neutral on a
+ * lower-is-better one (soreness), which is expected to rise after a session (D-093). */
+export function changeTone(change: number | null, lowerBetter: boolean | null): string {
+  if (change === null || change === 0 || lowerBetter === null) return "dimmed";
+  if (lowerBetter) return "inherit";
+  return change > 0 ? "green" : "red";
+}
+
+/** A dumbbell per pair: the mean before and after, joined. */
+export function prePostOption(data: PrePostData, group: number): EChartsCoreOption {
+  const stats = pairStats(data, group);
+  const labels = data.pairs.map((p) => p.label);
+  const shown = (side: "pre" | "post") =>
+    stats.map((x, i) => (x[side] === null ? null : [x[side], labels[i]]));
+  return {
+    tooltip: { trigger: "item" },
+    legend: { top: 0, data: ["Before", "After"] },
+    grid: { left: 110, right: 24, top: 40, bottom: 32 },
+    xAxis: { type: "value", scale: true },
+    yAxis: { type: "category", data: labels, inverse: true },
+    series: [
+      ...stats.map((s, i) => ({
+        type: "line",
+        name: `${labels[i] ?? ""} change`,
+        data:
+          s.pre === null || s.post === null
+            ? []
+            : [
+                [s.pre, labels[i]],
+                [s.post, labels[i]],
+              ],
+        showSymbol: false,
+        silent: true,
+        lineStyle: { color: "#adb5bd", width: 3 },
+        tooltip: { show: false },
+      })),
+      {
+        type: "scatter",
+        name: "Before",
+        data: shown("pre"),
+        symbolSize: 11,
+        itemStyle: { color: "#adb5bd" },
+      },
+      {
+        type: "scatter",
+        name: "After",
+        data: shown("post"),
+        symbolSize: 11,
+        itemStyle: { color: PALETTE[0] },
+      },
+    ],
+  };
+}
+
+/** Weeks across, the template's fields (body parts) down; colour by the week's mean, red for
+ * the bad end of the scale. */
+export function bodyOption(data: BodyHeatmapData, source: number): EChartsCoreOption {
+  const values = data.sources[source]?.values ?? [];
+  const cells = values.flatMap((row, part) =>
+    row.flatMap((v, week) => (v === null ? [] : [[week, part, v]])),
+  );
+  const [min, max] = data.scale ?? [0, 10];
+  const ramp = ["#d3f9d8", "#ffec99", "#ffa8a8", "#e03131"];
+  return {
+    tooltip: {
+      formatter: (p: { value: [number, number, number] }) =>
+        `${data.weeks[p.value[0]] ?? ""} · ${data.parts[p.value[1]] ?? ""}: ${decimal(p.value[2])}`,
+    },
+    grid: { left: 110, right: 24, top: 16, bottom: 72 },
+    xAxis: { type: "category", data: data.weeks, splitArea: { show: true } },
+    yAxis: { type: "category", data: data.parts, inverse: true, splitArea: { show: true } },
+    visualMap: {
+      min,
+      max,
+      calculable: false,
+      orient: "horizontal",
+      left: "center",
+      bottom: 0,
+      inRange: { color: data.lower_better === false ? [...ramp].reverse() : ramp },
+      text: [decimal(max), decimal(min)], // the scale's ends, at the colour bar
+    },
+    series: [
+      {
+        type: "heatmap",
+        data: cells,
+        label: { show: true, formatter: (p: { value: number[] }) => decimal(p.value[2]) },
+      },
+    ],
+    ...zoom(data.weeks.length, data.shown),
+  };
 }

@@ -399,3 +399,20 @@ views:
       others: [{module: finger_strength, metric: session.set_load, label: Finger training (sets x effort)}]
       weeks: 12
     - {widget: weekbars, metric: session.session_type, label: Sessions per week by type}
+  # Progress (D-093): how sessions change mood and soreness (the same question before and
+  # after; a body part added to the soreness template shows up here too), and soreness by
+  # body part and week. Grade charts come with #101.
+  progress:
+    - widget: pre_post
+      label: Before → after, by session type
+      pairs: [{label: Mood, pre: session.wb_mood_pre, post: session.wb_mood_post}]
+      template_pairs: [{template: soreness, pre: session.ph_pre_, post: session.ph_post_}]
+      by: session.session_type
+    - widget: body_heatmap
+      label: Soreness by body part and week
+      template: soreness
+      sources:
+        - {label: Before sessions, fields: session.ph_pre_}
+        - {label: After sessions, fields: session.ph_post_}
+        - {label: Rest days, fields: rest_day.body_}
+      weeks: 12

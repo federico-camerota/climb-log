@@ -112,7 +112,7 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
   monotony and strain, sessions per week, streaks; as widgets on the journal dashboard.
   → done (D-092, #99): the journal's `load` view.
 - Pre → post deltas by session type (paired dots per body part) and soreness by body part ×
-  week.
+  week. → done (D-093, #100): the journal's `progress` view.
 - Grades: hardest grade over time (French and gym on separate axes, D-017/D-047), grade
   pyramid by period, indoor vs outdoor, by venue.
 - Explore page: pick metrics, range, grouping and filters; shown as a line or bars.
@@ -146,7 +146,7 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
 - **More analyses** from `05-analytics.md`, left out of M4 to keep it the size of M3 (D-086):
   recovery patterns (§3.1), venue/partner view, wins timeline, reflection themes with Italian
   stemming (§3.6), finger-strength charts (§3.5), search across all modules (§2); and the
-  regularised regression of §3.2 once n ≥ ~40.
+  regularised regression of §3.2 once n ≥ ~40; the body silhouette for "today" (§3.1).
 - **Training load in the recommendation** (`05-analytics.md` §4 item 3): an acute:chronic
   ratio above the upper zone suggests MODERATE, as a soft signal next to the readiness rule;
   the ratio itself is on the journal's `load` dashboard (D-092).
