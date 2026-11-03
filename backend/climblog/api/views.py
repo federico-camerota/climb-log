@@ -214,7 +214,7 @@ class BarsData(BaseModel):
 
 class Stack(BaseModel):
     label: str  # a value of the field (or "" for a single stack)
-    values: list[float]  # one per week
+    values: list[float | None]  # one per week; None: a mean over a week with nothing logged
 
 
 class WeekbarsData(BaseModel):

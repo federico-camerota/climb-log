@@ -903,7 +903,7 @@ export interface components {
             /** Label */
             label: string;
             /** Values */
-            values: number[];
+            values: (number | null)[];
         };
         /** StackedData */
         StackedData: {
