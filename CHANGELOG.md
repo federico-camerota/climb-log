@@ -64,6 +64,8 @@ Explore page with correlations (`design/07-roadmap.md`).
   overhead (locally 462 s → 177 s).
 
 ### Fixed
+- A finger-strength set added through the app without a set number is no longer refused: it
+  gets the next number for its date, as a blank Set # typed in the sheet does (#114, D-050).
 - Dashboard charts are drawn as SVG instead of on a canvas (D-097): in Firefox on Linux with GPU
   canvas acceleration, some charts stayed blank until clicked.
 

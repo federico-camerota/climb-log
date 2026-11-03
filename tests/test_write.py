@@ -54,7 +54,7 @@ entities:
     fields:
       date: {type: date}
       session_no: {type: integer, default: 1}
-      set_no: {type: integer, default: next}  # not filled in by writes yet
+      set_no: {type: integer, default: next}  # blank: the next number (on read and on add)
       kg: {type: number}
   fall:
     label: Fall
@@ -150,9 +150,20 @@ def test_add_needs_a_new_complete_key(writer: RecordWriter, path: Path) -> None:
         writer.add("session", BOARD20)  # session_no blank = 1, as on read
     with pytest.raises(WriteError, match="no kind: a session needs one"):
         writer.add("session", {"date": D19})
-    with pytest.raises(WriteError, match="no set_no: a set needs one"):
-        writer.add("set", {"date": D20, "kg": 5})
     assert path.read_bytes() == before
+
+
+def test_a_blank_next_number_gets_the_next_one(
+    writer: RecordWriter, module: Module, path: Path
+) -> None:
+    # the 20th has sets 1 and 2: a set added without a number is the 3rd (#114, D-050)
+    assert writer.add("set", {"date": D20, "kg": 15}) == (D20, 1, 3)
+    assert rows(path, "Sets")[-1][:4] == (at(D20), 1, 3, 15)  # written as a number
+    writer.add_many([("set", {"date": D20, "kg": 16}), ("set", {"date": D20, "kg": 17})])
+    numbers = [r["set_no"] for r in records(module, path, "set")]
+    assert numbers == [1, 2, 3, 4, 5]  # a batch counts its own earlier sets
+    with pytest.raises(WriteError, match="no set_no: a set needs one"):
+        writer.delete("set", {"date": D20})  # finding a set still needs its number
 
 
 def test_add_refuses_a_key_held_by_an_orphan_section_row(module: Module, tmp_path: Path) -> None:
