@@ -319,7 +319,8 @@ export function PrePostCard({ data }: { data: PrePostData }) {
             </Table.Tbody>
           </Table>
           <Text size="xs" c="dimmed">
-            Means over the sessions with both answers (n). ↓: lower is better, so a drop is green.
+            Means over the sessions with both answers (n). ↓: lower is better. Soreness changes
+            aren&apos;t coloured: it is expected to rise after a session.
           </Text>
         </Stack>
       )}

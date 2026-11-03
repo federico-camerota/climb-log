@@ -256,10 +256,12 @@ export function pairStats(data: PrePostData, group: number): PairStats[] {
   return data.pairs.map((p) => (group < 0 ? p.all : (p.groups[group] ?? p.all)));
 }
 
-/** Whether a change is for the better: up on a higher-is-better scale, down on a lower one. */
+/** A change's colour: green up and red down on a higher-is-better scale (mood); neutral on a
+ * lower-is-better one (soreness), which is expected to rise after a session (D-093). */
 export function changeTone(change: number | null, lowerBetter: boolean | null): string {
   if (change === null || change === 0 || lowerBetter === null) return "dimmed";
-  return change < 0 === lowerBetter ? "green" : "red";
+  if (lowerBetter) return "inherit";
+  return change > 0 ? "green" : "red";
 }
 
 /** A dumbbell per pair: the mean before and after, joined. */
@@ -333,6 +335,7 @@ export function bodyOption(data: BodyHeatmapData, source: number): EChartsCoreOp
       left: "center",
       bottom: 0,
       inRange: { color: data.lower_better === false ? [...ramp].reverse() : ramp },
+      text: [decimal(max), decimal(min)], // the scale's ends, at the colour bar
     },
     series: [
       {

@@ -72,7 +72,8 @@ next morning" joined to the previous day's session). A filter applies to its ent
 - Done (D-093, #100), the journal's `progress` view: `pre_post` (mood and each body part's
   soreness before → after: means, change and n over the sessions with both answers, per
   session type) and `body_heatmap` (soreness by body part and week, before sessions, after
-  them and on rest days). The body silhouette went to the backlog.
+  them and on rest days). A body part counts from its `since:` date; a retired one shows while
+  the range has values for it. The body silhouette went to the backlog.
 - **Training load**:
   - session load = duration × effort (session-RPE method);
   - weekly load, **acute:chronic workload ratio** (7 d / 28 d, EWMA variant),

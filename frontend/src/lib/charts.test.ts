@@ -276,7 +276,8 @@ describe("the chart options", () => {
       changeTone(2, true),
       changeTone(0, true),
       changeTone(1, null),
-    ]).toEqual(["green", "green", "red", "dimmed", "dimmed"]);
+      changeTone(-1, false),
+    ]).toEqual(["green", "inherit", "inherit", "dimmed", "dimmed", "red"]); // soreness: neutral
   });
 
   it("maps body parts by week, red at the bad end of the scale", () => {
@@ -308,8 +309,14 @@ describe("the chart options", () => {
       [0, 0, 3],
       [1, 1, 6],
     ]);
-    const map = option.visualMap as { min: number; max: number; inRange: { color: string[] } };
+    const map = option.visualMap as {
+      min: number;
+      max: number;
+      inRange: { color: string[] };
+      text: string[];
+    };
     expect([map.min, map.max, map.inRange.color.at(-1)]).toEqual([1, 10, "#e03131"]);
+    expect(map.text).toEqual(["10", "1"]); // the scale's ends at the colour bar
     const better = bodyOption({ ...data, lower_better: false }, 0) as Option;
     expect((better.visualMap as { inRange: { color: string[] } }).inRange.color[0]).toBe("#e03131");
   });

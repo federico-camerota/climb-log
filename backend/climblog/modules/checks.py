@@ -649,7 +649,7 @@ def _views(module: Module) -> list[Problem]:
                 # other modules are known only from the app config: checked when computed
             elif isinstance(widget, PrePostWidget):
                 for j, pair in enumerate(widget.pairs):
-                    metrics += [
+                    numbers += [
                         ((*at, "pairs", j, "pre"), pair.pre),
                         ((*at, "pairs", j, "post"), pair.post),
                     ]
@@ -660,6 +660,7 @@ def _views(module: Module) -> list[Problem]:
                         problems += _template_fields(
                             module, tp.template, getattr(tp, side), (*at, "template_pairs", j, side)
                         )
+                    problems += _template_numbers(module, tp.template, (*at, "template_pairs", j))
                     entities |= {tp.pre.partition(".")[0], tp.post.partition(".")[0]}
                 if len(entities) > 1:
                     problems.append(Problem((*at, "pairs"), "the pairs must be of one entity"))
@@ -676,6 +677,7 @@ def _views(module: Module) -> list[Problem]:
                     problems += _template_fields(
                         module, widget.template, source.fields, (*at, "sources", j, "fields")
                     )
+                problems += _template_numbers(module, widget.template, (*at, "template"))
             else:
                 problems += _entity_fields(module, widget, at)
             for path, text in metrics + numbers:
@@ -687,6 +689,19 @@ def _views(module: Module) -> list[Problem]:
                         Problem(path, f"'{text}' is not a number: a chart can't plot it")
                     )
     return problems
+
+
+def _template_numbers(module: Module, template: str, at: YamlPath) -> list[Problem]:
+    """A charted template's fields must be numbers (the template itself is checked apart)."""
+    fields = module.templates.get(template, {})
+    words = [
+        name
+        for name, f in fields.items()
+        if not isinstance(f, NumberField | DurationField | PercentField | ScaleField)
+    ]
+    if not words:
+        return []
+    return [Problem(at, f"'{template}' has fields that aren't numbers: {', '.join(words)}")]
 
 
 def _is_number(module: Module, entity: str, name: str) -> bool:

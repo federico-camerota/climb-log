@@ -24,7 +24,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   per week by type.
 - Before → after (#100, D-093): the journal's new `progress` dashboard shows how sessions change
   mood and each body part's soreness (means before and after, the change and n, per session
-  type), and soreness by body part and week before sessions, after them and on rest days.
+  type), and soreness by body part and week before sessions, after them and on rest days. A
+  body part counts from its `since:` date.
 
 ### Changed
 - M4 scoped (`design/07-roadmap.md`): eight issues, the analyses useful on little data first
