@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=module.schema.json
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Finger strength journal: the 4th, LOCAL journal (D-019, D-025, D-030, D-032, D-059).
 # New tracker, no legacy workbook. Lives in a local .xlsx and is the end-to-end test of the
 # local backend (tests/test_finger_strength.py). It also exercises a framework feature the other

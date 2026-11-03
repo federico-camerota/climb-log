@@ -66,7 +66,8 @@ Each milestone in `07-roadmap.md` is split into several PRs, each reviewable in 
 The repo is **public**, and training/health notes are personal data (D-034).
 - **Never committed**: real journals (`.xlsx` at the repo root, `data/`), backups, local
   snapshots, Google OAuth client secrets and tokens, `.env`, app config. Enforced by
-  `.gitignore` and the pre-commit data check.
+  `.gitignore` and the pre-commit data check (`scripts/check_data.py`: spreadsheets and
+  snapshots outside the fictional-data folders, OAuth secrets, tokens and `.env` anywhere).
 - **Tests and mock-ups use fictional data only**: generated synthetic workbooks, including
   fixtures in the *legacy* layout for the importer tests, built by a script in the repo.
   Real files are never copied into `tests/`.

@@ -6,6 +6,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 
 ## [Unreleased]
 
+### Changed
+- The commit check refuses the app's snapshots (`*.json.gz`) outside the fictional-data folders,
+  and OAuth secrets, tokens and `.env` files anywhere, not only spreadsheets (it also catches a
+  file added by force past `.gitignore`).
+
 ## [0.4.0] - 2026-11-03
 
 M4: analytics: the metric layer, new charts, training load, before/after and grades, the

@@ -86,7 +86,8 @@ export function Explore() {
   const filters = (catalogue.data?.filters ?? []).filter((f) =>
     entities.has(`${f.module}.${f.entity}`),
   );
-  // the React compiler memoizes this (D-070's lint): no useMemo by hand
+  // built on each render (no memo): the page renders again only when its URL or data change,
+  // and the option is a few hundred points
   // the chart names the picked metrics apart from each other only ("Sleep hours", not
   // "Sleep hours · Wellbeing · before" when no other sleep hours is picked)
   const shown = metricNames(picked);

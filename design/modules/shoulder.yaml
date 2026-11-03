@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=../../modules/module.schema.json
+# SPDX-License-Identifier: GPL-3.0-or-later
 # DRAFT module definition: Shoulder program
 # Mirrors Shoulder_Program_Tracker_Fixed.xlsx (see design/00-current-state.md §3).
 
