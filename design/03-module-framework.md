@@ -567,7 +567,7 @@ Training load (#99, D-092), computed in `analytics/load.py`:
   load: session.session_load            # a record's load (duration x effort)
   inputs: [session.duration_min, session.feel_effort]  # missing one: counts as 0, flagged
   rest: rest_day                        # counted per week
-  others:                               # stacked, not in the ratio (other units)
+  others:                               # own chart, not in the ratio (other units)
     - {module: finger_strength, metric: session.set_load, label: Finger training}
   weeks: 12                             # shown at first
   acute: 7                              # EWMA windows (days)

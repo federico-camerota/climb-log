@@ -193,18 +193,10 @@ export function loadOption(data: TrainingLoadData): EChartsCoreOption {
     series: [
       {
         type: "bar",
-        stack: "load",
         name: "Climbing journal",
         data: data.weeks.map((w) => w.load),
         itemStyle: { color: PALETTE[0] },
       },
-      ...data.others.map((label, i) => ({
-        type: "bar",
-        stack: "load",
-        name: label,
-        data: data.weeks.map((w) => w.others[i] ?? 0),
-        itemStyle: { color: PALETTE[(i + 2) % PALETTE.length] },
-      })),
       {
         type: "line",
         name: "ACWR",
@@ -221,6 +213,27 @@ export function loadOption(data: TrainingLoadData): EChartsCoreOption {
         },
       },
     ],
+    ...zoom(weeks.length, data.shown),
+  };
+}
+
+/** The other sources' weekly loads (e.g. finger training, sets × effort), stacked on a chart
+ * of their own: their units differ from the journal's (D-092). */
+export function othersOption(data: TrainingLoadData): EChartsCoreOption {
+  const weeks = data.weeks.map((w) => w.label);
+  return {
+    tooltip: { trigger: "axis" },
+    legend: { top: 0 },
+    grid: { left: 56, right: 48, top: 40, bottom: 64 },
+    xAxis: { type: "category", data: weeks },
+    yAxis: { type: "value" },
+    series: data.others.map((label, i) => ({
+      type: "bar",
+      stack: "others",
+      name: label,
+      data: data.weeks.map((w) => w.others[i] ?? 0),
+      itemStyle: { color: PALETTE[(i + 2) % PALETTE.length] },
+    })),
     ...zoom(weeks.length, data.shown),
   };
 }

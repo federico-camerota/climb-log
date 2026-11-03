@@ -16,6 +16,7 @@ import {
   boxOption,
   decimal,
   loadOption,
+  othersOption,
   scatterOption,
   shortDate,
   stackedOption,
@@ -132,6 +133,7 @@ export function ScatterCard({ data }: { data: ScatterData }) {
 /** Weekly training load with the ACWR, monotony, strain and streaks (D-092). */
 export function TrainingLoadCard({ data }: { data: TrainingLoadData }) {
   const option = useMemo(() => loadOption(data), [data]);
+  const others = useMemo(() => othersOption(data), [data]);
   const title = data.label ?? "Training load";
   const recent = [...data.weeks].reverse().slice(0, data.shown);
   let ratio: string;
@@ -167,6 +169,14 @@ export function TrainingLoadCard({ data }: { data: TrainingLoadData }) {
             )}
           </Group>
           <Chart option={option} label={title} />
+          {data.others.length > 0 && (
+            <>
+              <Text size="sm" fw={500}>
+                {data.others.join(", ")}: in its own units, not in the ratio
+              </Text>
+              <Chart option={others} height={220} label={data.others.join(", ")} />
+            </>
+          )}
           <Table striped>
             <Table.Thead>
               <Table.Tr>
@@ -176,6 +186,7 @@ export function TrainingLoadCard({ data }: { data: TrainingLoadData }) {
                   <Table.Th key={label}>{label}</Table.Th>
                 ))}
                 <Table.Th>Sessions</Table.Th>
+                <Table.Th>Days trained</Table.Th>
                 <Table.Th>Rest days</Table.Th>
                 <Table.Th>ACWR</Table.Th>
                 <Table.Th>Monotony</Table.Th>
@@ -198,9 +209,18 @@ export function TrainingLoadCard({ data }: { data: TrainingLoadData }) {
                     )}
                   </Table.Td>
                   {week.others.map((value, i) => (
-                    <Table.Td key={data.others[i] ?? i}>{decimal(value)}</Table.Td>
+                    <Table.Td key={data.others[i] ?? i}>
+                      {decimal(value)}
+                      {(week.others_without[i] ?? 0) > 0 && (
+                        <Text span c="orange" size="xs">
+                          {" "}
+                          ({week.others_without[i]} without load)
+                        </Text>
+                      )}
+                    </Table.Td>
                   ))}
                   <Table.Td>{week.sessions}</Table.Td>
+                  <Table.Td>{week.days}</Table.Td>
                   <Table.Td>{week.rest_days}</Table.Td>
                   <Table.Td>{decimal(week.acwr)}</Table.Td>
                   <Table.Td>{decimal(week.monotony)}</Table.Td>

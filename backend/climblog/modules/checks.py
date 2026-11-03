@@ -638,7 +638,7 @@ def _views(module: Module) -> list[Problem]:
                     metrics.append(((*at, "color"), widget.color))
                     problems += _same_entity(widget.color, widget.x, (*at, "color"))
             elif isinstance(widget, TrainingLoadWidget):
-                metrics.append(((*at, "load"), widget.load))
+                numbers.append(((*at, "load"), widget.load))
                 for j, item in enumerate(widget.inputs):
                     metrics.append(((*at, "inputs", j), item))
                     problems += _same_entity(item, widget.load, (*at, "inputs", j))

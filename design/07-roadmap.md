@@ -147,6 +147,12 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
   recovery patterns (§3.1), venue/partner view, wins timeline, reflection themes with Italian
   stemming (§3.6), finger-strength charts (§3.5), search across all modules (§2); and the
   regularised regression of §3.2 once n ≥ ~40.
+- **Training load in the recommendation** (`05-analytics.md` §4 item 3): an acute:chronic
+  ratio above the upper zone suggests MODERATE, as a soft signal next to the readiness rule;
+  the ratio itself is on the journal's `load` dashboard (D-092).
+- **Global Overview dashboard** (`06-ui.md`): one page across modules (calendar heatmap, status
+  board, load chart, recent wins and reflections, program progress cards); today each module
+  has its own dashboard.
 
 ## Testing strategy
 - **Backend contract tests** run against both backends (xlsx in a temp dir; Google against
