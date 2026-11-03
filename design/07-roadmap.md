@@ -144,15 +144,44 @@ were never built; these come first (the rest went to M6 or the backlog, or out o
   block is checked at load; the unused `hidden_in_form` and `searchable` options are removed.
   → done (D-100, #122).
 
+### Before M5: journal additions ☐
+Small, journal-side additions that start collecting data now (D-103); the two programs keep
+being logged in their legacy workbooks until their M5 modules take over, so nothing is lost
+meanwhile. One PR each, in this order:
+- **Hardest send, send type and discipline** (#117): a second grade per session next to the
+  hardest grade tried, how it was climbed, and sport climbing vs bouldering, so the grade
+  charts show sends and each discipline on its own; the open questions of #117 are settled in
+  its plan.
+- **More body parts** in the journal's `soreness` template: lower back, upper back, core / abs,
+  hips / glutes, knees / ankles, legs (the rest of the legs), each with `since:` (old sessions
+  stay blank). They **count like the others** (owner): in Physical readiness (the mean), Physical
+  status (the max), the log check (every part before and after), the rest day's body readiness,
+  the body heatmap and the before/after pairs. An additive sync on the live journal (`climblog
+  check journal --apply`, run by the owner).
+- **Protein log**: a new small module, one row per meal or snack with its grams, the day's total
+  derived (a day record with meal rows as children, or meal rows summed per day: settled in its
+  plan), a daily target in g/day as a setting (body weight isn't logged, D-025), on Today and in
+  a dashboard line against the target.
+
 ### M5 · Program modules ☐
 - `program:` block (weeks, phases, runs), reference tables, `ref` fields, prefilled fields.
+  A program starts on an **ISO week** (`2026-W42`), not a date: week 1 is that week's Monday,
+  and `program.week` counts from there (D-103).
+- **Training plan** module (D-103): rows per planned session (week, optional day, type, short
+  description), written ahead; Today shows this week's plan with the program snapshot, and the
+  plan feeds the combined recommendation's suggested content; a dashboard lists the weeks.
+  It uses the program block (its start week and phases).
 - `shoulder.yaml` + importer (plan, exercise log, check-ins, retests); review-flag rule;
   program grid, weekly dashboard, retests view; next-morning reminder.
 - `fear-of-falling.yaml` + importer (fear map, ladder, falls, 20Q, weekly review);
   ladder plugin (advancement assistant); fear widgets (ladder, radar, predicted vs actual).
 - Combined recommendation card.
-- **Done when**: both programs are logged through the app or by hand in their sheets, with
-  parity with the legacy dashboards.
+- Both programs are running in their legacy workbooks (since W42 2026) and are logged on the
+  phone in Google Sheets, so each module must work by hand in its sheet (formulas, dropdowns)
+  and its importer must take over mid-run; each program's module and importer land before the
+  next program's (shoulder first).
+- **Done when**: both programs and the training plan are logged through the app or by hand in
+  their sheets, with parity with the legacy dashboards.
 
 ### M6 · Polish & extensibility ☐
 - Settings UI (thresholds, sources, backups restore, data issues; test connection, schema sync
@@ -183,6 +212,8 @@ were never built; these come first (the rest went to M6 or the backlog, or out o
 - **Global Overview dashboard** (`06-ui.md`): one page across modules (calendar heatmap, status
   board, load chart, recent wins and reflections, program progress cards); today each module
   has its own dashboard.
+- **Planned vs done** (D-103): match the training plan's planned sessions to the sessions
+  logged in the journal and the programs (done, moved, skipped, unplanned), per week.
 
 ## Testing strategy
 - **Backend contract tests** run against both backends (xlsx in a temp dir; Google against
