@@ -23,6 +23,7 @@ from climblog.modules.compute import compute_module
 from climblog.modules.forms import Day, due
 from climblog.modules.recommend import Advice, recommend
 from climblog.storage import CachedRepository, DataIssue, load_data
+from climblog.storage.cells import VALUE_ISSUES
 
 
 @dataclass(frozen=True)
@@ -110,7 +111,7 @@ class Catalog:
         self, entry: Entry
     ) -> tuple[dict[str, list[dict[str, Value]]], dict[str, Value]]:
         """Every entity's records with their derived values (one look at the source), and the
-        settings."""
+        settings. A record with unreadable cells lists their fields under `VALUE_ISSUES`."""
         assert entry.module is not None and entry.repo is not None
         module = entry.module
         data = load_data(module, entry.repo.pinned())
@@ -120,6 +121,16 @@ class Catalog:
             name: [{**row, **values} for row, values in zip(rows, derived[name], strict=True)]
             for name, rows in tables.items()
         }
+        unreadable: dict[tuple[str, int], list[str]] = {}
+        for issue in data.issues:
+            if issue.kind == "value" and issue.row is not None and issue.field is not None:
+                unreadable.setdefault((issue.tab, issue.row), []).append(issue.field)
+        if unreadable:
+            for name, entity in data.entities.items():
+                for row, places in zip(full[name], entity.places, strict=True):
+                    fields = [f for place in places.items() for f in unreadable.get(place, [])]
+                    if fields:
+                        row[VALUE_ISSUES] = ",".join(fields)
         return full, data.settings
 
     def record(

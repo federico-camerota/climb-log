@@ -422,7 +422,8 @@ export function GradesCard({ data }: { data: GradesData }) {
           <Text size="xs" c="dimmed">
             The hardest grade tried per session (not sends). French and gym grades are never
             converted; each gym grades its own way, so its grades are a series of their own.
-            {data.unparsed > 0 && ` ${String(data.unparsed)} value(s) that aren't grades left out.`}
+            {data.unparsed > 0 &&
+              ` ${String(data.unparsed)} value(s) that aren't grades left out (see Records).`}
           </Text>
         </Stack>
       )}
@@ -435,7 +436,14 @@ function GradeTable({
   rows,
 }: {
   head: string;
-  rows: { name: string; system: string; sessions: number; hardest: string; median: string }[];
+  rows: {
+    name: string;
+    system: string;
+    venue?: string | null;
+    sessions: number;
+    hardest: string;
+    median: string;
+  }[];
 }) {
   return (
     <Table striped>
@@ -450,9 +458,11 @@ function GradeTable({
       </Table.Thead>
       <Table.Tbody>
         {rows.map((r) => (
-          <Table.Tr key={`${r.name}-${r.system}`}>
+          <Table.Tr key={`${r.name}-${r.system}-${r.venue ?? ""}`}>
             <Table.Td>{r.name}</Table.Td>
-            <Table.Td>{r.system === "french" ? "French" : "Gym"}</Table.Td>
+            <Table.Td>
+              {r.system === "french" ? "French" : r.venue ? `Gym · ${r.venue}` : "Gym"}
+            </Table.Td>
             <Table.Td>{r.sessions}</Table.Td>
             <Table.Td>{r.hardest}</Table.Td>
             <Table.Td>{r.median}</Table.Td>

@@ -397,6 +397,7 @@ class Pyramid(BaseModel):
 
 class SettingRow(BaseModel):
     setting: str
+    venue: str | None = None  # a gym grade's venue: each gym grades its own way
     system: str
     sessions: int
     hardest: str

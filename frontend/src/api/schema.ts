@@ -1032,6 +1032,8 @@ export interface components {
             setting: string;
             /** System */
             system: string;
+            /** Venue */
+            venue?: string | null;
         };
         /** SideBySideData */
         SideBySideData: {

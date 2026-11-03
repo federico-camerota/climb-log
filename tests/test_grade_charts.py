@@ -6,12 +6,19 @@ import datetime as dt
 from pathlib import Path
 from typing import Any
 
+import openpyxl
 from conftest import LoadYaml, Problems
+from fastapi.testclient import TestClient
 
 from climblog.analytics import compute_view
 from climblog.analytics.grade_charts import french_label
+from climblog.catalog import Catalog, Entry
+from climblog.config import AppConfig
 from climblog.expr import Value
+from climblog.main import create_app
 from climblog.modules import load_module
+from climblog.storage import CachedRepository, RecordWriter, Snapshots, XlsxBackend, sync_module
+from climblog.storage.cells import VALUE_ISSUES
 
 ROOT = Path(__file__).parent.parent
 JOURNAL = load_module(ROOT / "modules" / "journal.yaml")
@@ -84,14 +91,33 @@ def test_by_setting_and_venue() -> None:
         session(3, "6b"),
         session(4, "5", "[ESEMPIO] Palestra Nord", "Indoor"),
         session(5, "6", "[ESEMPIO] Palestra Nord", "Indoor"),
+        session(6, "22", "[ESEMPIO] Palestra Sud", "Indoor"),  # another gym, another scale
     )
+    french = {"system": "french", "venue": None}
     assert found["by_setting"] == [
-        {"setting": "Outdoor", "system": "french", "sessions": 3, "hardest": "6c", "median": "6b"},
-        {"setting": "Indoor", "system": "gym", "sessions": 2, "hardest": "6", "median": "5"},
+        {"setting": "Outdoor", **french, "sessions": 3, "hardest": "6c", "median": "6b"},
+        # gym grades per venue: one gym's 22 never meets another's 5 (D-094)
+        {
+            "setting": "Indoor",
+            "system": "gym",
+            "venue": "[ESEMPIO] Palestra Nord",
+            "sessions": 2,
+            "hardest": "6",
+            "median": "5",
+        },
+        {
+            "setting": "Indoor",
+            "system": "gym",
+            "venue": "[ESEMPIO] Palestra Sud",
+            "sessions": 1,
+            "hardest": "22",
+            "median": "22",
+        },
     ]
     assert [r["venue"] for r in found["by_venue"]] == [
         "[ESEMPIO] Falesia",
         "[ESEMPIO] Palestra Nord",
+        "[ESEMPIO] Palestra Sud",
     ]
 
 
@@ -143,3 +169,31 @@ def test_the_field_must_be_a_grade(problems: Problems) -> None:
         "      venue: rest_day.note\n      group: month",
     )
     assert any("'rest_day.note' is not a field of 'session'" in p for p in problems(bad))
+
+
+def test_a_value_typed_in_the_sheet_that_isnt_a_grade_is_counted(tmp_path: Path) -> None:
+    # the loader makes it a data issue and blanks it; the card still says it left one out
+    book = tmp_path / "journal.xlsx"
+    sync_module(JOURNAL, XlsxBackend(book))
+    writer = RecordWriter(JOURNAL, XlsxBackend(book))
+    writer.add("session", {"date": "2026-10-05", "hardest_grade": "6b"})
+    writer.add("session", {"date": "2026-10-06", "hardest_grade": "6c"})
+    wb = openpyxl.load_workbook(book)
+    tab = wb["Session"]
+    column = next(c.column for c in tab[2] if c.value == "hardest_grade")
+    tab.cell(4, column).value = "boh"  # the second session, typed by hand
+    wb.save(book)
+    catalog = Catalog(AppConfig())
+    catalog.entries["journal"] = Entry(
+        "journal",
+        JOURNAL,
+        [],
+        CachedRepository("journal", XlsxBackend(book), Snapshots(tmp_path / "snapshots")),
+    )
+    tables, _ = catalog.full_tables(catalog.entries["journal"])
+    assert [r.get(VALUE_ISSUES) for r in tables["session"]] == [None, "hardest_grade"]
+    client = TestClient(create_app(catalog=catalog))
+    body = client.get("/api/modules/journal/views/progress", params={"date": "2026-10-10"}).json()
+    grades = next(w for w in body["widgets"] if w["widget"] == "grades")
+    assert grades["unparsed"] == 1
+    assert [p["grade"] for p in grades["series"][0]["points"]] == ["6b"]

@@ -28,7 +28,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   body part counts from its `since:` date.
 - Grade charts (#101, D-094), in the `progress` dashboard: the hardest grade tried per session
   over time (French and gym on their own axes, gym grades per venue), sessions by hardest
-  grade tried per month, and by setting and venue.
+  grade tried per month, and by setting and venue (gym grades always per venue); values typed
+  in the sheet that aren't grades are counted.
 - Click a day of the dashboard's training calendar to see its records in a drawer: statuses,
   scores and the filled fields by section, with Edit and "Log this day" (D-098).
 
