@@ -242,6 +242,7 @@ recommendation:
     last_session: Last session
     latest_status: Latest overall status
     low_sessions: LOW sessions in the last 14 days
+    weakest_area: Weakest area (latest session)   # a summary value (D-102)
 # The sheet's Summary tab (D-085): the legacy Summary – Recent, written by schema sync with
 # formulas compiled from these lines, so the sheet on the phone shows what the app shows.
 summary:
@@ -261,6 +262,10 @@ summary:
       require: "notnull(lowest)"
       expr: "'Wellbeing' if wb_latest == lowest else ('Physical' if ph_latest == lowest else ('Mental' if mn_latest == lowest else 'Session feel'))"
     lowest_score: "round(lowest, 1)"
+    weakest_area:   # for the recommendation's reasons in the app: "Physical · 3.3"
+      require: "notnull(lowest)"
+      expr: "concat(weakest, ' · ', lowest_score)"
+      sheet_formula: false   # app only: the sheet shows weakest and lowest_score
   rows:
     - {label: Last session, value: [last_session, last_type, last_venue]}
     - {label: Last session was, value: days_ago}

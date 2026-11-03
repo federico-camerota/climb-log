@@ -20,6 +20,7 @@ function day(items: object[], extra: object = {}) {
         last: DAY,
         last_label: "Session",
         days_since: 0,
+        week: null,
         notes: [],
         as_of: "2026-10-30T09:05:00",
         offline: false,
@@ -43,6 +44,7 @@ const ADVICE = {
         { name: "last_session", label: "Last session", value: "2026-10-28" },
         { name: "latest_status", label: "Latest overall status", value: "LOW" },
         { name: "low_sessions", label: "LOW sessions in the last 14 days", value: 1 },
+        { name: "weakest_area", label: "Weakest area (latest session)", value: "Physical · 3.3" },
       ],
       as_of: null,
       offline: false,
@@ -67,6 +69,26 @@ describe("Today", () => {
     expect(screen.getByText("rest day or easy technical climbing.")).toBeInTheDocument();
     expect(screen.getByText("Last session: 28/10/2026")).toBeInTheDocument();
     expect(screen.getByText("LOW sessions in the last 14 days: 1")).toBeInTheDocument();
+    expect(screen.getByText("Weakest area (latest session): Physical · 3.3")).toBeInTheDocument();
+  });
+
+  it("shows this week's training load", async () => {
+    const week = {
+      label: "Training load",
+      load: 1005,
+      sessions: 2,
+      without_load: 1,
+      acwr: 1.12,
+      zones: [0.8, 1.3, 1.5],
+      others: [{ label: "Finger training (sets x effort)", load: 48.5, without: 0 }],
+    };
+    api(day([], { week }));
+    renderApp(`/?date=${DAY}`);
+    const line = await screen.findByText(/^\(from Monday\)/);
+    expect(line.parentElement).toHaveTextContent(
+      "This week (from Monday) · Training load: 1005 · 2 sessions · 1 without load · " +
+        "ratio 1,1 (in the usual range) · Finger training (sets x effort): 48,5",
+    );
   });
 
   it("offers a session or a rest day when nothing is logged", async () => {

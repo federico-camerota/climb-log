@@ -128,16 +128,17 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
   below, and v0.4.0 is tagged then.
 - **Done when**: the explorer can answer "does sleep relate to my session feel?" with n and CI.
 
-### Before M5: audit follow-ups ☐
+### Before M5: audit follow-ups ☑
 The M1–M4 audit against the design docs (2026-11-04) found features promised for M1–M4 that
 were never built; these come first (the rest went to M6 or the backlog, or out of the docs):
 - **Finger-strength sets in the app**: the Log form's repeated set rows, each new set copying
   the previous one's protocol and load (`copy_previous`; 06-ui Log). → done (D-101, #124).
 - **The legacy Log Search's filters** on Records: date range, weekday, status class and value,
-  derived values searched too, matches highlighted (00 §1, 05 §2, §3.6).
-- **Weakest class** in the app, as on the legacy Summary – Recent (00 §1).
-- **This week's load** on Today's snapshot (06-ui Today).
+  derived values searched too, matches highlighted (00 §1, 05 §2, §3.6). → done (D-102).
+- **Weakest class** in the app, as on the legacy Summary – Recent (00 §1). → done (D-102).
+- **This week's load** on Today's snapshot (06-ui Today). → done (D-102).
 - **Offline on Log**: the page says it is read-only before you type, as Records and Today do.
+  → done (D-102).
 - **Module options in forms**: `visible_if` shows a field only when its condition holds,
   `suggest_from_history` suggests the values typed before (venue, partners), and the `forms:`
   block is checked at load; the unused `hidden_in_form` and `searchable` options are removed.

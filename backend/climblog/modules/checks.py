@@ -573,10 +573,15 @@ def _recommendation(module: Module) -> tuple[RecommendationPlan | None, list[Pro
             problems.append(Problem(at, "`if` must be a condition (true or false)"))
             continue
         rules.append((checked, rule.headline, rule.message))
+    # a reason is a value of the recommendation or of the summary (the weakest area, D-102)
+    summary = set(module.summary.values) if module.summary is not None else set()
     for key in found.reasons:
-        if key not in values.names:
+        if key not in values.names and key not in summary:
             problems.append(
-                Problem((*base, "reasons", key), f"'{key}' is not a value of the recommendation")
+                Problem(
+                    (*base, "reasons", key),
+                    f"'{key}' is not a value of the recommendation or of the summary",
+                )
             )
     reasons = tuple(found.reasons.items())
     return RecommendationPlan(found.label, values, tuple(rules), reasons), problems

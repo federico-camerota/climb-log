@@ -61,6 +61,8 @@ its `since:` are left out (03 §2.2), as in the formulas and the dashboard.
 - Log check (incomplete records): per day on Today (D-080) and as a column on Records
   (D-081); a to-do list of every incomplete record is M6.
 - Search across all text fields with filters (all modules, highlighted matches, no 40-row cap).
+  Done (D-081, D-102): on Records, per entity; date range, weekdays, status class and value,
+  derived values searched, matches highlighted.
 - Shoulder weekly dashboard (completion %, primer, symptom averages, G/Y/R days, review flags).
 - Fear: per-track rung progress, Fear Map deltas, 20Q category averages per session and week.
 

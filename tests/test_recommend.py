@@ -68,6 +68,7 @@ def test_the_reasons_and_the_text_as_the_legacy_sheet() -> None:
         ("Last session", day(1)),
         ("Latest overall status", "GOOD"),
         ("LOW sessions in the last 14 days", 2),
+        ("Weakest area (latest session)", None),  # a summary value: the catalog reads it (D-102)
     ]
     assert found.text == (
         "RECOVER — rest day or easy technical climbing. No limit attempts or max hangs until "
@@ -135,7 +136,10 @@ def test_a_recommendation_reads_derived_values(load: LoadYaml) -> None:
         ),
         (
             "  rules:\n    - {message: x}\n  reasons: {n: N}",
-            ["recommendation.reasons.n: 'n' is not a value of the recommendation"],
+            [
+                "recommendation.reasons.n: 'n' is not a value of the recommendation"
+                " or of the summary"
+            ],
         ),
     ],
 )

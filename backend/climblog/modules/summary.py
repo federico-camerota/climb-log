@@ -8,11 +8,13 @@ the sheet; the recommendation's values can be read by name); `summarize` compute
 app, for the parity tests and the drift check.
 """
 
+import dataclasses
 import datetime as dt
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 
 from climblog.expr import Value
+from climblog.expr.check import Checked
 from climblog.modules.compute import Timeline
 from climblog.modules.derived import DerivedPlan, check_derived, compute
 from climblog.modules.schema import (
@@ -75,11 +77,27 @@ def _summary(module: Module) -> tuple[SummaryPlan | None, list[Problem]]:
         | set(advice.values.names if advice else ())
         | set(ADVICE if advice else ())
     )
+    # a `sheet_formula: false` value is app only (D-102): the sheet can't show or read it
+    from climblog.modules.formulas import app_only_values  # it imports us
+
+    app_only = app_only_values(module)
     for i, row in enumerate(found.rows):
         for name in row.names():
             if name not in known:
                 hint = "" if advice else " (the module has no recommendation:)"
                 problems.append(Problem((*base, "rows", i, "value"), f"no value '{name}'{hint}"))
+            elif name in app_only:
+                problems.append(
+                    Problem(
+                        (*base, "rows", i, "value"), f"'{name}' is app only (sheet_formula: false)"
+                    )
+                )
+    for step in values.steps:
+        reads = set().union(*(e.names for e in _expressions(step)))
+        if step.key not in app_only and reads & app_only:
+            listed = ", ".join(sorted(reads & app_only))
+            message = f"reads {listed}: app only (sheet_formula: false)"
+            problems.append(Problem((*base, "values", step.key), message))
     sessions = found.side_by_side
     if sessions is not None:
         at: YamlPath = (*base, "side_by_side")
@@ -99,6 +117,12 @@ def _summary(module: Module) -> tuple[SummaryPlan | None, list[Problem]]:
                         )
     plan = SummaryPlan(found.tab, found.title, values, tuple(found.rows), sessions)
     return plan, problems
+
+
+def _expressions(step: object) -> list[Checked]:
+    """The expressions of a checked derived step (its `require` too)."""
+    found = [getattr(step, f.name) for f in dataclasses.fields(step)]  # type: ignore[arg-type]
+    return [value for value in found if isinstance(value, Checked)]
 
 
 def _names(module: Module, entity: str) -> set[str]:

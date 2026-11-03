@@ -3,8 +3,10 @@ import {
   Badge,
   Button,
   Group,
+  Mark,
   MultiSelect,
   ScrollArea,
+  Select,
   Stack,
   Switch,
   Table,
@@ -20,15 +22,26 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
+import { DateInput } from "@mantine/dates";
 import { useMemo, useState } from "react";
 import type { ComboboxData } from "@mantine/core";
 
 import type { Issue, ModuleInfo, Records } from "../api/client";
-import { entityOf, keyOf, type EntityDef } from "../forms/schema";
+import { entityOf, keyOf, statusLevelsOf, type EntityDef } from "../forms/schema";
 import { asText } from "../forms/values";
 import { csvOf, download } from "../lib/csv";
 import { formatDateTime } from "../lib/format";
 import { fieldColumns } from "../lib/columns";
+import {
+  ANY_STATUS,
+  active,
+  highlight,
+  NO_FILTERS,
+  passes,
+  statusColumns,
+  WEEKDAYS,
+  type Filters,
+} from "../lib/recordFilters";
 import { fold, matches } from "../lib/search";
 
 interface Row {
@@ -46,7 +59,7 @@ interface Column {
 
 const DERIVED = "Computed";
 const MATCHED = "_matched"; // the "Matched in" column, shown while searching
-const SEARCHED = ["text", "choice", "date", "grade"];
+const SEARCHED = ["text", "choice", "date", "grade", "derived"]; // derived: statuses, checks…
 // the viewport less the app header and the page's padding
 const TABLE_HEIGHT =
   "calc(100dvh - var(--app-shell-header-height, 0px) - 2 * var(--mantine-spacing-md))";
@@ -61,8 +74,9 @@ const STATUS_COLOURS: Record<string, string> = {
 const SHOWN_FIRST = /(score|status|readiness)$|^log_check$/; // the default columns, with the key
 
 /** An entity's records as a table (06-ui Records, D-081): newest first, sortable, searched
- * without accents, the data issues marked in their cell; the columns are picked (and
- * remembered); the table as shown is exported to CSV. */
+ * without accents (derived values too, matches highlighted) and filtered as the legacy Log
+ * Search (dates, weekdays, a status: D-102), the data issues marked in their cell; the columns
+ * are picked (and remembered); the table as shown is exported to CSV. */
 export function RecordsTable({
   module,
   data,
@@ -80,12 +94,34 @@ export function RecordsTable({
   );
   const [query, setQuery] = useState("");
   const [onlyIssues, setOnlyIssues] = useState(false);
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const filter = (change: Partial<Filters>) => {
+    setFilters({ ...filters, ...change });
+  };
   const [sorting, setSorting] = useState<SortingState>(() =>
     keyOf(entity).map((id) => ({ id, desc: true })),
   );
 
   const rows = useMemo(() => rowsOf(data), [data]);
   const searching = query.trim() !== "";
+  const dateField = entity.date_field ?? "date";
+  const dated = entity.fields[dateField]?.type === "date";
+  const statuses = useMemo(() => {
+    const levels = statusLevelsOf(module);
+    const derived = columns.filter((c) => c.type === "derived").map((c) => c.id);
+    const found = statusColumns(
+      rows.map((r) => r.values),
+      derived,
+      levels.length > 0 ? levels : Object.keys(STATUS_COLOURS),
+    );
+    return columns.filter((c) => found.includes(c.id));
+  }, [module, columns, rows]);
+  const levels = useMemo(() => {
+    const listed = statusLevelsOf(module);
+    const seen = rows.flatMap((r) => statuses.map((c) => r.values[c.id]));
+    const extra = seen.filter((v): v is string => typeof v === "string" && !listed.includes(v));
+    return [...listed, ...new Set(extra)];
+  }, [module, rows, statuses]);
   const searched = useMemo(() => {
     // every text, choice, grade and date field is searched, shown or not; the hidden ones
     // where the query was found are named in "Matched in"
@@ -95,13 +131,19 @@ export function RecordsTable({
       .filter(
         (row) =>
           (!onlyIssues || row.issues.length > 0) &&
+          passes(
+            row.values,
+            dated ? asText(row.values[dateField]) || null : null,
+            filters,
+            statuses.map((c) => c.id),
+          ) &&
           matches(
             texts.flatMap((c) => textsOf(row, c)),
             query,
           ),
       )
       .map((row) => ({ ...row, matched: matchedIn(row, hidden, query) }));
-  }, [rows, columns, shown, query, onlyIssues]);
+  }, [rows, columns, shown, query, onlyIssues, filters, statuses, dated, dateField]);
 
   const defs = useMemo<ColumnDef<Row>[]>(() => {
     const picked: ColumnDef<Row>[] = columns
@@ -111,7 +153,9 @@ export function RecordsTable({
         header: c.label,
         accessorFn: (row) => row.values[c.id] ?? undefined,
         sortUndefined: "last",
-        cell: ({ row }) => <Cell column={c} row={row.original} />,
+        cell: ({ row }) => (
+          <Cell column={c} row={row.original} query={SEARCHED.includes(c.type) ? query : ""} />
+        ),
       }));
     if (!searching) return picked;
     const matched: ColumnDef<Row> = {
@@ -125,7 +169,7 @@ export function RecordsTable({
       ),
     };
     return [...picked, matched];
-  }, [columns, shown, searching]);
+  }, [columns, shown, searching, query]);
   const table = useReactTable({
     data: searched,
     columns: defs,
@@ -169,6 +213,82 @@ export function RecordsTable({
         <Button variant="light" onClick={exportCsv}>
           Export CSV
         </Button>
+      </Group>
+      <Group align="end">
+        {dated && (
+          <>
+            <DateInput
+              label="From"
+              valueFormat="DD/MM/YYYY"
+              placeholder="dd/mm/yyyy"
+              clearable
+              value={filters.from}
+              onChange={(value) => {
+                filter({ from: value });
+              }}
+              w={150}
+            />
+            <DateInput
+              label="To"
+              valueFormat="DD/MM/YYYY"
+              placeholder="dd/mm/yyyy"
+              clearable
+              value={filters.to}
+              onChange={(value) => {
+                filter({ to: value });
+              }}
+              w={150}
+            />
+            <MultiSelect
+              label="Weekday"
+              placeholder={filters.weekdays.length === 0 ? "Any" : undefined}
+              data={WEEKDAYS.map((label, i) => ({ value: String(i + 1), label }))}
+              value={filters.weekdays}
+              onChange={(value) => {
+                filter({ weekdays: value });
+              }}
+              w={220}
+            />
+          </>
+        )}
+        {statuses.length > 0 && (
+          <>
+            <Select
+              label="Status of"
+              data={[
+                { value: ANY_STATUS, label: "Any class" },
+                ...statuses.map((c) => ({ value: c.id, label: c.label })),
+              ]}
+              value={filters.status ?? ANY_STATUS}
+              onChange={(value) => {
+                filter({ status: value });
+              }}
+              allowDeselect={false}
+              w={170}
+            />
+            <Select
+              label="Status"
+              placeholder="Any"
+              data={levels}
+              value={filters.level}
+              onChange={(value) => {
+                filter({ level: value });
+              }}
+              clearable
+              w={130}
+            />
+          </>
+        )}
+        {active(filters) && (
+          <Button
+            variant="subtle"
+            onClick={() => {
+              setFilters(NO_FILTERS);
+            }}
+          >
+            Clear filters
+          </Button>
+        )}
       </Group>
       <MultiSelect
         label="Columns"
@@ -235,17 +355,22 @@ export function RecordsTable({
   );
 }
 
-/** A value as the table shows it: dates day first, statuses as badges, a data issue in red. */
-function Cell({ column, row }: { column: Column; row: Row }) {
+/** A value as the table shows it: dates day first, statuses as badges, a data issue in red,
+ * the words searched for highlighted. */
+function Cell({ column, row, query }: { column: Column; row: Row; query: string }) {
   const value = row.values[column.id];
   const issue = row.issues.find((i) => i.field === column.id);
-  let shown: React.ReactNode = value === null || value === undefined ? "" : asText(value);
-  if (typeof value === "string" && column.type === "date") shown = formatDateTime(value);
-  if (typeof value === "boolean") shown = value ? "Yes" : "No";
+  let text = value === null || value === undefined ? "" : asText(value);
+  if (typeof value === "string" && column.type === "date") text = formatDateTime(value);
+  if (typeof value === "boolean") text = value ? "Yes" : "No";
+  const marked = highlight(text, query).map((part, i) =>
+    part.hit ? <Mark key={i}>{part.text}</Mark> : part.text,
+  );
+  let shown: React.ReactNode = marked.length === 1 ? marked[0] : marked;
   if (typeof value === "string" && value in STATUS_COLOURS) {
     shown = (
       <Badge variant="light" color={STATUS_COLOURS[value]}>
-        {value}
+        {shown}
       </Badge>
     );
   }
@@ -253,7 +378,7 @@ function Cell({ column, row }: { column: Column; row: Row }) {
   return (
     <Tooltip label={issue.message} multiline w={280}>
       <Text span c="red" fw={500} aria-label={`Data issue: ${issue.message}`}>
-        {shown === "" ? "⚠" : shown}
+        {text === "" ? "⚠" : shown}
       </Text>
     </Tooltip>
   );

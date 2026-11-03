@@ -866,6 +866,7 @@ export interface components {
             notes: string[];
             /** Offline */
             offline: boolean;
+            week: components["schemas"]["WeekLoad"] | null;
         };
         /** ModuleInfo */
         ModuleInfo: {
@@ -953,6 +954,15 @@ export interface components {
             label: string;
             /** Text */
             text: string | null;
+        };
+        /** OtherLoad */
+        OtherLoad: {
+            /** Label */
+            label: string;
+            /** Load */
+            load: number;
+            /** Without */
+            without: number;
         };
         /** PairData */
         PairData: {
@@ -1522,6 +1532,23 @@ export interface components {
             view: string;
             /** Widgets */
             widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["HeatmapData"] | components["schemas"]["SideBySideData"] | components["schemas"]["TextFeedData"] | components["schemas"]["TableData"] | components["schemas"]["MonthlyData"] | components["schemas"]["BarsData"] | components["schemas"]["WeekbarsData"] | components["schemas"]["StackedData"] | components["schemas"]["BoxByData"] | components["schemas"]["ScatterData"] | components["schemas"]["TrainingLoadData"] | components["schemas"]["PrePostData"] | components["schemas"]["BodyHeatmapData"] | components["schemas"]["GradesData"] | components["schemas"]["PlannedData"])[];
+        };
+        /** WeekLoad */
+        WeekLoad: {
+            /** Acwr */
+            acwr: number | null;
+            /** Label */
+            label: string;
+            /** Load */
+            load: number;
+            /** Others */
+            others: components["schemas"]["OtherLoad"][];
+            /** Sessions */
+            sessions: number;
+            /** Without Load */
+            without_load: number;
+            /** Zones */
+            zones: number[];
         };
         /** WeekbarsData */
         WeekbarsData: {

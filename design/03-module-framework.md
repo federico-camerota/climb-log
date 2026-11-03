@@ -397,7 +397,8 @@ column** in the sheet:
   answers `GET /api/recommendation?date=` (`modules/recommend.py`); the sheet formulas come from
   `recommendation_formulas` (each value, `headline`, and `text` = "RECOVER — …", as the legacy
   cell), checked by `tests/test_recommend_parity.py` with LibreOffice, also against the legacy
-  Summary formulas.
+  Summary formulas. A reason may also name a value of the module's `summary:` (D-102: the
+  journal's weakest area, "Physical · 3.3"); the app reads it with the summary.
 - **Summary tab** (`summary:`, D-085): a tab schema sync writes whole into the sheet, so the
   phone shows what the app shows (the legacy Summary – Recent):
   ```yaml
@@ -419,7 +420,8 @@ column** in the sheet:
   holds keys (`item`, `c1`…), as on a data tab, so its formulas read back for the drift check:
   a cell changed by hand is reported by `climblog check` and put back by `--apply`. The app
   computes the same (`modules/summary.py`, `summarize`), checked on LibreOffice and Google
-  (`tests/test_summary_parity.py`).
+  (`tests/test_summary_parity.py`). A value with `sheet_formula: false` is app only (D-102): not
+  written to the tab, so no row may show it and no other value may read it (checked at load).
 - **Plugin**: `{plugin: module.rule_name}`, a Python function
   `(records: DataFrame, ctx) -> Series | list[Flag]`. Example: fall-ladder advancement
   (two consecutive falls on the same rung with BERP ≥ 3, fear ≤ 5, soft catch).

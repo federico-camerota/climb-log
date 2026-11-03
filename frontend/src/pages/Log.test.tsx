@@ -229,6 +229,23 @@ describe("Log", () => {
     expect(await screen.findByRole("combobox", { name: "Mood" })).toBeInTheDocument();
   });
 
+  it("says it is read-only before you type when the workbook can't be reached", async () => {
+    api({
+      [SESSION]: {
+        module: "diary",
+        entity: "session",
+        as_of: "2026-10-29T21:00:00",
+        offline: true,
+        issues: [],
+        records: [],
+      },
+    });
+    renderApp(PRE);
+    expect(await screen.findByText("Offline · read-only")).toBeInTheDocument();
+    expect(screen.getByText(/last snapshot, read on 29\/10\/2026 21:00/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
   it("says when a module has no forms", async () => {
     api({ "/api/modules": MODULES });
     renderApp("/log/journal");
