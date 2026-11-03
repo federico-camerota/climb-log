@@ -626,7 +626,7 @@ analysis explorer (see `05-analytics.md`). No view config is needed for that.
 | Change scale range | new scale + new field (recommended) | avoids mixing incomparable values; an explicit `rescale:` transform is possible |
 | Change a threshold | edit in Settings UI (writes `_settings`) | instant recompute |
 | Change a formula | edit `derived:` | recomputed for all history in the app; formula columns regenerated in the sheet on sync |
-| New program | new YAML file + `climblog module init` | creates the workbook/tabs locally or in Google |
+| New program | new YAML file, then `climblog check MODULE --apply` (local) or `climblog module create FILE --google` | creates the workbook/tabs locally or in Google |
 
 `climblog check [MODULE...]` (D-051) diffs each configured YAML against its workbook and
 lists the differences, changing nothing: `sync` ones (a missing tab, column or system column,
@@ -642,7 +642,7 @@ configured file doesn't exist, missing tabs and columns, `_settings` rows (with 
 and `_meta`, applies renames, and rewrites the dropdowns. A module with an `error` difference
 is not synced. Sync applies only **additive** changes. It never deletes columns or data.
 Destructive operations (dropping a column) are a separate explicit command. For a local
-module, `--apply` replaces `climblog module init` (in the table above).
+module, `--apply` is how a new local module gets its workbook (the table above).
 
 The `version` of the module and the schema it was synced with are stored in `_meta`, so
 the app can tell that the sheet was last synced with v2 while the YAML is now v3.
@@ -659,9 +659,9 @@ problem (unknown scale, key field that does not exist), e.g.
 - `climblog module schema` prints the JSON Schema. It is committed as `modules/module.schema.json`
   (a test keeps it current); a first line `# yaml-language-server: $schema=<path to it>` gives
   autocompletion and inline errors in VS Code (YAML extension).
-- Blocks of later milestones (`program`, `reference`, `forms`, `views`, `aggregates`, `rules`)
-  are accepted as they are until their issue adds the checks; `recommendation` is checked
-  (D-076).
+- Blocks of later milestones (`program`, `reference`, `forms`, `aggregates`, `rules`) are
+  accepted as they are until their issue adds the checks; `views` (D-083, D-091) and
+  `recommendation` (D-076) are checked.
   Templates, split and child entities are checked (§2.1b), and so are derived fields (§2.2),
   except the deferred ones.
 

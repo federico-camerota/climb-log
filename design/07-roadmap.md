@@ -97,7 +97,7 @@ away from home (D-069). Issues in the milestone "M3 · Journal app", in this ord
   and can be fixed in the app; the sheet's Summary tab matches the app's recommendation; the
   old journal spreadsheet is no longer needed.
 
-### M4 · Analytics ☐  *(scoped, D-086)*
+### M4 · Analytics ☑  *(scoped, D-086; released as v0.4.0 on 2026-11-03)*
 Issues in the milestone "M4 · Analytics", in this order (the analyses useful on little data
 first, the correlation tools last, D-086). Statistics in plain Python with scipy, no pandas
 (D-087); modules joined by date (D-088).
