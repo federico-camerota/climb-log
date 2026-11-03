@@ -12,13 +12,12 @@
                  │ JSON over HTTP (/api/...)
  ┌───────────────┴──────────────────────────────┐
  │ FastAPI app (Python)                          │
- │  modules/   load + validate module YAML       │
- │  engine/    derived fields, statuses, rules   │
- │  analytics/ aggregates, stats, load (scipy)   │
- │  plugins/   custom rules/views in Python      │
+ │  modules/   module YAML, derived fields, rules│
+ │  expr/      the expression language           │
+ │  analytics/ metrics, widgets, stats (scipy)   │
  │  storage/   Repository → backends             │
  │       ├── XlsxBackend   (openpyxl)            │
- │       └── GSheetsBackend (Sheets API, gspread)│
+ │       └── GSheetsBackend (Sheets API, REST)   │
  └───────────────┬──────────────────────────────┘
                  │
      local .xlsx files  /  Google Sheets
@@ -36,8 +35,8 @@ forms and widgets from module schemas and view definitions served by the API.
 | Google | Sheets API v4 and Drive API v3 over REST with google-auth's `AuthorizedSession` (D-063); login with `google-auth-oauthlib` (D-062) | no extra client library, typed, one call reads a whole sheet |
 | Frontend | Vite + React + TypeScript | rich forms, fast UI |
 | Server state | TanStack Query | caching, refetch after writes |
-| Forms | react-hook-form + zod (zod schema generated from module schema JSON) | |
-| Charts | Apache ECharts (`echarts-for-react`) | calendar heatmaps, radar, large set of chart types, good interactivity |
+| Forms | `@mantine/form`, fields rendered from the module schema (D-070, D-077) | |
+| Charts | Apache ECharts behind an own wrapper (`components/Chart.tsx`, D-070), SVG renderer (D-097) | calendar heatmaps, radar, large set of chart types, good interactivity |
 | UI kit | Mantine (D-039) | responsive, ready-made forms/date pickers; library code stays a dependency |
 | Tooling | `uv` (Python), `pnpm` (JS), pytest, vitest, ruff, eslint/prettier | |
 
@@ -89,26 +88,31 @@ forms and widgets from module schemas and view definitions served by the API.
 4. **External change detection**: a local file's `mtime` is checked on every read; while
    `climblog serve` runs, each Google module is read again every `[google] poll_seconds`
    (default 60) in the background, Drive's `modifiedTime` or the copy's age deciding (D-063,
-   D-068); a manual "Reload" button comes with the UI. On change, the module's snapshot is
-   taken again.
+   D-068); the app refetches its data when its window regains focus (D-073), so there is no
+   Reload button. On change, the module's snapshot is taken again.
 
-## Backend package layout (planned)
+## Package layout
 ```
 backend/climblog/
   main.py              # FastAPI app factory, static SPA mount
-  cli.py               # climblog serve | import-legacy | check | backup
-  config.py            # app config (TOML): module sources, backups (D-051)
+  cli.py               # climblog serve | check | import-legacy | module … | google … (D-051, D-062)
+  config.py            # app config (TOML): modules, backups, snapshots, google, analytics (D-051)
+  catalog.py           # the configured modules: YAML, repository, snapshot, full tables (D-058)
+  google_auth.py       # OAuth login and token (D-062)
+  poll.py              # background re-read of Google modules (D-068)
   text.py              # accent-insensitive matching for search (D-024)
   grades.py            # French and gym grades with a numeric index (D-047)
   expr/                # expression language: parse, check, evaluate, functions (D-043)
   modules/
     schema.py          # pydantic models for module YAML (the "meta-schema")
-    loader.py          # load + validate YAML, resolve plugins
+    loader.py          # load + validate YAML
     checks.py          # checks across the parts of a module, template expansion
     derived.py         # derived fields: load-time check, order, per-record values (D-044)
     compute.py         # whole tables: prev(), parent/children, last() (D-045)
-  engine/
-    rules.py           # windows (counts over recent records), recommendations (M3)
+    formulas.py        # sheet formulas compiled from the expressions (D-053)
+    forms.py           # forms and what is due on a day (D-077, D-080)
+    recommend.py       # the module's recommendation rules (D-076)
+    summary.py         # the sheet's Summary tab (D-085)
   storage/
     cells.py           # read cells by field type, data issues (D-046)
     base.py            # Repository protocol, Table, row edits, errors (D-048, D-049)
@@ -116,20 +120,24 @@ backend/climblog/
     write.py           # records → row edits: add, update, soft delete (D-049)
     check.py           # workbook vs YAML differences for `climblog check` (D-051)
     xlsx.py            # XlsxBackend: read, atomic writes, lock check (D-048, D-049)
-    gsheets.py         # GSheetsBackend
+    gsheets.py         # GSheetsBackend (D-063); google_client.py: the REST client
+    gsheets_sync.py    # Google schema sync (D-064, D-067)
+    grid.py            # rows as read, conflict check on update (D-049, D-075)
+    drift.py           # formula columns changed by hand (D-052)
+    move.py            # copy a local module into a Google Sheet (D-066)
     layout.py          # the tabs and columns a module expects (D-052)
     sync.py            # schema sync: check first, then the backend applies the layout (D-052)
     xlsx_sync.py       # xlsx schema sync: tabs, headers, validation, colours, names (D-052)
     backup.py          # rotating copies before writes (D-049)
     snapshot.py        # local snapshot: CachedRepository, offline read-only (D-055)
   analytics/
-    timeseries.py  load.py  correlate.py  calendar.py  search.py
-  plugins/
-    fear_ladder.py     # ladder advancement rule
+    views.py           # each widget's data (D-072, D-083, D-091)
+    metrics.py         # metric catalogue and queries (D-090)
+    load.py progress.py grade_charts.py correlation.py   # D-092 … D-096
   api/
-    modules.py records.py analytics.py today.py settings.py sources.py
+    modules.py views.py today.py recommendation.py metrics.py correlation.py health.py
   importers/
-    legacy_journal.py legacy_fear.py legacy_shoulder.py
+    legacy_journal.py  # the program modules' importers come with M5
 frontend/src/
   api/                 # client.ts, queries.ts (TanStack Query), schema.ts (generated, D-073)
   layout/ pages/ components/ lib/ forms/ widgets/
@@ -165,13 +173,15 @@ Both backends implement it. Analytics and the engine never know which one is in 
 | POST | `/api/modules/{m}/{entity}/row/record?tab=&row=` | an orphan section row's record: its main-tab row (D-082: done) |
 | GET | `/api/today?date=` | which forms are due on a day, done / partial / missing (D-080: done) |
 | GET | `/api/recommendation?date=` | next-session recommendation + reasons (D-071; D-076: done per module) |
-| GET | `/api/modules/{m}/views/{view}?date=` | each widget's data for a module view, computed in Python (D-072; D-083: done for `kpi`, `status_board`, `line`) |
-| POST | `/api/analytics/query` | generic metric query (metric(s), range, grouping, filters) |
-| GET | `/api/analytics/correlations` | correlation matrix / pair with lags |
-| GET | `/api/search?q=` | full-text search across text fields |
-| GET/PUT | `/api/modules/{m}/settings` | thresholds etc. (stored in the sheet's `_settings`) |
-| GET | `/api/issues` | data-validation problems found in the sheets |
-| POST | `/api/sources/reload` | force reload |
+| GET | `/api/modules/{m}/views/{view}?date=` | each widget's data for a module view, computed in Python (D-072, D-083, D-091 … D-094) |
+| GET | `/api/metrics`, `/api/metrics/query?metric=…` | the metric catalogue and a metric query in the URL (D-090: done) |
+| GET | `/api/correlation/pair`, `/matrix`, `/predictors` | correlations with n and 95% intervals (D-096: done) |
+| GET | `/api/health` | version and status |
+| GET | `/api/search?q=` | full-text search across modules (backlog) |
+| GET/PUT | `/api/modules/{m}/settings` | thresholds etc. in the sheet's `_settings` (M6, Settings UI) |
+
+Data issues come with each entity's records (D-081: no separate `/api/issues`); the app
+refetches on focus (D-073: no reload route).
 
 
 The read API (D-058, `api/modules.py`, `catalog.py`): the app loads the app config and every

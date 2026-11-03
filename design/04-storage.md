@@ -47,9 +47,10 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
   formula into rows 3 to at least 202, and to 200 rows past the last data row when fewer than
   50 are free; an app write tops the buffer up the same way by copying each column's last
   formula down (relative references follow the row, whole-column ones stay).
-- **`Summary` tab** (generated, formulas only): latest status per class, days since the last
-  session, LOW count in 14 days, and the suggested next session, i.e. the small part of the
-  legacy "Summary – Recent" that is useful in the sheet. Rich dashboards stay in the app.
+- **`Summary` tab** (generated, formulas only, D-085; see above): what the module's
+  `summary:` lists; for the journal, the legacy "Summary – Recent" (latest session, statuses,
+  weakest area, LOW count, the suggested next session) without the reflections and rest days.
+  Rich dashboards stay in the app.
 - **Natural keys instead of typed ids** where possible (D-015): a record is identified by
   the columns a person would naturally type, usually the **date** (plus an optional
   `session #` for the rare second session on the same day). Entities with several records
@@ -382,9 +383,10 @@ stored on disk (`~/.local/share/climblog/snapshots/<module>.json.gz`, folder set
   request's many reads (a module's tabs, a write's checks) from that snapshot; writes still go
   to the source. Taking a snapshot reads every tab from one copy of the source (Google:
   `GSheetsBackend.held()`, no Drive call per tab).
-- On startup the app loads the snapshot immediately, then refreshes it from the source in the
-  background (and on change polling, the Reload button, and after every write) (#25). For
-  Google modules the poller does this from the start of `climblog serve` (D-068).
+- The app loads a module's snapshot on its first request and refreshes it from the source
+  when the source changes (a local file's `mtime`, checked on each read; Google: the poller,
+  from the start of `climblog serve`, D-068) and after every write (#25). The page refetches
+  when its window regains focus (D-073).
 - All analysis runs on the snapshot, so the app is fast and still usable (read-only) when
   Google is unreachable. The UI shows "data as of HH:MM".
 - The snapshot is a cache: a missing, damaged, older-format or other module's file is ignored,
