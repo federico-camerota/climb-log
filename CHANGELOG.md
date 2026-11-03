@@ -15,7 +15,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - Widget library v1 (#98, D-091): `bars` (per period or per value of a field), `weekbars`
   (counts per week by value, or sums stacked by a field), `stacked`, `box_by` (Tukey box plots
   with n) and `scatter` (with a trend line, across entities with a lag), and the `line`'s
-  `split_by` and `x`, drawn on the dashboard.
+  `split_by` and `x`, drawn on the dashboard. A chart of a field that isn't a number is a load
+  error; a line's legend shows the field's label, not its key.
 - Training load (#99, D-092): the journal's new `load` dashboard shows the weekly session-RPE
   load (sessions without duration or effort flagged), rest days, finger training stacked, the
   acute:chronic workload ratio with zones as context, monotony, strain and training streaks,

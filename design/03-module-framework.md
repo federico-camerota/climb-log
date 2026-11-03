@@ -579,6 +579,12 @@ Still shown as "not drawn yet": `status_strip`, `radar`, `delta_table`, `ladder`
 `program_grid`, `before_after` (M5 or later); `weekbars` by `program_week` (M5); a line split by
 another entity's fields and `box_by` time-of-day `bins` (backlog, 05 §3.5).
 
+What a chart plots (a `bars`, `box_by` or `stacked` metric, `scatter` x and y, a `line`'s series
+and `x`, a `weekbars` sum or mean) must be a number: a number, duration, percent or numeric-scale
+field, or a derived value giving one number; anything else is a load error. A `weekbars` mean
+over a week with nothing logged is no bar (a count or sum is 0). A line's legend is the series'
+`label`, else the field's label.
+
 Every numeric/scale field and derived numeric field is automatically a **metric** in the
 analysis explorer (see `05-analytics.md`). No view config is needed for that.
 
