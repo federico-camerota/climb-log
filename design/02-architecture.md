@@ -70,6 +70,9 @@ forms and widgets from module schemas and view definitions served by the API.
 
   [snapshots]                        # optional (D-055)
   folder = "~/.local/share/climblog/snapshots"
+
+  [analytics]                        # optional (D-096)
+  min_n = 10                         # correlations under this n are greyed out
   ```
 
 ## Data flow

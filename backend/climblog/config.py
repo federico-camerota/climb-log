@@ -126,11 +126,17 @@ class ModuleConfig(_Strict):
         return str(self.workbook) if self.workbook else f"Google Sheet {self.google_sheet}"
 
 
+class AnalyticsConfig(_Strict):
+    # correlations under this n are greyed out, matrix cells hidden (05-analytics §0, D-096)
+    min_n: int = Field(default=10, ge=3)
+
+
 class AppConfig(_Strict):
     modules: dict[Key, ModuleConfig] = {}
     backups: BackupConfig = BackupConfig()
     snapshots: SnapshotConfig = SnapshotConfig()
     google: GoogleConfig = GoogleConfig()
+    analytics: AnalyticsConfig = AnalyticsConfig()
 
     def module(self, name: str) -> Module:
         """The module's YAML, loaded. Raises `ModuleError`, or `ValueError` if its id differs."""

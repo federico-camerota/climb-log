@@ -6,6 +6,7 @@ import { QueryClient, useQuery } from "@tanstack/react-query";
 
 import {
   ApiError,
+  getCorrelation,
   getHealth,
   getMetrics,
   getModules,
@@ -77,6 +78,15 @@ export function useMetricQuery(query: string | null) {
   return useQuery({
     queryKey: ["metric-query", query],
     queryFn: () => queryMetrics(query ?? ""),
+    enabled: query !== null,
+  });
+}
+
+/** A correlation; none while `query` is null (not enough picked yet). */
+export function useCorrelation<T>(kind: "pair" | "matrix" | "predictors", query: string | null) {
+  return useQuery({
+    queryKey: ["correlation", kind, query],
+    queryFn: () => getCorrelation<T>(kind, query ?? ""),
     enabled: query !== null,
   });
 }

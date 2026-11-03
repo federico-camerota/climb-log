@@ -13,6 +13,7 @@ dependencies = [
     "openpyxl>=3.1.5",
     "pydantic>=2.14.1",
     "ruamel-yaml>=0.19.1",
+    "scipy>=1.18.1",
     "typer>=0.27.3",
     "uvicorn>=0.54.0",
 ]
@@ -58,6 +59,11 @@ untyped_calls_exclude = [
     "google.auth.exceptions",
     "google.auth.transport.requests",
 ]
+
+[[tool.mypy.overrides]]
+# No type information; used only in analytics/correlation.py, behind typed functions.
+module = ["scipy.*"]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 # No type information; used only in google_auth.browser_consent.

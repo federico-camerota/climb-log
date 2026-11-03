@@ -8,19 +8,25 @@ import {
   NumberInput,
   SegmentedControl,
   Select,
-  SimpleGrid,
   Stack,
   Switch,
+  Tabs,
   Text,
   Title,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
 import dayjs from "dayjs";
 import { useSearchParams } from "react-router";
 
 import type { MetricInfo } from "../api/client";
 import { useMetricQuery, useMetrics } from "../api/queries";
 import { Chart } from "../components/Chart";
+import { FilterPickers, RangePicker } from "../components/ScopeControls";
+import {
+  readCorrelation,
+  writeCorrelation,
+  type CorrelationState,
+  type Tab,
+} from "../lib/correlation";
 import {
   exploreOption,
   fits,
@@ -32,16 +38,9 @@ import {
   type AggKey,
   type ExploreState,
   type GroupKey,
-  type RangeKey,
 } from "../lib/explore";
+import { MatrixPanel, PairPanel, PredictorsPanel } from "./ExploreCorrelation";
 
-const RANGES: { value: RangeKey; label: string }[] = [
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
-  { value: "90d", label: "90 days" },
-  { value: "all", label: "All" },
-  { value: "custom", label: "Custom" },
-];
 const GROUPS: { value: GroupKey; label: string }[] = [
   { value: "none", label: "Each record" },
   { value: "day", label: "Day" },
@@ -65,8 +64,14 @@ export function Explore() {
   const today = dayjs().format("YYYY-MM-DD");
   const catalogue = useMetrics();
 
+  const correlation = readCorrelation(params);
+
   function update(change: Partial<ExploreState>) {
-    setParams(writeState({ ...state, ...change }));
+    setParams(writeCorrelation(writeState({ ...state, ...change }), correlation));
+  }
+
+  function updateCorrelation(change: Partial<CorrelationState>) {
+    setParams(writeCorrelation(params, { ...correlation, ...change }));
   }
 
   const metrics = catalogue.data?.metrics ?? [];
@@ -98,6 +103,10 @@ export function Explore() {
     groups.set(metricGroup(m), items);
   }
 
+  // a good session is a high feel score by default (D-096)
+  const feel = metrics.find((m) => m.field === "feel_score");
+  const withTarget = { ...correlation, target: correlation.target ?? feel?.id ?? null };
+
   return (
     <Stack>
       <Title order={2}>Explore</Title>
@@ -107,153 +116,146 @@ export function Explore() {
         <Text>No module with numbers to explore: add one to the app config.</Text>
       )}
       {metrics.length > 0 && (
-        <Card withBorder>
-          <Stack gap="sm">
-            <MultiSelect
-              label="Metrics"
-              description="Up to two units at once (each gets its own axis)."
-              placeholder="Pick one or more"
-              searchable
-              data={[...groups].map(([group, items]) => ({ group, items }))}
-              value={state.metrics}
-              onChange={(value) => {
-                const kept = Object.fromEntries(
-                  Object.entries(state.filters).filter(([id]) =>
-                    value.some((m) => m.startsWith(id.slice(0, id.lastIndexOf(".") + 1))),
-                  ),
-                );
-                update({ metrics: value, filters: kept });
-              }}
-            />
-            <Group align="end">
-              <SegmentedControl
-                aria-label="Range"
-                data={RANGES}
-                value={state.range}
-                onChange={(value) => {
-                  update({ range: value });
-                }}
-              />
-              {state.range === "custom" && (
-                <>
-                  <DateInput
-                    label="From"
-                    valueFormat="DD/MM/YYYY"
-                    value={state.start}
-                    onChange={(value) => {
-                      update({ start: value });
-                    }}
-                  />
-                  <DateInput
-                    label="To"
-                    valueFormat="DD/MM/YYYY"
-                    value={state.end}
-                    onChange={(value) => {
-                      update({ end: value });
-                    }}
-                  />
-                </>
+        <Tabs
+          keepMounted={false}
+          value={correlation.tab}
+          onChange={(value) => {
+            updateCorrelation({ tab: (value ?? "trends") as Tab });
+          }}
+        >
+          <Tabs.List>
+            <Tabs.Tab value="trends">Over time</Tabs.Tab>
+            <Tabs.Tab value="pair">Two metrics</Tabs.Tab>
+            <Tabs.Tab value="matrix">Matrix</Tabs.Tab>
+            <Tabs.Tab value="predictors">What goes with a good session</Tabs.Tab>
+          </Tabs.List>
+          <Tabs.Panel value="trends" pt="md">
+            <Stack>
+              {metrics.length > 0 && (
+                <Card withBorder>
+                  <Stack gap="sm">
+                    <MultiSelect
+                      label="Metrics"
+                      description="Up to two units at once (each gets its own axis)."
+                      placeholder="Pick one or more"
+                      searchable
+                      data={[...groups].map(([group, items]) => ({ group, items }))}
+                      value={state.metrics}
+                      onChange={(value) => {
+                        const kept = Object.fromEntries(
+                          Object.entries(state.filters).filter(([id]) =>
+                            value.some((m) => m.startsWith(id.slice(0, id.lastIndexOf(".") + 1))),
+                          ),
+                        );
+                        update({ metrics: value, filters: kept });
+                      }}
+                    />
+                    <RangePicker scope={state} onChange={update} />
+                    <Group align="end">
+                      <Select
+                        label="Points"
+                        data={GROUPS.map((g) => ({
+                          ...g,
+                          disabled: g.value === "none" && !oneEntity,
+                        }))}
+                        description={
+                          oneEntity ? undefined : "Each record: metrics of one entity only"
+                        }
+                        allowDeselect={false}
+                        value={group}
+                        onChange={(value) => {
+                          update({ group: value ?? "day" });
+                        }}
+                      />
+                      <Select
+                        label="Aggregate"
+                        data={AGGS}
+                        allowDeselect={false}
+                        disabled={group === "none"}
+                        value={state.agg}
+                        onChange={(value) => {
+                          update({ agg: value ?? "mean" });
+                        }}
+                      />
+                      <Switch
+                        label="Rolling mean"
+                        checked={state.rolling !== null}
+                        onChange={(event) => {
+                          update({ rolling: event.currentTarget.checked ? 4 : null });
+                        }}
+                      />
+                      {state.rolling !== null && (
+                        <NumberInput
+                          aria-label="Rolling mean of"
+                          w={80}
+                          min={2}
+                          max={60}
+                          value={state.rolling}
+                          onChange={(value) => {
+                            const n = Number(value);
+                            if (Number.isInteger(n) && n >= 2) update({ rolling: n });
+                          }}
+                        />
+                      )}
+                      <SegmentedControl
+                        aria-label="Chart"
+                        data={[
+                          { value: "line", label: "Line" },
+                          { value: "bars", label: "Bars" },
+                        ]}
+                        value={state.chart}
+                        onChange={(value) => {
+                          update({ chart: value });
+                        }}
+                      />
+                    </Group>
+                    <FilterPickers scope={state} filters={filters} onChange={update} />
+                  </Stack>
+                </Card>
               )}
-            </Group>
-            <Group align="end">
-              <Select
-                label="Points"
-                data={GROUPS.map((g) => ({ ...g, disabled: g.value === "none" && !oneEntity }))}
-                description={oneEntity ? undefined : "Each record: metrics of one entity only"}
-                allowDeselect={false}
-                value={group}
-                onChange={(value) => {
-                  update({ group: value ?? "day" });
-                }}
-              />
-              <Select
-                label="Aggregate"
-                data={AGGS}
-                allowDeselect={false}
-                disabled={group === "none"}
-                value={state.agg}
-                onChange={(value) => {
-                  update({ agg: value ?? "mean" });
-                }}
-              />
-              <Switch
-                label="Rolling mean"
-                checked={state.rolling !== null}
-                onChange={(event) => {
-                  update({ rolling: event.currentTarget.checked ? 4 : null });
-                }}
-              />
-              {state.rolling !== null && (
-                <NumberInput
-                  aria-label="Rolling mean of"
-                  w={80}
-                  min={2}
-                  max={60}
-                  value={state.rolling}
-                  onChange={(value) => {
-                    const n = Number(value);
-                    if (Number.isInteger(n) && n >= 2) update({ rolling: n });
-                  }}
-                />
+              {state.metrics.length === 0 && metrics.length > 0 && (
+                <Text c="dimmed">Pick a metric to see it over time.</Text>
               )}
-              <SegmentedControl
-                aria-label="Chart"
-                data={[
-                  { value: "line", label: "Line" },
-                  { value: "bars", label: "Bars" },
-                ]}
-                value={state.chart}
-                onChange={(value) => {
-                  update({ chart: value });
-                }}
-              />
-            </Group>
-            {filters.length > 0 && (
-              <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-                {filters.map((f) => (
-                  <MultiSelect
-                    key={f.id}
-                    label={`Only ${f.label.toLowerCase()}`}
-                    placeholder="All"
-                    clearable
-                    data={f.choices}
-                    value={state.filters[f.id] ?? []}
-                    onChange={(value) => {
-                      const next = Object.fromEntries(
-                        Object.entries(state.filters).filter(([id]) => id !== f.id),
-                      );
-                      update({ filters: value.length > 0 ? { ...next, [f.id]: value } : next });
-                    }}
-                  />
-                ))}
-              </SimpleGrid>
-            )}
-          </Stack>
-        </Card>
-      )}
-      {state.metrics.length === 0 && metrics.length > 0 && (
-        <Text c="dimmed">Pick a metric to see it over time.</Text>
-      )}
-      {result.isFetching && !result.data && <Loader />}
-      {result.error && <Alert color="red">{result.error.message}</Alert>}
-      {result.data && option && (
-        <Card withBorder>
-          {result.data.points.length === 0 ? (
-            <Text c="dimmed">Nothing logged in this range.</Text>
-          ) : (
-            <Stack gap="xs">
-              <Chart option={option} label="Explore chart" height={380} />
-              <Text size="xs" c="dimmed">
-                {result.data.series
-                  .map((s) => {
-                    const n = s.n.reduce((a, b) => a + b, 0);
-                    return `${shown.get(s.metric) ?? s.metric}: n = ${String(n)}`;
-                  })
-                  .join(" · ")}
-              </Text>
+              {result.isFetching && !result.data && <Loader />}
+              {result.error && <Alert color="red">{result.error.message}</Alert>}
+              {result.data && option && (
+                <Card withBorder>
+                  {result.data.points.length === 0 ? (
+                    <Text c="dimmed">Nothing logged in this range.</Text>
+                  ) : (
+                    <Stack gap="xs">
+                      <Chart option={option} label="Explore chart" height={380} />
+                      <Text size="xs" c="dimmed">
+                        {result.data.series
+                          .map((s) => {
+                            const n = s.n.reduce((a, b) => a + b, 0);
+                            return `${shown.get(s.metric) ?? s.metric}: n = ${String(n)}`;
+                          })
+                          .join(" · ")}
+                      </Text>
+                    </Stack>
+                  )}
+                </Card>
+              )}
             </Stack>
-          )}
-        </Card>
+          </Tabs.Panel>
+          {(["pair", "matrix", "predictors"] as const).map((tab) => {
+            const Panel = { pair: PairPanel, matrix: MatrixPanel, predictors: PredictorsPanel }[
+              tab
+            ];
+            return (
+              <Tabs.Panel key={tab} value={tab} pt="md">
+                <Panel
+                  state={withTarget}
+                  metrics={metrics}
+                  filters={catalogue.data?.filters ?? []}
+                  today={today}
+                  update={updateCorrelation}
+                />
+              </Tabs.Panel>
+            );
+          })}
+        </Tabs>
       )}
     </Stack>
   );

@@ -367,3 +367,21 @@ def test_the_query_api_says_what_is_wrong(client: TestClient) -> None:
     assert other.json()["detail"] == "unknown metric(s): broken.session.x"
     gone = client.get("/api/metrics/query", params={"metric": "gone.session.wb_score"})
     assert gone.status_code == 503
+
+
+def test_values_before_a_fields_since_are_left_out() -> None:
+    # elbows are tracked from 2026-10-20 (`since:` in journal.yaml): a value typed before counts
+    # for nothing, as in the formulas and the progress view (03 §2.2)
+    sessions = [
+        session(5, ph_pre_elbows=4, ph_pre_fingers=2),
+        session(25, ph_pre_elbows=2, ph_pre_fingers=3),
+    ]
+    both = run(
+        "journal.session.ph_pre_elbows",
+        "journal.session.ph_pre_fingers",
+        sessions=sessions,
+        group="none",
+    )
+    assert values(both) == [None, 2] and values(both, 1) == [2, 3]  # the record stays
+    weekly = run("journal.session.ph_pre_elbows", sessions=sessions, group="month")
+    assert (values(weekly), weekly.series[0].n) == ([2, None], [1, 0])  # October, November

@@ -242,17 +242,19 @@ def run_query(query: Query, sources: Mapping[str, Source], today: dt.date) -> Re
         return [(day, row) for day, row in kept if start <= day <= end]
 
     found = [records(m, query.lag if i else 0) for i, m in enumerate(wanted)]
+    since = [_since(sources[m.module][0], m) for m in wanted]
     if query.group == "none":
         entity = sources[wanted[0].module][0].entities[wanted[0].entity]
         key = [k for k in entity.key or [] if k != entity.date_field]
-        return _per_record(query, wanted, found[0], key)
+        return _per_record(query, wanted, found[0], key, since)
     first = min((day for rows in found for day, _ in rows), default=None)
     periods = _periods(query.group, query.start or first, end, found)
     series: list[Series] = []
-    for metric, rows in zip(wanted, found, strict=True):
+    for i, (metric, rows) in enumerate(zip(wanted, found, strict=True)):
+        shift = dt.timedelta(days=query.lag if i else 0)
         buckets: dict[dt.date, list[float]] = {}
         for day, row in rows:
-            value = _number(row.get(metric.field))
+            value = _number(row.get(metric.field)) if day + shift >= since[i] else None
             if value is not None:
                 buckets.setdefault(_period_start(query.group, day), []).append(value)
         values = [_aggregate(query.agg, buckets.get(p.start, [])) for p in periods]
@@ -299,13 +301,27 @@ def _kept(row: Row, metric: Metric, filters: Mapping[str, Sequence[str]]) -> boo
     )
 
 
+def _since(module: Module, metric: Metric) -> dt.date:
+    """When a stored field started being tracked (`since:`): its values dated before are left
+    out, as the formulas and charts do (03 §2.2); `date.min` for the others."""
+    field = module.entities[metric.entity].fields.get(metric.field)
+    found = getattr(field, "since", None)
+    return found if isinstance(found, dt.date) else dt.date.min
+
+
 def _per_record(
-    query: Query, wanted: list[Metric], rows: list[tuple[dt.date, Row]], key: list[str]
+    query: Query,
+    wanted: list[Metric],
+    rows: list[tuple[dt.date, Row]],
+    key: list[str],
+    since: list[dt.date],
 ) -> Result:
     points = [Point(day, day, day.isoformat(), {k: row.get(k) for k in key}) for day, row in rows]
     series = []
-    for metric in wanted:
-        values = [_round(_number(row.get(metric.field))) for _, row in rows]
+    for metric, tracked in zip(wanted, since, strict=True):
+        values = [
+            _round(_number(row.get(metric.field))) if day >= tracked else None for day, row in rows
+        ]
         n = [0 if v is None else 1 for v in values]
         series.append(Series(metric.id, values, n, _rolling(values, query.rolling)))
     return Result("none", query.agg, 0, points, series)

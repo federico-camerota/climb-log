@@ -36,6 +36,9 @@ export type MetricCatalogue = Schemas["MetricCatalogue"];
 export type MetricInfo = Schemas["MetricInfo"];
 export type FilterInfo = Schemas["FilterInfo"];
 export type QueryResult = Schemas["QueryResult"];
+export type CorrelationPair = Schemas["CorrelationPair"];
+export type MatrixData = Schemas["MatrixData"];
+export type PredictorsData = Schemas["PredictorsData"];
 export type Today = Schemas["Today"];
 export type ModuleDay = Schemas["ModuleDay"];
 export type DueForm = Schemas["DueForm"];
@@ -238,4 +241,12 @@ export function getMetrics(): Promise<MetricCatalogue> {
 /** A metric query (D-090): `query` is the URL's query string, built by `lib/explore.ts`. */
 export function queryMetrics(query: string): Promise<QueryResult> {
   return getJson<QueryResult>(`/api/metrics/query?${query}`);
+}
+
+/** Correlations (D-096): `query` is the URL's query string. */
+export function getCorrelation<T>(
+  kind: "pair" | "matrix" | "predictors",
+  query: string,
+): Promise<T> {
+  return getJson<T>(`/api/correlation/${kind}?${query}`);
 }

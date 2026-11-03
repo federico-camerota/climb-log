@@ -4,6 +4,67 @@
  */
 
 export interface paths {
+    "/api/correlation/matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Matrix
+         * @description Every pair of the metrics per day; a cell under the minimum n is hidden.
+         */
+        get: operations["get_matrix_api_correlation_matrix_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/correlation/pair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pair
+         * @description X against Y, per record (one entity, no lag) or per day with Y read `lag` days later;
+         *     `group` asks for days, weeks or months instead (each point a period's means).
+         */
+        get: operations["get_pair_api_correlation_pair_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/correlation/predictors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Predictors
+         * @description Each pre-session metric of the target's entity against it, ranked by |r|.
+         */
+        get: operations["get_predictors_api_correlation_predictors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -363,6 +424,38 @@ export interface components {
              */
             widget: "box_by";
         };
+        /** CellData */
+        CellData: {
+            /** N */
+            n: number;
+            /** R */
+            r: number | null;
+        };
+        /** CorrelationPair */
+        CorrelationPair: {
+            /** Intercept */
+            intercept: number | null;
+            /** Lag */
+            lag: number;
+            /** Min N */
+            min_n: number;
+            /** N */
+            n: number;
+            pearson: components["schemas"]["StatData"];
+            /** Points */
+            points: components["schemas"]["PairPoint"][];
+            /** Slope */
+            slope: number | null;
+            /** Sources */
+            sources: components["schemas"]["SourceInfo"][];
+            spearman: components["schemas"]["StatData"];
+            /** Too Few */
+            too_few: boolean;
+            /** X */
+            x: string;
+            /** Y */
+            y: string;
+        };
         /** DueForm */
         DueForm: {
             /** Form */
@@ -596,7 +689,7 @@ export interface components {
             /** Rolling */
             rolling: number | null;
             /** Series */
-            series: components["schemas"]["climblog__api__views__SeriesData"][];
+            series: components["schemas"]["SeriesData"][];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -637,6 +730,22 @@ export interface components {
             /** Without Load */
             without_load: number;
         };
+        /** MatrixData */
+        MatrixData: {
+            /** Cells */
+            cells: components["schemas"]["CellData"][][];
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "pearson" | "spearman";
+            /** Metrics */
+            metrics: string[];
+            /** Min N */
+            min_n: number;
+            /** Sources */
+            sources: components["schemas"]["SourceInfo"][];
+        };
         /** MetricCatalogue */
         MetricCatalogue: {
             /** Filters */
@@ -669,6 +778,19 @@ export interface components {
             section: string | null;
             /** Unit */
             unit: string | null;
+        };
+        /** MetricSeries */
+        MetricSeries: {
+            /** Bands */
+            bands?: components["schemas"]["BandData"][] | null;
+            /** Metric */
+            metric: string;
+            /** N */
+            n: number[];
+            /** Rolling */
+            rolling: (number | null)[] | null;
+            /** Values */
+            values: (number | null)[];
         };
         /** ModuleAdvice */
         ModuleAdvice: {
@@ -809,6 +931,18 @@ export interface components {
             /** Lower Better */
             lower_better: boolean | null;
         };
+        /** PairPoint */
+        PairPoint: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
         /** PairStats */
         PairStats: {
             /** Change */
@@ -879,6 +1013,32 @@ export interface components {
              */
             widget: "pre_post";
         };
+        /** PredictorData */
+        PredictorData: {
+            /** Metric */
+            metric: string;
+            /** N */
+            n: number;
+            stat: components["schemas"]["StatData"];
+            /** Too Few */
+            too_few: boolean;
+        };
+        /** PredictorsData */
+        PredictorsData: {
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "pearson" | "spearman";
+            /** Min N */
+            min_n: number;
+            /** Predictors */
+            predictors: components["schemas"]["PredictorData"][];
+            /** Sources */
+            sources: components["schemas"]["SourceInfo"][];
+            /** Target */
+            target: string;
+        };
         /** Pyramid */
         Pyramid: {
             /** Periods */
@@ -912,7 +1072,7 @@ export interface components {
             /** Points */
             points: components["schemas"]["PointData"][];
             /** Series */
-            series: components["schemas"]["climblog__api__metrics__SeriesData"][];
+            series: components["schemas"]["MetricSeries"][];
             /** Sources */
             sources: components["schemas"]["SourceInfo"][];
         };
@@ -1020,6 +1180,17 @@ export interface components {
             /** Y */
             y: number;
         };
+        /** SeriesData */
+        SeriesData: {
+            /** Label */
+            label: string;
+            /** Metric */
+            metric: string;
+            /** Rolling */
+            rolling: (number | null)[] | null;
+            /** Values */
+            values: (number | null)[];
+        };
         /** SettingRow */
         SettingRow: {
             /** Hardest */
@@ -1118,6 +1289,17 @@ export interface components {
             metric: string;
             /** Values */
             values: (number | null)[];
+        };
+        /** StatData */
+        StatData: {
+            /** High */
+            high: number | null;
+            /** Low */
+            low: number | null;
+            /** P */
+            p: number | null;
+            /** R */
+            r: number | null;
         };
         /** StatusBoardData */
         StatusBoardData: {
@@ -1346,30 +1528,6 @@ export interface components {
             as_of: string | null;
             record: components["schemas"]["Record"];
         };
-        /** SeriesData */
-        climblog__api__metrics__SeriesData: {
-            /** Bands */
-            bands?: components["schemas"]["BandData"][] | null;
-            /** Metric */
-            metric: string;
-            /** N */
-            n: number[];
-            /** Rolling */
-            rolling: (number | null)[] | null;
-            /** Values */
-            values: (number | null)[];
-        };
-        /** SeriesData */
-        climblog__api__views__SeriesData: {
-            /** Label */
-            label: string;
-            /** Metric */
-            metric: string;
-            /** Rolling */
-            rolling: (number | null)[] | null;
-            /** Values */
-            values: (number | null)[];
-        };
     };
     responses: never;
     parameters: never;
@@ -1379,6 +1537,113 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_matrix_api_correlation_matrix_get: {
+        parameters: {
+            query: {
+                metric: string[];
+                method?: "pearson" | "spearman";
+                start?: string | null;
+                end?: string | null;
+                filter?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatrixData"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pair_api_correlation_pair_get: {
+        parameters: {
+            query: {
+                x: string;
+                y: string;
+                lag?: number;
+                group?: ("none" | "day" | "week" | "month") | null;
+                start?: string | null;
+                end?: string | null;
+                filter?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorrelationPair"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_predictors_api_correlation_predictors_get: {
+        parameters: {
+            query: {
+                target: string;
+                method?: "pearson" | "spearman";
+                start?: string | null;
+                end?: string | null;
+                filter?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictorsData"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_health_api_health_get: {
         parameters: {
             query?: never;

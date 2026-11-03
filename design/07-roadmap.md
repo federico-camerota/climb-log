@@ -120,6 +120,7 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
 - Correlation: a pair (scatter, regression line, Pearson and Spearman r, 95% CI, n, an
   optional lag, greyed out under the minimum n), a matrix (Spearman, cells hidden under the
   minimum n), and "what predicts a good session?" (pre-session metrics only).
+  → done (D-096, #103): Explore's correlation tabs; scipy added (D-087).
 - Close M4: docs, README screenshots, v0.4.0.
 - **Done when**: the explorer can answer "does sleep relate to my session feel?" with n and CI.
 
