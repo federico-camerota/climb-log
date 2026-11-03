@@ -5,6 +5,7 @@ import type {
   BarsData,
   BodyHeatmapData,
   BoxByData,
+  GradesData,
   PrePostData,
   LineData,
   ScatterData,
@@ -18,10 +19,12 @@ import {
   boxOption,
   changeTone,
   decimal,
+  gradesOption,
   loadOption,
   othersOption,
   pairStats,
   prePostOption,
+  pyramidOption,
   scatterOption,
   shortDate,
   stackedOption,
@@ -319,5 +322,67 @@ describe("the chart options", () => {
     expect(map.text).toEqual(["10", "1"]); // the scale's ends at the colour bar
     const better = bodyOption({ ...data, lower_better: false }, 0) as Option;
     expect((better.visualMap as { inRange: { color: string[] } }).inRange.color[0]).toBe("#e03131");
+  });
+
+  it("puts French and gym grades on their own axes and builds the pyramid", () => {
+    const data: GradesData = {
+      widget: "grades",
+      label: null,
+      series: [
+        {
+          system: "french",
+          venue: null,
+          label: "French",
+          points: [{ date: "2026-10-01", index: 32, grade: "6b", setting: null, venue: null }],
+        },
+        {
+          system: "gym",
+          venue: "Nord",
+          label: "Gym · Nord",
+          points: [{ date: "2026-10-02", index: 5, grade: "5", setting: null, venue: "Nord" }],
+        },
+      ],
+      french_ticks: [
+        { index: 32, label: "6b" },
+        { index: 33, label: "6b+" },
+      ],
+      pyramid: {
+        periods: ["2026-09", "2026-10"],
+        rows: [
+          {
+            label: "French",
+            grades: ["6a", "6b"],
+            counts: [
+              [1, 0],
+              [0, 2],
+            ],
+          },
+        ],
+      },
+      by_setting: [],
+      by_venue: [],
+      unparsed: 0,
+      last: 6,
+    };
+    const option = gradesOption(data) as Option;
+    const axes = option.yAxis as {
+      name: string;
+      axisLabel?: { formatter: (v: number) => string };
+    }[];
+    expect(axes.map((a) => a.name)).toEqual(["French", "Gym"]);
+    expect(axes[0]?.axisLabel?.formatter(33)).toBe("6b+");
+    expect(option.series.map((s) => [s.name, s.yAxisIndex])).toEqual([
+      ["French", 0],
+      ["Gym · Nord", 1],
+    ]);
+    const gymOnly = gradesOption({
+      ...data,
+      series: data.series.slice(1),
+      french_ticks: [],
+    }) as Option;
+    expect(gymOnly.series[0]?.yAxisIndex).toBe(0);
+    const pyramid = pyramidOption(data, 0, 1) as Option;
+    expect(pyramid.series[0]?.data).toEqual([0, 2]);
+    expect((pyramid.yAxis as { data: string[] }).data).toEqual(["6a", "6b"]);
   });
 });

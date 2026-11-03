@@ -425,6 +425,59 @@ export interface components {
             /** Module */
             module: string;
         };
+        /** GradePoint */
+        GradePoint: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Grade */
+            grade: string;
+            /** Index */
+            index: number;
+            /** Setting */
+            setting: string | null;
+            /** Venue */
+            venue: string | null;
+        };
+        /** GradeSeries */
+        GradeSeries: {
+            /** Label */
+            label: string;
+            /** Points */
+            points: components["schemas"]["GradePoint"][];
+            /**
+             * System
+             * @enum {string}
+             */
+            system: "french" | "gym";
+            /** Venue */
+            venue: string | null;
+        };
+        /** GradesData */
+        GradesData: {
+            /** By Setting */
+            by_setting: components["schemas"]["SettingRow"][];
+            /** By Venue */
+            by_venue: components["schemas"]["VenueRow"][];
+            /** French Ticks */
+            french_ticks: components["schemas"]["Tick"][];
+            /** Label */
+            label: string | null;
+            /** Last */
+            last: number;
+            pyramid: components["schemas"]["Pyramid"];
+            /** Series */
+            series: components["schemas"]["GradeSeries"][];
+            /** Unparsed */
+            unparsed: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "grades";
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -826,6 +879,22 @@ export interface components {
              */
             widget: "pre_post";
         };
+        /** Pyramid */
+        Pyramid: {
+            /** Periods */
+            periods: string[];
+            /** Rows */
+            rows: components["schemas"]["PyramidRow"][];
+        };
+        /** PyramidRow */
+        PyramidRow: {
+            /** Counts */
+            counts: number[][];
+            /** Grades */
+            grades: string[];
+            /** Label */
+            label: string;
+        };
         /** QueryResult */
         QueryResult: {
             /**
@@ -950,6 +1019,21 @@ export interface components {
             x: number;
             /** Y */
             y: number;
+        };
+        /** SettingRow */
+        SettingRow: {
+            /** Hardest */
+            hardest: string;
+            /** Median */
+            median: string;
+            /** Sessions */
+            sessions: number;
+            /** Setting */
+            setting: string;
+            /** System */
+            system: string;
+            /** Venue */
+            venue?: string | null;
         };
         /** SideBySideData */
         SideBySideData: {
@@ -1119,6 +1203,13 @@ export interface components {
             /** Window Days */
             window_days: number;
         };
+        /** Tick */
+        Tick: {
+            /** Index */
+            index: number;
+            /** Label */
+            label: string;
+        };
         /** Today */
         Today: {
             /**
@@ -1186,6 +1277,19 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** VenueRow */
+        VenueRow: {
+            /** Hardest */
+            hardest: string;
+            /** Median */
+            median: string;
+            /** Sessions */
+            sessions: number;
+            /** System */
+            system: string;
+            /** Venue */
+            venue: string;
+        };
         /** View */
         View: {
             /** As Of */
@@ -1202,7 +1306,7 @@ export interface components {
             /** View */
             view: string;
             /** Widgets */
-            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["HeatmapData"] | components["schemas"]["SideBySideData"] | components["schemas"]["TextFeedData"] | components["schemas"]["TableData"] | components["schemas"]["MonthlyData"] | components["schemas"]["BarsData"] | components["schemas"]["WeekbarsData"] | components["schemas"]["StackedData"] | components["schemas"]["BoxByData"] | components["schemas"]["ScatterData"] | components["schemas"]["TrainingLoadData"] | components["schemas"]["PrePostData"] | components["schemas"]["BodyHeatmapData"] | components["schemas"]["PlannedData"])[];
+            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["HeatmapData"] | components["schemas"]["SideBySideData"] | components["schemas"]["TextFeedData"] | components["schemas"]["TableData"] | components["schemas"]["MonthlyData"] | components["schemas"]["BarsData"] | components["schemas"]["WeekbarsData"] | components["schemas"]["StackedData"] | components["schemas"]["BoxByData"] | components["schemas"]["ScatterData"] | components["schemas"]["TrainingLoadData"] | components["schemas"]["PrePostData"] | components["schemas"]["BodyHeatmapData"] | components["schemas"]["GradesData"] | components["schemas"]["PlannedData"])[];
         };
         /** WeekbarsData */
         WeekbarsData: {

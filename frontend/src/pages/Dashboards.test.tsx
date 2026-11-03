@@ -257,6 +257,34 @@ const VIEW = {
       shown: 12,
     },
     {
+      widget: "grades",
+      label: "Hardest grade tried",
+      series: [
+        {
+          system: "french",
+          venue: null,
+          label: "French",
+          points: [{ date: "2026-10-01", index: 32, grade: "6b", setting: "Outdoor", venue: "F" }],
+        },
+      ],
+      french_ticks: [{ index: 32, label: "6b" }],
+      pyramid: { periods: ["2026-10"], rows: [{ label: "French", grades: ["6b"], counts: [[1]] }] },
+      by_setting: [
+        { setting: "Outdoor", system: "french", sessions: 1, hardest: "6b", median: "6b" },
+        {
+          setting: "Indoor",
+          venue: "[TEST] Gym A",
+          system: "gym",
+          sessions: 2,
+          hardest: "6",
+          median: "5",
+        },
+      ],
+      by_venue: [],
+      unparsed: 2,
+      last: 6,
+    },
+    {
       widget: "scatter",
       label: "Nothing yet",
       x_label: "Sleep hours",
@@ -308,6 +336,15 @@ describe("Dashboards", () => {
     expect(screen.getByText(/building a baseline until 01\/11/)).toBeInTheDocument();
     expect(screen.getByText(/3 day\(s\), 26\/10–28\/10/)).toBeInTheDocument();
     const week = screen.getByRole("row", { name: /2026-W44/ });
+    expect(screen.getByRole("img", { name: "Hardest grade tried" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Sessions by grade, French" })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /Outdoor/ })).toHaveTextContent("OutdoorFrench16b6b");
+    expect(
+      screen.getByText(/2 value\(s\) that aren't grades left out \(see Records\)/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /Indoor/ })).toHaveTextContent(
+      "IndoorGym · [TEST] Gym A265", // gym grades per venue
+    );
     const fingers = screen.getByRole("row", { name: /Fingers ↓/ });
     expect(fingers).toHaveTextContent("Fingers ↓24,5+2,54");
     expect(screen.getByRole("img", { name: "Before → after" })).toBeInTheDocument();

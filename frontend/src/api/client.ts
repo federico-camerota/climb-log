@@ -31,6 +31,7 @@ export type ScatterData = Schemas["ScatterData"];
 export type TrainingLoadData = Schemas["TrainingLoadData"];
 export type PrePostData = Schemas["PrePostData"];
 export type BodyHeatmapData = Schemas["BodyHeatmapData"];
+export type GradesData = Schemas["GradesData"];
 export type Today = Schemas["Today"];
 export type ModuleDay = Schemas["ModuleDay"];
 export type DueForm = Schemas["DueForm"];

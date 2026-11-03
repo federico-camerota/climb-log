@@ -93,6 +93,10 @@ next morning" joined to the previous day's session). A filter applies to its ent
 - **Grades**: hardest grade over time (numeric index via the grade parser, `climblog/grades.py`:
   French 6a = 30 with one step per letter or `+`, gym = the number; French and gym on separate
   axes, never converted, D-017/D-047), grade pyramid by period, indoor vs outdoor, by venue.
+  Done (D-094, #101), in the `progress` view: the hardest grade *tried* per session over time
+  (French one series, gym one series per venue, on their own axes), sessions by hardest grade
+  tried per month, and by setting and venue (sessions, hardest, median; gym grades always per
+  venue). Values typed in the sheet that aren't grades are counted on the card.
 - **Venue/partner view**: sessions and average feel by venue/partner.
 - **Wins timeline**: banked wins by size, filterable, for a motivation feed.
 - **Reflection themes**: frequency of words/keywords in "what felt off" / "what to change"

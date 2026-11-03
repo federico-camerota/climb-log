@@ -191,7 +191,7 @@ def test_a_retired_body_part_shows_while_it_has_values(load: LoadYaml) -> None:
     views = (module.views or {})["progress"]
 
     def labels(sessions: list[dict[str, Value]]) -> tuple[list[str], list[str]]:
-        deltas, heat = compute_view(module, views, {"session": sessions}, {}, day(6))
+        deltas, heat, *_ = compute_view(module, views, {"session": sessions}, {}, day(6))
         return [p["label"] for p in deltas["pairs"]], heat["parts"]
 
     pairs, parts = labels([session(0, ph_pre_fingers=2, ph_post_fingers=4)])

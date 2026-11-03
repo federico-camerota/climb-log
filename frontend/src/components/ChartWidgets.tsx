@@ -7,6 +7,7 @@ import type {
   BarsData,
   BodyHeatmapData,
   BoxByData,
+  GradesData,
   PrePostData,
   ScatterData,
   StackedData,
@@ -19,10 +20,12 @@ import {
   boxOption,
   changeTone,
   decimal,
+  gradesOption,
   loadOption,
   othersOption,
   pairStats,
   prePostOption,
+  pyramidOption,
   scatterOption,
   shortDate,
   stackedOption,
@@ -352,5 +355,123 @@ export function BodyHeatmapCard({ data }: { data: BodyHeatmapData }) {
         <Chart option={option} label={title} height={Math.max(220, 36 * data.parts.length + 96)} />
       )}
     </Card>
+  );
+}
+
+/** The hardest grade tried over time, its pyramid per period, by setting and by venue (D-094). */
+export function GradesCard({ data }: { data: GradesData }) {
+  const option = useMemo(() => gradesOption(data), [data]);
+  const periods = data.pyramid.periods;
+  const [row, setRow] = useState("0");
+  const [period, setPeriod] = useState(String(Math.max(0, periods.length - 1)));
+  const pyramid = useMemo(
+    () => pyramidOption(data, Number(row), Number(period)),
+    [data, row, period],
+  );
+  const title = data.label ?? "Grades";
+  const rows = data.pyramid.rows[Number(row)];
+  return (
+    <Card withBorder>
+      <Title order={4} mb="xs">
+        {title}
+      </Title>
+      {data.series.length === 0 ? (
+        <Text c="dimmed">No grades logged yet.</Text>
+      ) : (
+        <Stack gap="sm">
+          <Chart option={option} label={title} />
+          <Group justify="space-between">
+            <Text fw={500}>Sessions by hardest grade tried</Text>
+            <Group gap="xs">
+              <Select
+                aria-label="Grades of"
+                size="xs"
+                allowDeselect={false}
+                data={data.pyramid.rows.map((r, i) => ({ value: String(i), label: r.label }))}
+                value={row}
+                onChange={(value) => {
+                  setRow(value ?? "0");
+                }}
+              />
+              <Select
+                aria-label="Period"
+                size="xs"
+                allowDeselect={false}
+                data={periods.map((p, i) => ({ value: String(i), label: p }))}
+                value={period}
+                onChange={(value) => {
+                  setPeriod(value ?? "0");
+                }}
+              />
+            </Group>
+          </Group>
+          <Chart
+            option={pyramid}
+            label={`Sessions by grade, ${rows?.label ?? ""}`}
+            height={Math.max(160, 28 * (rows?.grades.length ?? 0) + 48)}
+          />
+          {data.by_setting.length > 0 && (
+            <GradeTable
+              head="Setting"
+              rows={data.by_setting.map((r) => ({ ...r, name: r.setting }))}
+            />
+          )}
+          {data.by_venue.length > 0 && (
+            <GradeTable
+              head="Venue"
+              rows={data.by_venue.map((r) => ({ ...r, name: r.venue, venue: null }))}
+            />
+          )}
+          <Text size="xs" c="dimmed">
+            The hardest grade tried per session (not sends). French and gym grades are never
+            converted; each gym grades its own way, so its grades are a series of their own.
+            {data.unparsed > 0 &&
+              ` ${String(data.unparsed)} value(s) that aren't grades left out (see Records).`}
+          </Text>
+        </Stack>
+      )}
+    </Card>
+  );
+}
+
+function GradeTable({
+  head,
+  rows,
+}: {
+  head: string;
+  rows: {
+    name: string;
+    system: string;
+    venue?: string | null;
+    sessions: number;
+    hardest: string;
+    median: string;
+  }[];
+}) {
+  return (
+    <Table striped>
+      <Table.Thead>
+        <Table.Tr>
+          <Table.Th>{head}</Table.Th>
+          <Table.Th>Grades</Table.Th>
+          <Table.Th>Sessions</Table.Th>
+          <Table.Th>Hardest</Table.Th>
+          <Table.Th>Median</Table.Th>
+        </Table.Tr>
+      </Table.Thead>
+      <Table.Tbody>
+        {rows.map((r) => (
+          <Table.Tr key={`${r.name}-${r.system}-${r.venue ?? ""}`}>
+            <Table.Td>{r.name}</Table.Td>
+            <Table.Td>
+              {r.system === "french" ? "French" : r.venue ? `Gym · ${r.venue}` : "Gym"}
+            </Table.Td>
+            <Table.Td>{r.sessions}</Table.Td>
+            <Table.Td>{r.hardest}</Table.Td>
+            <Table.Td>{r.median}</Table.Td>
+          </Table.Tr>
+        ))}
+      </Table.Tbody>
+    </Table>
   );
 }
