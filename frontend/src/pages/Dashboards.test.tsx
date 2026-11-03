@@ -199,9 +199,11 @@ const VIEW = {
           start: "2026-10-26",
           load: 1250,
           sessions: 3,
+          days: 2,
           without_load: 1,
           rest_days: 2,
           others: [48],
+          others_without: [2],
           acwr: null,
           monotony: 1.2,
           strain: 1500,
@@ -295,7 +297,12 @@ describe("Dashboards", () => {
     expect(screen.getByRole("img", { name: "Before → after" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Soreness by week" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Rest days" })).toBeInTheDocument();
-    expect(week).toHaveTextContent("2026-W44 (26/10)1250 (1 without load)4832–1,21500");
+    // load, finger training, sessions, days trained, rest days, ratio, monotony, strain
+    expect(week).toHaveTextContent(
+      "2026-W44 (26/10)1250 (1 without load)48 (2 without load)322–1,21500",
+    );
+    expect(screen.getByRole("img", { name: "Finger training" })).toBeInTheDocument();
+    expect(screen.getByText(/in its own units, not in the ratio/)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Training calendar" })).toBeInTheDocument();
     expect(screen.getByText(/Each square is a day/)).toBeInTheDocument();
     const legend = screen.getByLabelText("Legend");

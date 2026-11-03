@@ -567,7 +567,7 @@ Training load (#99, D-092), computed in `analytics/load.py`:
   load: session.session_load            # a record's load (duration x effort)
   inputs: [session.duration_min, session.feel_effort]  # missing one: counts as 0, flagged
   rest: rest_day                        # counted per week
-  others:                               # stacked, not in the ratio (other units)
+  others:                               # own chart, not in the ratio (other units)
     - {module: finger_strength, metric: session.set_load, label: Finger training}
   weeks: 12                             # shown at first
   acute: 7                              # EWMA windows (days)
@@ -591,6 +591,12 @@ Before/after and body maps (#100, D-093):
 Still shown as "not drawn yet": `status_strip`, `radar`, `delta_table`, `ladder`,
 `program_grid`, `before_after` (M5 or later); `weekbars` by `program_week` (M5); a line split by
 another entity's fields and `box_by` time-of-day `bins` (backlog, 05 §3.5).
+
+What a chart plots (a `bars`, `box_by` or `stacked` metric, `scatter` x and y, a `line`'s series
+and `x`, a `weekbars` sum or mean) must be a number: a number, duration, percent or numeric-scale
+field, or a derived value giving one number; anything else is a load error. A `weekbars` mean
+over a week with nothing logged is no bar (a count or sum is 0). A line's legend is the series'
+`label`, else the field's label.
 
 Every numeric/scale field and derived numeric field is automatically a **metric** in the
 analysis explorer (see `05-analytics.md`). No view config is needed for that.

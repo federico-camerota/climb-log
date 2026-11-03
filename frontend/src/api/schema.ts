@@ -556,6 +556,8 @@ export interface components {
         LoadWeek: {
             /** Acwr */
             acwr: number | null;
+            /** Days */
+            days: number;
             /** Label */
             label: string;
             /** Load */
@@ -564,6 +566,8 @@ export interface components {
             monotony: number | null;
             /** Others */
             others: number[];
+            /** Others Without */
+            others_without: number[];
             /** Rest Days */
             rest_days: number;
             /** Sessions */
@@ -1000,7 +1004,7 @@ export interface components {
             /** Label */
             label: string;
             /** Values */
-            values: number[];
+            values: (number | null)[];
         };
         /** StackedData */
         StackedData: {

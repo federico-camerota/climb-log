@@ -6,8 +6,10 @@ monotony, strain and streaks, from each record's session-RPE load (duration x ef
   the `inputs` (or its load) counts as 0 and the week says how many there were, so a low week
   isn't silently wrong.
 - **ACWR**: exponentially weighted moving averages of the daily load (days without a record
-  are 0), lambda = 2 / (N + 1) for the acute (7 days) and chronic (28 days) windows, both
-  starting at 0 the day before the first record (Williams et al. 2017). It is shown from the
+  are 0), lambda = 2 / (N + 1) for the acute (7 days) and chronic (28 days) windows (Williams
+  et al. 2017), both starting at the mean daily load of the first `chronic` days: started at 0,
+  the chronic average would still miss ~14% of a steady load on day 28, and the ratio would
+  read ~16% high for weeks. It is shown from the
   first record's day + chronic - 1 on (before: "building a baseline"), at each week's last day
   (the asked day for the current week). Context with zones, not a rule.
 - **Monotony** (Foster): the mean daily load of the week's days (up to the asked day, from the
@@ -15,8 +17,8 @@ monotony, strain and streaks, from each record's session-RPE load (duration x ef
   spread. **Strain**: the week's load x its monotony.
 - **Streaks**: runs of consecutive days with a record; the current one ends on the asked day
   or the day before.
-- Other modules' loads are stacked per week, but not in the ratio, monotony or strain: their
-  units differ (e.g. sets x RPE).
+- Other modules' loads are given per week (with their records without a value), but not in
+  the ratio, monotony or strain: their units differ (e.g. sets x RPE).
 """
 
 import datetime as dt
@@ -66,13 +68,18 @@ def training_load(
             continue
         o_timeline = Timeline(other_module.entities[o_entity], list(other_tables.get(o_entity, ())))
         per_day: dict[dt.date, float] = {}
+        without: dict[dt.date, int] = {}
         for when, row in zip(o_timeline.days, o_timeline.rows, strict=True):
+            if when > day:
+                continue
             value = _number(row.get(o_name))
-            if when <= day and value is not None:
+            if value is None:
+                without[when] = without.get(when, 0) + 1
+            else:
                 per_day[when] = per_day.get(when, 0.0) + value
-        stacks.append({"label": source.label, "daily": per_day})
+        stacks.append({"label": source.label, "daily": per_day, "without": without})
 
-    firsts = [min(d) for d in [daily, *(s["daily"] for s in stacks)] if d]
+    firsts = [min(d) for d in [daily, *(s["daily"] | s["without"] for s in stacks)] if d]
     if not firsts:
         return _empty(widget, absent)
     first = min(firsts)
@@ -93,9 +100,11 @@ def training_load(
                 "start": start.isoformat(),
                 "load": _round(total),
                 "sessions": sum(sessions.get(d, 0) for d in days),
+                "days": sum(1 for d in days if d in sessions),
                 "without_load": sum(missing.get(d, 0) for d in days),
                 "rest_days": sum(1 for d in days if d in rest_days),
                 "others": [_round(sum(s["daily"].get(d, 0.0) for d in days)) for s in stacks],
+                "others_without": [sum(s["without"].get(d, 0) for d in days) for s in stacks],
                 "acwr": ratio.get(end),
                 "monotony": mono,
                 "strain": None if mono is None else _round(total * mono),
@@ -161,11 +170,14 @@ def _weeks(first: dt.date, day: dt.date) -> list[dt.date]:
 def _acwr(
     daily: Mapping[dt.date, float], first: dt.date, day: dt.date, acute: int, chronic: int
 ) -> dict[dt.date, float]:
-    """The ratio of each day from the baseline on (the chronic window filled)."""
+    """The ratio of each day from the baseline on (the chronic window filled). Both averages
+    start at the mean daily load of the first `chronic` days, so a steady load gives 1 from
+    the start (from 0, the chronic average lags for weeks and the ratio reads high)."""
     if not daily:
         return {}
     la, lc = 2 / (acute + 1), 2 / (chronic + 1)
-    a = c = 0.0
+    seed = sum(daily.get(first + dt.timedelta(days=i), 0.0) for i in range(chronic)) / chronic
+    a = c = seed
     found: dict[dt.date, float] = {}
     current = first
     while current <= day:
