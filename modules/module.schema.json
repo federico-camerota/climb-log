@@ -1605,6 +1605,32 @@
       "title": "LineWidget",
       "type": "object"
     },
+    "LoadSource": {
+      "additionalProperties": false,
+      "description": "Another module's load, stacked with this one's (e.g. finger training).",
+      "properties": {
+        "module": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Module",
+          "type": "string"
+        },
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "module",
+        "metric",
+        "label"
+      ],
+      "title": "LoadSource",
+      "type": "object"
+    },
     "MapDerived": {
       "additionalProperties": false,
       "description": "`map_from: status` + `map: {RED: text, …}`: a text for each value of a status or choice.",
@@ -3797,6 +3823,100 @@
       "title": "TextField",
       "type": "object"
     },
+    "TrainingLoadWidget": {
+      "additionalProperties": false,
+      "description": "Weekly training load (05 §3.1): the sum of `load` per week, the records without one\n(an input missing), rest days, other modules' loads stacked, the acute:chronic workload\nratio (EWMA, shown with zones as context, not as a rule), monotony and strain (Foster),\nand streaks of consecutive training days.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "training_load",
+          "title": "Widget",
+          "type": "string"
+        },
+        "load": {
+          "title": "Load",
+          "type": "string"
+        },
+        "inputs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "rest": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rest"
+        },
+        "others": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/LoadSource"
+          },
+          "title": "Others",
+          "type": "array"
+        },
+        "weeks": {
+          "default": 12,
+          "minimum": 1,
+          "title": "Weeks",
+          "type": "integer"
+        },
+        "acute": {
+          "default": 7,
+          "minimum": 1,
+          "title": "Acute",
+          "type": "integer"
+        },
+        "chronic": {
+          "default": 28,
+          "minimum": 2,
+          "title": "Chronic",
+          "type": "integer"
+        },
+        "zones": {
+          "default": [
+            0.8,
+            1.3,
+            1.5
+          ],
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Zones",
+          "type": "array"
+        }
+      },
+      "required": [
+        "widget",
+        "load"
+      ],
+      "title": "TrainingLoadWidget",
+      "type": "object"
+    },
     "WeekbarsWidget": {
       "additionalProperties": false,
       "description": "Per week: the records counted by the value of `metric` (a status or a choice), stacked\n(`count_by_value`); or one number per week (`count` of values, `sum` or `mean` of a numeric\nfield), stacked by the value of `split_by` if given.",
@@ -4146,6 +4266,7 @@
                     "status_strip": "#/$defs/LaterWidget",
                     "table": "#/$defs/TableWidget",
                     "text_feed": "#/$defs/TextFeedWidget",
+                    "training_load": "#/$defs/TrainingLoadWidget",
                     "weekbars": "#/$defs/WeekbarsWidget"
                   },
                   "propertyName": "widget"
@@ -4189,6 +4310,9 @@
                   },
                   {
                     "$ref": "#/$defs/ScatterWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/TrainingLoadWidget"
                   },
                   {
                     "$ref": "#/$defs/LaterWidget"

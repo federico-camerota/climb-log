@@ -410,6 +410,6 @@ def test_an_unknown_view_or_module(client: TestClient) -> None:
     missing = client.get("/api/modules/journal/views/nope")
     assert (missing.status_code, missing.json()["detail"]) == (
         404,
-        "module 'journal' has no view 'nope' (views: overview)",
+        "module 'journal' has no view 'nope' (views: overview, load)",
     )
     assert client.get("/api/modules/nope/views/overview").status_code == 404

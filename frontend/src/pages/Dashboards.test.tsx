@@ -184,6 +184,36 @@ const VIEW = {
       trend: null,
     },
     {
+      widget: "training_load",
+      label: "Training load",
+      others: ["Finger training"],
+      absent: [],
+      zones: [0.8, 1.3, 1.5],
+      acute: 7,
+      chronic: 28,
+      baseline_from: "2026-11-01",
+      acwr_today: null,
+      weeks: [
+        {
+          label: "2026-W44",
+          start: "2026-10-26",
+          load: 1250,
+          sessions: 3,
+          days: 2,
+          without_load: 1,
+          rest_days: 2,
+          others: [48],
+          others_without: [2],
+          acwr: null,
+          monotony: 1.2,
+          strain: 1500,
+        },
+      ],
+      shown: 12,
+      longest_streak: { days: 3, start: "2026-10-26", end: "2026-10-28" },
+      current_streak: 0,
+    },
+    {
       widget: "scatter",
       label: "Nothing yet",
       x_label: "Sleep hours",
@@ -231,6 +261,16 @@ describe("Dashboards", () => {
     expect(screen.getByRole("img", { name: "Feel score vs Sleep hours" })).toBeInTheDocument();
     expect(screen.getByText("n = 1; Feel score 1 day(s) later")).toBeInTheDocument();
     expect(screen.getByText("Nothing logged yet.")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Training load" })).toBeInTheDocument();
+    expect(screen.getByText(/building a baseline until 01\/11/)).toBeInTheDocument();
+    expect(screen.getByText(/3 day\(s\), 26\/10–28\/10/)).toBeInTheDocument();
+    const week = screen.getByRole("row", { name: /2026-W44/ });
+    // load, finger training, sessions, days trained, rest days, ratio, monotony, strain
+    expect(week).toHaveTextContent(
+      "2026-W44 (26/10)1250 (1 without load)48 (2 without load)322–1,21500",
+    );
+    expect(screen.getByRole("img", { name: "Finger training" })).toBeInTheDocument();
+    expect(screen.getByText(/in its own units, not in the ratio/)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Training calendar" })).toBeInTheDocument();
     expect(screen.getByText(/Each square is a day/)).toBeInTheDocument();
     const legend = screen.getByLabelText("Legend");

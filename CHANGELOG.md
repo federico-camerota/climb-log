@@ -17,6 +17,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   with n) and `scatter` (with a trend line, across entities with a lag), and the `line`'s
   `split_by` and `x`, drawn on the dashboard. A chart of a field that isn't a number is a load
   error; a line's legend shows the field's label, not its key.
+- Training load (#99, D-092): the journal's new `load` dashboard shows the weekly session-RPE
+  load (sessions without duration or effort flagged), sessions and days trained, rest days,
+  finger training on its own chart (sessions without effort flagged), the acute:chronic
+  workload ratio with zones as context, monotony, strain and training streaks, and sessions
+  per week by type.
 
 ### Changed
 - M4 scoped (`design/07-roadmap.md`): eight issues, the analyses useful on little data first

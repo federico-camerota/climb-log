@@ -516,6 +516,36 @@ export interface components {
             /** X Label */
             x_label?: string | null;
         };
+        /** LoadWeek */
+        LoadWeek: {
+            /** Acwr */
+            acwr: number | null;
+            /** Days */
+            days: number;
+            /** Label */
+            label: string;
+            /** Load */
+            load: number;
+            /** Monotony */
+            monotony: number | null;
+            /** Others */
+            others: number[];
+            /** Others Without */
+            others_without: number[];
+            /** Rest Days */
+            rest_days: number;
+            /** Sessions */
+            sessions: number;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /** Strain */
+            strain: number | null;
+            /** Without Load */
+            without_load: number;
+        };
         /** MetricCatalogue */
         MetricCatalogue: {
             /** Filters */
@@ -967,6 +997,21 @@ export interface components {
             /** Status */
             status: unknown;
         };
+        /** Streak */
+        Streak: {
+            /** Days */
+            days: number;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
         /** TableData */
         TableData: {
             /** Averages */
@@ -1013,6 +1058,37 @@ export interface components {
             /** Problems */
             problems: string[];
         };
+        /** TrainingLoadData */
+        TrainingLoadData: {
+            /** Absent */
+            absent: string[];
+            /** Acute */
+            acute: number;
+            /** Acwr Today */
+            acwr_today: number | null;
+            /** Baseline From */
+            baseline_from: string | null;
+            /** Chronic */
+            chronic: number;
+            /** Current Streak */
+            current_streak: number;
+            /** Label */
+            label: string | null;
+            longest_streak: components["schemas"]["Streak"] | null;
+            /** Others */
+            others: string[];
+            /** Shown */
+            shown: number;
+            /** Weeks */
+            weeks: components["schemas"]["LoadWeek"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "training_load";
+            /** Zones */
+            zones: number[];
+        };
         /** Trend */
         Trend: {
             /** From */
@@ -1053,7 +1129,7 @@ export interface components {
             /** View */
             view: string;
             /** Widgets */
-            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["HeatmapData"] | components["schemas"]["SideBySideData"] | components["schemas"]["TextFeedData"] | components["schemas"]["TableData"] | components["schemas"]["MonthlyData"] | components["schemas"]["BarsData"] | components["schemas"]["WeekbarsData"] | components["schemas"]["StackedData"] | components["schemas"]["BoxByData"] | components["schemas"]["ScatterData"] | components["schemas"]["PlannedData"])[];
+            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["HeatmapData"] | components["schemas"]["SideBySideData"] | components["schemas"]["TextFeedData"] | components["schemas"]["TableData"] | components["schemas"]["MonthlyData"] | components["schemas"]["BarsData"] | components["schemas"]["WeekbarsData"] | components["schemas"]["StackedData"] | components["schemas"]["BoxByData"] | components["schemas"]["ScatterData"] | components["schemas"]["TrainingLoadData"] | components["schemas"]["PlannedData"])[];
         };
         /** WeekbarsData */
         WeekbarsData: {

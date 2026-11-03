@@ -388,3 +388,14 @@ views:
         - {label: Rest days logged,   count: rest_day}
         - {label: Rest-day wellbeing, mean: rest_day.wellbeing_score}
       months: 6
+  # Training load (D-092): session-RPE load per week (duration x effort), the acute:chronic
+  # ratio with zones as context, monotony, strain and streaks; finger training stacked.
+  load:
+    - widget: training_load
+      label: Training load
+      load: session.session_load
+      inputs: [session.duration_min, session.feel_effort]
+      rest: rest_day
+      others: [{module: finger_strength, metric: session.set_load, label: Finger training (sets x effort)}]
+      weeks: 12
+    - {widget: weekbars, metric: session.session_type, label: Sessions per week by type}

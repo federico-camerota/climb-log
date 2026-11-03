@@ -17,6 +17,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from climblog.analytics.load import Other, training_load
 from climblog.analytics.metrics import Query, run_query
 from climblog.expr import Value
 from climblog.expr.functions import sheet_round
@@ -40,6 +41,7 @@ from climblog.modules.schema import (
     StatusBoardWidget,
     TableWidget,
     TextFeedWidget,
+    TrainingLoadWidget,
     WeekbarsWidget,
     Widget,
 )
@@ -70,9 +72,11 @@ def compute_view(
     tables: Tables,
     settings: Mapping[str, Value],
     day: dt.date,
+    others: Other | None = None,
 ) -> list[dict[str, Any]]:
     """Each widget's data, in order. `tables[entity]` holds each record's stored and derived
-    values (deleted ones left out)."""
+    values (deleted ones left out); `others` finds another module and its records by its
+    `module:` id (the training load's other sources)."""
     found: dict[str, _Records] = {}
 
     def records(entity: str) -> _Records:
@@ -117,9 +121,15 @@ def compute_view(
             result.append(_box_by(module, widget, records))
         elif isinstance(widget, ScatterWidget):
             result.append(_scatter(module, widget, tables, records, day))
+        elif isinstance(widget, TrainingLoadWidget):
+            result.append(training_load(module, widget, tables, day, others or _none))
         else:
             result.append(_planned(widget))
     return result
+
+
+def _none(_: str) -> None:
+    return None
 
 
 def _metrics(widget: Widget) -> list[str]:
@@ -139,6 +149,8 @@ def _metrics(widget: Widget) -> list[str]:
         return [series.metric for series in widget.series]
     if isinstance(widget, ScatterWidget):
         return [widget.x, widget.y]
+    if isinstance(widget, TrainingLoadWidget):
+        return [widget.load]
     if isinstance(widget, MonthlyWidget):
         means = [extra.mean for extra in widget.extra if extra.mean is not None]
         return [c.score for c in widget.classes] + ([widget.low] if widget.low else []) + means

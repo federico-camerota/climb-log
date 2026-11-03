@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from climblog.analytics import compute_view
 from climblog.api.modules import catalog
+from climblog.modules.schema import Module
 from climblog.storage import StorageError
 
 router = APIRouter()
@@ -286,6 +287,43 @@ class ScatterData(BaseModel):
     trend: Trend | None  # least squares, from 3 points
 
 
+class LoadWeek(BaseModel):
+    label: str  # 2026-W44
+    start: dt.date  # its Monday
+    load: float  # the sum of the records' loads
+    sessions: int
+    days: int  # days with at least one session (two sessions on one day: 1)
+    without_load: int  # records missing an input: counted as 0
+    rest_days: int
+    others: list[float]  # one per other source (its own chart: other units)
+    others_without: list[int]  # per other source: its records without a value (e.g. no effort)
+    acwr: float | None  # at the week's last day (or the day asked); none before the baseline
+    monotony: float | None
+    strain: float | None
+
+
+class Streak(BaseModel):
+    days: int
+    start: dt.date
+    end: dt.date
+
+
+class TrainingLoadData(BaseModel):
+    widget: Literal["training_load"]
+    label: str | None
+    others: list[str]  # the other sources' labels
+    absent: list[str]  # other sources whose module isn't configured or doesn't load
+    zones: list[float]  # low, high, very high
+    acute: int
+    chronic: int
+    baseline_from: dt.date | None  # the ratio is shown from this day on
+    acwr_today: float | None
+    weeks: list[LoadWeek]  # from the first record's week, oldest first
+    shown: int
+    longest_streak: Streak | None
+    current_streak: int
+
+
 class PlannedData(BaseModel):
     widget: Literal["planned"]
     label: str | None
@@ -307,6 +345,7 @@ WidgetData = Annotated[
     | StackedData
     | BoxByData
     | ScatterData
+    | TrainingLoadData
     | PlannedData,
     Field(discriminator="widget"),
 ]
@@ -339,7 +378,18 @@ def get_view(request: Request, module: str, view: str, date: dt.date | None = No
         tables, settings = current.full_tables(entry)
     except StorageError as error:
         raise HTTPException(503, str(error)) from None
-    widgets = compute_view(entry.module, views[view], tables, settings, day)
+
+    def others(module_id: str) -> tuple[Module, Any] | None:
+        """Another loaded module by its `module:` id, with its records (unreadable: none)."""
+        for other in current.entries.values():
+            if other.module is not None and other.module.module == module_id and other is not entry:
+                try:
+                    return other.module, current.full_tables(other)[0]
+                except StorageError:
+                    return None
+        return None
+
+    widgets = compute_view(entry.module, views[view], tables, settings, day, others)
     return View.model_validate(
         {
             "module": module,
