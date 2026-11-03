@@ -28,6 +28,7 @@ export type WeekbarsData = Schemas["WeekbarsData"];
 export type StackedData = Schemas["StackedData"];
 export type BoxByData = Schemas["BoxByData"];
 export type ScatterData = Schemas["ScatterData"];
+export type TrainingLoadData = Schemas["TrainingLoadData"];
 export type Today = Schemas["Today"];
 export type ModuleDay = Schemas["ModuleDay"];
 export type DueForm = Schemas["DueForm"];

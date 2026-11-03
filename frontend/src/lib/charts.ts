@@ -3,7 +3,14 @@
 // scatter. The backend computes every number; these only lay them out. Every chart says n.
 import type { EChartsCoreOption } from "echarts/core";
 
-import type { BarsData, BoxByData, ScatterData, StackedData, WeekbarsData } from "../api/client";
+import type {
+  BarsData,
+  BoxByData,
+  ScatterData,
+  StackedData,
+  TrainingLoadData,
+  WeekbarsData,
+} from "../api/client";
 
 export const PALETTE = ["#228be6", "#40c057", "#fd7e14", "#be4bdb", "#15aabf", "#e64980"];
 // A status stack keeps its status colour (the journal's levels and the programs' traffic lights).
@@ -150,4 +157,79 @@ export function scatterOption(data: ScatterData): EChartsCoreOption {
     yAxis: { type: "value", scale: true, name: data.y_label },
     series,
   };
+}
+
+/** "05/10" for 2026-10-05. */
+export function shortDate(iso: string): string {
+  const [, month, day] = iso.split("-");
+  return `${day ?? ""}/${month ?? ""}`;
+}
+
+// The ACWR zones' colours: under the low limit, the usual range, high, very high.
+const ZONE_COLOURS = [
+  "rgba(134, 142, 150, 0.10)",
+  "rgba(64, 192, 87, 0.10)",
+  "rgba(250, 176, 5, 0.12)",
+  "rgba(250, 82, 82, 0.12)",
+];
+
+/** Weekly load (stacked with the other sources) on the left axis, the ACWR at each week's end
+ * on the right one, with its zones behind it. */
+export function loadOption(data: TrainingLoadData): EChartsCoreOption {
+  const weeks = data.weeks.map((w) => w.label);
+  const [low = 0.8, high = 1.3, top = 1.5] = data.zones;
+  const ratios = data.weeks.map((w) => w.acwr).filter((v): v is number => v !== null);
+  const ceiling = Math.max(2, ...ratios.map((r) => Math.ceil(r * 2) / 2));
+  const bounds = [0, low, high, top, ceiling];
+  return {
+    tooltip: { trigger: "axis" },
+    legend: { top: 0 },
+    grid: { left: 56, right: 48, top: 48, bottom: 64 },
+    xAxis: { type: "category", data: weeks },
+    yAxis: [
+      { type: "value", name: "Load" },
+      { type: "value", name: "ACWR", min: 0, max: ceiling, splitLine: { show: false } },
+    ],
+    series: [
+      {
+        type: "bar",
+        stack: "load",
+        name: "Climbing journal",
+        data: data.weeks.map((w) => w.load),
+        itemStyle: { color: PALETTE[0] },
+      },
+      ...data.others.map((label, i) => ({
+        type: "bar",
+        stack: "load",
+        name: label,
+        data: data.weeks.map((w) => w.others[i] ?? 0),
+        itemStyle: { color: PALETTE[(i + 2) % PALETTE.length] },
+      })),
+      {
+        type: "line",
+        name: "ACWR",
+        yAxisIndex: 1,
+        data: data.weeks.map((w) => w.acwr),
+        connectNulls: false,
+        itemStyle: { color: "#495057" },
+        markArea: {
+          silent: true,
+          data: ZONE_COLOURS.map((colour, i) => [
+            { yAxis: bounds[i], itemStyle: { color: colour } },
+            { yAxis: bounds[i + 1] },
+          ]),
+        },
+      },
+    ],
+    ...zoom(weeks.length, data.shown),
+  };
+}
+
+/** Where a ratio lies among the zones. */
+export function zoneOf(ratio: number, zones: number[]): string {
+  const [low = 0.8, high = 1.3, top = 1.5] = zones;
+  if (ratio < low) return "below the usual range";
+  if (ratio <= high) return "in the usual range";
+  if (ratio <= top) return "high";
+  return "very high";
 }

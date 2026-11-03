@@ -54,6 +54,8 @@ entities:
       est_1rm_right:    "max(children(curl_set).est_1rm_right)"
       curl_volume:      "sum(children(curl_set).volume_kg)"
       lr_imbalance_pct: "round(100 * (est_1rm_left - est_1rm_right) / max(est_1rm_left, est_1rm_right), 1)"   # + = left stronger
+      # the journal's training load stacks it (D-092): no duration here, so sets x effort
+      set_load: {expr: "n_sets * session_rpe", sheet_formula: false}
 
   hang_set:
     label: Hang set

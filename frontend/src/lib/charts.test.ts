@@ -1,15 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { describe, expect, it } from "vitest";
 
-import type { BarsData, BoxByData, LineData, ScatterData, WeekbarsData } from "../api/client";
+import type {
+  BarsData,
+  BoxByData,
+  LineData,
+  ScatterData,
+  TrainingLoadData,
+  WeekbarsData,
+} from "../api/client";
 import {
   barsOption,
   boxLabel,
   boxOption,
   decimal,
+  loadOption,
   scatterOption,
+  shortDate,
   stackedOption,
   weekbarsOption,
+  zoneOf,
 } from "./charts";
 import { lineOption } from "./lineChart";
 
@@ -164,5 +174,58 @@ describe("the chart options", () => {
       [1, 5.5],
       [2, 8],
     ]);
+  });
+
+  it("stacks the weekly loads and draws the ratio on its own axis with zones", () => {
+    const data: TrainingLoadData = {
+      widget: "training_load",
+      label: null,
+      others: ["Fingers"],
+      absent: [],
+      zones: [0.8, 1.3, 1.5],
+      acute: 7,
+      chronic: 28,
+      baseline_from: "2026-10-01",
+      acwr_today: 2.4,
+      weeks: [
+        {
+          label: "2026-W44",
+          start: "2026-10-26",
+          load: 900,
+          sessions: 3,
+          without_load: 0,
+          rest_days: 1,
+          others: [40],
+          acwr: 2.4,
+          monotony: null,
+          strain: null,
+        },
+      ],
+      shown: 12,
+      longest_streak: null,
+      current_streak: 0,
+    };
+    const option = loadOption(data) as Option;
+    expect(option.series.map((s) => [s.name, s.stack, s.yAxisIndex])).toEqual([
+      ["Climbing journal", "load", undefined],
+      ["Fingers", "load", undefined],
+      ["ACWR", undefined, 1],
+    ]);
+    const axes = option.yAxis as Record<string, unknown>[];
+    expect(axes[1]).toMatchObject({ min: 0, max: 2.5 }); // room for 2.4
+    const zones = (option.series[2]?.markArea as { data: { yAxis: number }[][] }).data;
+    expect(zones.map(([from, to]) => [from?.yAxis, to?.yAxis])).toEqual([
+      [0, 0.8],
+      [0.8, 1.3],
+      [1.3, 1.5],
+      [1.5, 2.5],
+    ]);
+    expect([0.5, 1, 1.4, 2].map((r) => zoneOf(r, data.zones))).toEqual([
+      "below the usual range",
+      "in the usual range",
+      "high",
+      "very high",
+    ]);
+    expect(shortDate("2026-10-05")).toBe("05/10");
   });
 });

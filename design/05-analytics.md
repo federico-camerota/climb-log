@@ -75,6 +75,11 @@ next morning" joined to the previous day's session). A filter applies to its ent
     **monotony** and **strain** (Foster);
   - sessions per week, climbing days vs rest days, longest streaks.
   - The ACWR is shown as context with zones, not as a hard rule.
+  - Done (D-092, #99): the `training_load` widget in the journal's `load` view (Dashboards →
+    load): weekly load (a session missing duration or effort counts as 0 and the week says
+    so), rest days, finger training stacked (sets x effort, not in the ratio), ACWR from the
+    28th day on with zones 0.8 / 1.3 / 1.5, monotony and strain per week, current and longest
+    streaks; sessions per week by type as `weekbars`.
 - **Recovery patterns**: performance metrics (feel score, overall score, hardest grade) vs
   days since the previous session (box plot), vs rest-day type before it, vs weekday.
 - **Grades**: hardest grade over time (numeric index via the grade parser, `climblog/grades.py`:

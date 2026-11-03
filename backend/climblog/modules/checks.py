@@ -44,6 +44,7 @@ from climblog.modules.schema import (
     TableWidget,
     TemplateUse,
     TextFeedWidget,
+    TrainingLoadWidget,
     WeekbarsWidget,
     YamlPath,
 )
@@ -632,6 +633,14 @@ def _views(module: Module) -> list[Problem]:
                 if widget.color is not None and widget.color.count(".") == 1:
                     metrics.append(((*at, "color"), widget.color))
                     problems += _same_entity(widget.color, widget.x, (*at, "color"))
+            elif isinstance(widget, TrainingLoadWidget):
+                metrics.append(((*at, "load"), widget.load))
+                for j, item in enumerate(widget.inputs):
+                    metrics.append(((*at, "inputs", j), item))
+                    problems += _same_entity(item, widget.load, (*at, "inputs", j))
+                if widget.rest is not None:
+                    problems += _entity_named(module, widget.rest, (*at, "rest"))
+                # other modules are known only from the app config: checked when computed
             else:
                 problems += _entity_fields(module, widget, at)
             for path, text in metrics:

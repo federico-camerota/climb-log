@@ -21,6 +21,7 @@ import {
   BoxByCard,
   ScatterCard,
   StackedCard,
+  TrainingLoadCard,
   WeekbarsCard,
 } from "../components/ChartWidgets";
 import {
@@ -143,6 +144,8 @@ function Widgets({ view }: { view: View }) {
             return <BoxByCard key={i} data={w} />;
           case "scatter":
             return <ScatterCard key={i} data={w} />;
+          case "training_load":
+            return <TrainingLoadCard key={i} data={w} />;
           case "planned":
             return <PlannedCard key={i} data={w} />;
           default:

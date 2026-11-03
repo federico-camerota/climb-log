@@ -791,6 +791,39 @@ class ScatterWidget(_Widget):
     lag: int = Field(0, ge=-31, le=31)
 
 
+class LoadSource(Strict):
+    """Another module's load, stacked with this one's (e.g. finger training)."""
+
+    module: Key  # the other module's `module:` id
+    metric: str  # its `entity.field`
+    label: str
+
+
+class TrainingLoadWidget(_Widget):
+    """Weekly training load (05 §3.1): the sum of `load` per week, the records without one
+    (an input missing), rest days, other modules' loads stacked, the acute:chronic workload
+    ratio (EWMA, shown with zones as context, not as a rule), monotony and strain (Foster),
+    and streaks of consecutive training days."""
+
+    widget: Literal["training_load"]
+    load: str  # `entity.field`: a record's load (session-RPE: duration x effort)
+    inputs: list[str] = []  # fields of the load's entity: a record missing one has no load
+    rest: Key | None = None  # an entity counted as rest days
+    others: list[LoadSource] = []  # stacked, not in the ratio, monotony or strain
+    weeks: int = Field(12, ge=1)  # shown at first
+    acute: int = Field(7, ge=1)  # days of the acute EWMA
+    chronic: int = Field(28, ge=2)  # days of the chronic EWMA, also the baseline needed
+    zones: list[float] = Field([0.8, 1.3, 1.5], min_length=3, max_length=3)  # low, high, very high
+
+    @model_validator(mode="after")
+    def _windows(self) -> Self:
+        if self.acute >= self.chronic:
+            raise ValueError("the acute window must be shorter than the chronic one")
+        if self.zones != sorted(self.zones):
+            raise ValueError("zones go up: low, high, very high")
+        return self
+
+
 class LaterWidget(BaseModel):
     """A widget of the planned library (03 §2.7) the app doesn't draw yet (M4/M5): its options
     are checked when it is."""
@@ -820,6 +853,7 @@ Widget = Annotated[
     | StackedWidget
     | BoxByWidget
     | ScatterWidget
+    | TrainingLoadWidget
     | LaterWidget,
     Field(discriminator="widget"),
 ]

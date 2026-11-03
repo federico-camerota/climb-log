@@ -110,6 +110,7 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
   → done (D-091, #98).
 - Training load: weekly session-RPE load, ACWR (EWMA, shown with zones, not as a rule),
   monotony and strain, sessions per week, streaks; as widgets on the journal dashboard.
+  → done (D-092, #99): the journal's `load` view.
 - Pre → post deltas by session type (paired dots per body part) and soreness by body part ×
   week.
 - Grades: hardest grade over time (French and gym on separate axes, D-017/D-047), grade

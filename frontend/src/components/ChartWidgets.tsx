@@ -1,16 +1,26 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Cards of the widget library v1 (#98, D-091): each draws the backend's numbers with ECharts.
-import { Card, Text, Title } from "@mantine/core";
+import { Card, Group, Stack, Table, Text, Title } from "@mantine/core";
 import { useMemo } from "react";
 
-import type { BarsData, BoxByData, ScatterData, StackedData, WeekbarsData } from "../api/client";
+import type {
+  BarsData,
+  BoxByData,
+  ScatterData,
+  StackedData,
+  TrainingLoadData,
+  WeekbarsData,
+} from "../api/client";
 import {
   barsOption,
   boxOption,
   decimal,
+  loadOption,
   scatterOption,
+  shortDate,
   stackedOption,
   weekbarsOption,
+  zoneOf,
 } from "../lib/charts";
 import { Chart } from "./Chart";
 
@@ -116,5 +126,98 @@ export function ScatterCard({ data }: { data: ScatterData }) {
     >
       <Chart option={option} label={title} />
     </ChartCard>
+  );
+}
+
+/** Weekly training load with the ACWR, monotony, strain and streaks (D-092). */
+export function TrainingLoadCard({ data }: { data: TrainingLoadData }) {
+  const option = useMemo(() => loadOption(data), [data]);
+  const title = data.label ?? "Training load";
+  const recent = [...data.weeks].reverse().slice(0, data.shown);
+  let ratio: string;
+  if (data.acwr_today !== null) {
+    ratio = `${decimal(data.acwr_today)} (${zoneOf(data.acwr_today, data.zones)})`;
+  } else if (data.baseline_from !== null) {
+    ratio = `building a baseline until ${shortDate(data.baseline_from)}`;
+  } else {
+    ratio = "–";
+  }
+  const longest = data.longest_streak;
+  return (
+    <Card withBorder>
+      <Title order={4} mb="xs">
+        {title}
+      </Title>
+      {data.weeks.length === 0 ? (
+        <Text c="dimmed">Nothing logged yet.</Text>
+      ) : (
+        <Stack gap="sm">
+          <Group gap="xl">
+            <Text size="sm">
+              <b>Acute:chronic ratio today:</b> {ratio}
+            </Text>
+            <Text size="sm">
+              <b>Current streak:</b> {data.current_streak} day(s)
+            </Text>
+            {longest !== null && (
+              <Text size="sm">
+                <b>Longest streak:</b> {longest.days} day(s), {shortDate(longest.start)}–
+                {shortDate(longest.end)}
+              </Text>
+            )}
+          </Group>
+          <Chart option={option} label={title} />
+          <Table striped>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Week</Table.Th>
+                <Table.Th>Load</Table.Th>
+                {data.others.map((label) => (
+                  <Table.Th key={label}>{label}</Table.Th>
+                ))}
+                <Table.Th>Sessions</Table.Th>
+                <Table.Th>Rest days</Table.Th>
+                <Table.Th>ACWR</Table.Th>
+                <Table.Th>Monotony</Table.Th>
+                <Table.Th>Strain</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {recent.map((week) => (
+                <Table.Tr key={week.label}>
+                  <Table.Td>
+                    {week.label} ({shortDate(week.start)})
+                  </Table.Td>
+                  <Table.Td>
+                    {decimal(week.load)}
+                    {week.without_load > 0 && (
+                      <Text span c="orange" size="xs">
+                        {" "}
+                        ({week.without_load} without load)
+                      </Text>
+                    )}
+                  </Table.Td>
+                  {week.others.map((value, i) => (
+                    <Table.Td key={data.others[i] ?? i}>{decimal(value)}</Table.Td>
+                  ))}
+                  <Table.Td>{week.sessions}</Table.Td>
+                  <Table.Td>{week.rest_days}</Table.Td>
+                  <Table.Td>{decimal(week.acwr)}</Table.Td>
+                  <Table.Td>{decimal(week.monotony)}</Table.Td>
+                  <Table.Td>{decimal(week.strain)}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+          <Text size="xs" c="dimmed">
+            Load = duration × effort (session RPE); a session missing either counts as 0. The ratio
+            compares the last {data.acute} days with the last {data.chronic} (exponentially
+            weighted): context, not a rule. Monotony = the week&apos;s mean daily load over its
+            spread; strain = load × monotony.
+            {data.absent.length > 0 && ` Not found in the app config: ${data.absent.join(", ")}.`}
+          </Text>
+        </Stack>
+      )}
+    </Card>
   );
 }
