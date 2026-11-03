@@ -1518,7 +1518,7 @@
     },
     "GradesWidget": {
       "additionalProperties": false,
-      "description": "A grade field over time (French and gym on separate axes, never converted, D-017), gym\ngrades one series per venue (each gym grades its own way); sessions by grade per period\n(a pyramid); and by setting and venue.",
+      "description": "A grade field over time (French, Font and gym on separate axes, never converted, D-017),\ngym grades one series per venue (each gym grades its own way), split by discipline when\ngiven (D-105); sessions by grade per period (a pyramid); and by setting and venue.",
       "properties": {
         "label": {
           "anyOf": [
@@ -1564,6 +1564,30 @@
           ],
           "default": null,
           "title": "Setting"
+        },
+        "discipline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Discipline"
+        },
+        "style": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Style"
         },
         "group": {
           "default": "month",

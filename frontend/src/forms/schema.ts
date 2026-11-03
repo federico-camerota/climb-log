@@ -19,6 +19,7 @@ export interface FieldDef {
   unit?: string;
   scale?: string;
   choices?: string[];
+  systems?: string[]; // a grade field's: french, font, gym
   multiline?: boolean;
   retired?: boolean;
   visible_if?: string; // shown only while this condition holds (the backend says, D-099)
@@ -161,4 +162,13 @@ export function fieldLabel(name: string, field: FieldDef, scale?: ScaleDef): str
 export function formLabel(name: string): string {
   const text = name.replaceAll("_", " ");
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+const GRADE_EXAMPLES: Record<string, string> = { french: "6b+", font: "6B+", gym: "5" };
+
+/** "e.g. 6b+, 6B+ or 5": an example of each of a grade field's systems. */
+export function gradeHint(systems: string[] = ["french"]): string {
+  const examples = systems.map((s) => GRADE_EXAMPLES[s] ?? s);
+  const last = examples.pop() ?? "";
+  return `e.g. ${examples.length > 0 ? `${examples.join(", ")} or ${last}` : last}`;
 }

@@ -365,39 +365,46 @@ export function bodyOption(data: BodyHeatmapData, source: number): EChartsCoreOp
   };
 }
 
-/** Grades over time: French on the left axis (labelled 6a, 6a+, …), gym grades on the right
- * one, never converted (D-017). */
+/** Grades over time, one axis per grade system, never converted (D-017, D-105): the first
+ * system logged on the left, the next on the right, a third further right; French and Font
+ * axes labelled with their grades (6a, 6a+, … or 6A, 6A+, …). */
 export function gradesOption(data: GradesData): EChartsCoreOption {
-  const labels = new Map(data.french_ticks.map((t) => [t.index, t.label]));
-  const ticks = data.french_ticks.map((t) => t.index);
-  const hasGym = data.series.some((s) => s.system === "gym");
-  const hasFrench = data.series.some((s) => s.system === "french");
-  const axes: Record<string, unknown>[] = [];
-  if (hasFrench)
-    axes.push({
+  const systems = (["french", "font", "gym"] as const).filter((system) =>
+    data.series.some((s) => s.system === system),
+  );
+  const axes = systems.map((system, i) => {
+    const place = { position: i === 0 ? "left" : "right", offset: i === 2 ? 56 : 0 };
+    if (system === "gym")
+      return { type: "value", name: "Gym", scale: true, minInterval: 1, ...place };
+    const ticks = system === "french" ? data.french_ticks : data.font_ticks;
+    const labels = new Map(ticks.map((t) => [t.index, t.label]));
+    const indexes = ticks.map((t) => t.index);
+    return {
       type: "value",
-      name: "French",
-      min: Math.min(...ticks) - 1,
-      max: Math.max(...ticks) + 1,
+      name: system === "french" ? "French" : "Font",
+      min: Math.min(...indexes) - 1,
+      max: Math.max(...indexes) + 1,
       interval: 1,
       axisLabel: { formatter: (v: number) => labels.get(v) ?? "" },
-    });
-  if (hasGym) axes.push({ type: "value", name: "Gym", scale: true, minInterval: 1 });
+      ...place,
+    };
+  });
   return {
     tooltip: {
       trigger: "item",
-      formatter: (p: { seriesName: string; value: [string, number, string] }) =>
-        `${shortDate(p.value[0])} · ${p.seriesName}: ${p.value[2]}`,
+      formatter: (p: { seriesName: string; value: [string, number, string, string | null] }) =>
+        `${shortDate(p.value[0])} · ${p.seriesName}: ${p.value[2]}` +
+        (p.value[3] ? ` (${p.value[3]})` : ""),
     },
     legend: { top: 0 },
-    grid: { left: 56, right: 56, top: 48, bottom: 40 },
+    grid: { left: 56, right: systems.length > 2 ? 112 : 56, top: 48, bottom: 40 },
     xAxis: { type: "time" },
     yAxis: axes,
     series: data.series.map((series, i) => ({
       type: "line",
       name: series.label,
-      yAxisIndex: series.system === "gym" && hasFrench ? 1 : 0,
-      data: series.points.map((p) => [p.date, p.index, p.grade]),
+      yAxisIndex: systems.indexOf(series.system),
+      data: series.points.map((p) => [p.date, p.index, p.grade, p.style]),
       symbolSize: 8,
       lineStyle: { width: 1.5, opacity: 0.6 },
       itemStyle: { color: PALETTE[i % PALETTE.length] },
@@ -405,7 +412,7 @@ export function gradesOption(data: GradesData): EChartsCoreOption {
   };
 }
 
-/** Sessions by hardest grade tried in a period, the hardest grade at the top. */
+/** Sessions by grade in a period, the hardest grade at the top. */
 export function pyramidOption(data: GradesData, row: number, period: number): EChartsCoreOption {
   const found = data.pyramid.rows[row];
   const grades = found?.grades ?? [];

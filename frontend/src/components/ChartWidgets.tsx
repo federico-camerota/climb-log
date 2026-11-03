@@ -358,7 +358,8 @@ export function BodyHeatmapCard({ data }: { data: BodyHeatmapData }) {
   );
 }
 
-/** The hardest grade tried over time, its pyramid per period, by setting and by venue (D-094). */
+/** A grade per session (the hardest tried, or the hardest send) over time, its pyramid per
+ * period, by setting and by venue, split by discipline (D-094, D-105). */
 export function GradesCard({ data }: { data: GradesData }) {
   const option = useMemo(() => gradesOption(data), [data]);
   const periods = data.pyramid.periods;
@@ -381,7 +382,7 @@ export function GradesCard({ data }: { data: GradesData }) {
         <Stack gap="sm">
           <Chart option={option} label={title} />
           <Group justify="space-between">
-            <Text fw={500}>Sessions by hardest grade tried</Text>
+            <Text fw={500}>Sessions by {data.grade_label.toLowerCase()}</Text>
             <Group gap="xs">
               <Select
                 aria-label="Grades of"
@@ -423,8 +424,9 @@ export function GradesCard({ data }: { data: GradesData }) {
             />
           )}
           <Text size="xs" c="dimmed">
-            The hardest grade tried per session (not sends). French and gym grades are never
-            converted; each gym grades its own way, so its grades are a series of their own.
+            {data.grade_label} per session. French, Font and gym grades are never converted; each
+            gym grades its own way, so its grades are a series of their own, and sport and
+            bouldering grades are apart.
             {data.unparsed > 0 &&
               ` ${String(data.unparsed)} value(s) that aren't grades left out (see Records).`}
           </Text>
@@ -432,6 +434,13 @@ export function GradesCard({ data }: { data: GradesData }) {
       )}
     </Card>
   );
+}
+
+/** "Bouldering · Font", "Gym · venue": a table row's grades, named as the series are. */
+function gradesOf(r: { system: string; venue?: string | null; discipline: string | null }) {
+  const name = { french: "French", font: "Font" }[r.system] ?? "Gym";
+  const where = r.system === "gym" && r.venue ? `${name} · ${r.venue}` : name;
+  return r.discipline ? `${r.discipline} · ${where}` : where;
 }
 
 function GradeTable({
@@ -443,6 +452,7 @@ function GradeTable({
     name: string;
     system: string;
     venue?: string | null;
+    discipline: string | null;
     sessions: number;
     hardest: string;
     median: string;
@@ -461,11 +471,9 @@ function GradeTable({
       </Table.Thead>
       <Table.Tbody>
         {rows.map((r) => (
-          <Table.Tr key={`${r.name}-${r.system}-${r.venue ?? ""}`}>
+          <Table.Tr key={`${r.name}-${r.discipline ?? ""}-${r.system}-${r.venue ?? ""}`}>
             <Table.Td>{r.name}</Table.Td>
-            <Table.Td>
-              {r.system === "french" ? "French" : r.venue ? `Gym · ${r.venue}` : "Gym"}
-            </Table.Td>
+            <Table.Td>{gradesOf(r)}</Table.Td>
             <Table.Td>{r.sessions}</Table.Td>
             <Table.Td>{r.hardest}</Table.Td>
             <Table.Td>{r.median}</Table.Td>

@@ -86,5 +86,41 @@ entities:
 """
     assert problems(text) == [
         "11:46 entities.session.fields.grade.systems[1]: grade system 'uiaa' is not supported "
-        "yet (supported: french, gym)"
+        "yet (supported: french, font, gym)"
     ]
+
+
+ALL = ["french", "font", "gym"]
+
+
+@pytest.mark.parametrize(
+    ("text", "systems", "expected"),
+    [
+        # both letter systems allowed: the case tells them apart (D-105)
+        ("6B+", ALL, Grade("font", 33, "6B+")),
+        ("6b+", ALL, Grade("french", 33, "6b+")),
+        ("7A", ALL, Grade("font", 36, "7A")),
+        ("6B/6B+", ALL, Grade("font", 32.5, "6B/6B+")),
+        ("6", ALL, Grade("gym", 6, "6")),
+        # one letter system: either case, written as that system writes it
+        ("6b", ["font"], Grade("font", 32, "6B")),
+        ("6B", ["french", "gym"], Grade("french", 32, "6b")),
+    ],
+)
+def test_font_grades(text: str, systems: list[str], expected: Grade) -> None:
+    assert parse_grade(text, systems) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "systems", "message"),
+    [
+        ("6b/6B+", ALL, "'6b/6B+' mixes a French and a Font grade"),
+        ("6B/6", ALL, "'6B/6' mixes a Font and a gym grade"),
+        ("6D", ["font"], "'6D' is not a Font grade (e.g. 6B+)"),
+        ("6A/7A", ALL, "'6A/7A' has its two grades too far apart"),
+    ],
+)
+def test_bad_font_grades(text: str, systems: list[str], message: str) -> None:
+    with pytest.raises(GradeError) as error:
+        parse_grade(text, systems)
+    assert error.value.message.startswith(message), error.value.message

@@ -146,6 +146,17 @@ def test_the_file_is_private_and_gzipped_json(path: Path, snapshots: Snapshots) 
             ).encode()
         ),
     ],
+    # fixed ids: gzip writes the time into its header, so bytes as ids differ between the
+    # pytest-xdist workers, which then refuse to run (D-104)
+    ids=[
+        "not gzip",
+        "not json",
+        "old format",
+        "another module",
+        "no tables",
+        "a bad cell",
+        "a bad kv value",
+    ],
 )
 def test_a_damaged_or_old_snapshot_is_ignored(snapshots: Snapshots, content: bytes) -> None:
     snapshots.folder.mkdir()

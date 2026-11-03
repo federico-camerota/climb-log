@@ -559,11 +559,15 @@ export interface components {
             index: number;
             /** Setting */
             setting: string | null;
+            /** Style */
+            style: string | null;
             /** Venue */
             venue: string | null;
         };
         /** GradeSeries */
         GradeSeries: {
+            /** Discipline */
+            discipline: string | null;
             /** Label */
             label: string;
             /** Points */
@@ -572,7 +576,7 @@ export interface components {
              * System
              * @enum {string}
              */
-            system: "french" | "gym";
+            system: "french" | "font" | "gym";
             /** Venue */
             venue: string | null;
         };
@@ -582,8 +586,12 @@ export interface components {
             by_setting: components["schemas"]["SettingRow"][];
             /** By Venue */
             by_venue: components["schemas"]["VenueRow"][];
+            /** Font Ticks */
+            font_ticks: components["schemas"]["Tick"][];
             /** French Ticks */
             french_ticks: components["schemas"]["Tick"][];
+            /** Grade Label */
+            grade_label: string;
             /** Label */
             label: string | null;
             /** Last */
@@ -1236,6 +1244,8 @@ export interface components {
         };
         /** SettingRow */
         SettingRow: {
+            /** Discipline */
+            discipline: string | null;
             /** Hardest */
             hardest: string;
             /** Median */
@@ -1504,6 +1514,8 @@ export interface components {
         };
         /** VenueRow */
         VenueRow: {
+            /** Discipline */
+            discipline: string | null;
             /** Hardest */
             hardest: string;
             /** Median */

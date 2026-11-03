@@ -115,7 +115,7 @@ entities:
 | `multichoice` | `a; b; c` text | text (`a; b; c`) | |
 | `bool` | `Yes`/`No` | Yes / No select | accepts Y/N, TRUE/FALSE, Sì/Si, 1/0 on read, any case |
 | `text` | text | input / textarea | `multiline`; Records' search covers every text field |
-| `grade` | text | text (e.g. `6b+`), parsed on save | `systems: [french, gym]`; the system is auto-detected among them (D-017) and parsed to a numeric index (D-047): French `6a` = 30, one step per letter or `+`; gym = the number; a slash grade `6a/6a+` sits halfway. `uiaa`, `yds`, `font`, `v` are not supported yet (load error) |
+| `grade` | text | text (e.g. `6b+`), parsed on save | `systems: [french, font, gym]`; the system is auto-detected among them (D-017) and parsed to a numeric index (D-047): French `6a` = 30, one step per letter or `+`; Font (Fontainebleau, D-105) the same steps in upper case, `6A` = 30, never compared with French; in a field allowing both, the case of the letter decides (`6b+` French, `6B+` Font); gym = the number; a slash grade `6a/6a+` sits halfway. `uiaa`, `yds`, `v` are not supported yet (load error) |
 | `duration` | minutes (number) | text: minutes or h:mm (D-077) | |
 | `ref` | id/key text | lookup select (M5) | references a reference-table key (e.g. ladder rung `A3`) |
 | `percent` | number 0–100 | text with a decimal keyboard | |
@@ -601,8 +601,10 @@ Before/after and body maps (#100, D-093):
 Grades (#101, D-094):
 
 ```yaml
-- widget: grades             # French and gym on their own axes, never converted
+- widget: grades             # French, Font and gym on their own axes, never converted
   grade: session.hardest_grade
+  discipline: session.tried_discipline   # every series split by it (sport, bouldering; D-105)
+  style: session.send_type   # optional: shown with each grade (a send's "Flash")
   venue: session.venue       # gym grades: one series per venue
   setting: session.setting   # the "by setting" table
   group: month               # the pyramid's periods (or week)

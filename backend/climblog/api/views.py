@@ -369,24 +369,26 @@ class GradePoint(BaseModel):
     grade: str  # as logged
     setting: str | None
     venue: str | None
+    style: str | None  # e.g. the send type (Flash), when the widget names a style field
 
 
 class GradeSeries(BaseModel):
-    system: Literal["french", "gym"]
+    system: Literal["french", "font", "gym"]
     venue: str | None  # gym grades: one series per venue
+    discipline: str | None  # sport or bouldering, when the widget splits by it (D-105)
     label: str
     points: list[GradePoint]
 
 
 class Tick(BaseModel):
     index: float
-    label: str  # 6a, 6a+, …
+    label: str  # 6a, 6a+, … (French) or 6A, 6A+, … (Font)
 
 
 class PyramidRow(BaseModel):
     label: str  # the series'
     grades: list[str]  # easiest first
-    counts: list[list[int]]  # [grade][period]: sessions with that hardest grade tried
+    counts: list[list[int]]  # [grade][period]: sessions with that grade
 
 
 class Pyramid(BaseModel):
@@ -397,6 +399,7 @@ class Pyramid(BaseModel):
 class SettingRow(BaseModel):
     setting: str
     venue: str | None = None  # a gym grade's venue: each gym grades its own way
+    discipline: str | None
     system: str
     sessions: int
     hardest: str
@@ -405,6 +408,7 @@ class SettingRow(BaseModel):
 
 class VenueRow(BaseModel):
     venue: str
+    discipline: str | None
     system: str
     sessions: int
     hardest: str
@@ -414,8 +418,10 @@ class VenueRow(BaseModel):
 class GradesData(BaseModel):
     widget: Literal["grades"]
     label: str | None
-    series: list[GradeSeries]  # French first, then gym per venue
+    grade_label: str  # the grade field's label: "Hardest grade tried", "Hardest send"
+    series: list[GradeSeries]  # per discipline: French, Font, then gym per venue
     french_ticks: list[Tick]
+    font_ticks: list[Tick]
     pyramid: Pyramid
     by_setting: list[SettingRow]
     by_venue: list[VenueRow]

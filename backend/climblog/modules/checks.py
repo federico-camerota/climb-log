@@ -741,7 +741,7 @@ def _views(module: Module) -> list[Problem]:
                         problems.append(
                             Problem((*at, "grade"), f"'{widget.grade}' is not a grade field")
                         )
-                for key in ("venue", "setting"):
+                for key in ("venue", "setting", "discipline", "style"):
                     other = getattr(widget, key)
                     if other is not None:
                         metrics.append(((*at, key), other))

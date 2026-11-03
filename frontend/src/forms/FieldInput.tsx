@@ -2,7 +2,7 @@
 import { Autocomplete, ColorSwatch, Group, Select, Text, Textarea, TextInput } from "@mantine/core";
 import { DateInput, TimeInput } from "@mantine/dates";
 
-import { fieldLabel, type FieldDef, type ScaleDef } from "./schema";
+import { fieldLabel, gradeHint, type FieldDef, type ScaleDef } from "./schema";
 import { isScale, scaleColour, scaleSteps, type InputValue } from "./values";
 
 interface Props {
@@ -107,7 +107,7 @@ export function FieldInput({ name, field, scale, value, onChange, error, suggest
       );
     default: {
       // numbers (decimal commas accepted), durations (90 or 1:30), grades, references
-      const hint = { duration: "min or h:mm", grade: "e.g. 6b+" }[field.type];
+      const hint = { duration: "min or h:mm", grade: gradeHint(field.systems) }[field.type];
       const numeric = ["integer", "number", "percent", "duration"].includes(field.type);
       return (
         <TextInput

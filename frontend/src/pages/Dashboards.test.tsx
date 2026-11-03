@@ -259,21 +259,41 @@ const VIEW = {
     {
       widget: "grades",
       label: "Hardest grade tried",
+      grade_label: "Hardest grade tried",
       series: [
         {
           system: "french",
           venue: null,
+          discipline: null,
           label: "French",
-          points: [{ date: "2026-10-01", index: 32, grade: "6b", setting: "Outdoor", venue: "F" }],
+          points: [
+            {
+              date: "2026-10-01",
+              index: 32,
+              grade: "6b",
+              setting: "Outdoor",
+              venue: "F",
+              style: null,
+            },
+          ],
         },
       ],
       french_ticks: [{ index: 32, label: "6b" }],
+      font_ticks: [],
       pyramid: { periods: ["2026-10"], rows: [{ label: "French", grades: ["6b"], counts: [[1]] }] },
       by_setting: [
-        { setting: "Outdoor", system: "french", sessions: 1, hardest: "6b", median: "6b" },
+        {
+          setting: "Outdoor",
+          discipline: null,
+          system: "french",
+          sessions: 1,
+          hardest: "6b",
+          median: "6b",
+        },
         {
           setting: "Indoor",
           venue: "[TEST] Gym A",
+          discipline: "Bouldering",
           system: "gym",
           sessions: 2,
           hardest: "6",
@@ -338,12 +358,13 @@ describe("Dashboards", () => {
     const week = screen.getByRole("row", { name: /2026-W44/ });
     expect(screen.getByRole("img", { name: "Hardest grade tried" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Sessions by grade, French" })).toBeInTheDocument();
+    expect(screen.getByText("Sessions by hardest grade tried")).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /Outdoor/ })).toHaveTextContent("OutdoorFrench16b6b");
     expect(
       screen.getByText(/2 value\(s\) that aren't grades left out \(see Records\)/),
     ).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /Indoor/ })).toHaveTextContent(
-      "IndoorGym · [TEST] Gym A265", // gym grades per venue
+      "IndoorBouldering · Gym · [TEST] Gym A265", // gym grades per venue, by discipline
     );
     const fingers = screen.getByRole("row", { name: /Fingers ↓/ });
     expect(fingers).toHaveTextContent("Fingers ↓24,5+2,54");
