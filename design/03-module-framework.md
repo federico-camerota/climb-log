@@ -427,10 +427,13 @@ column** in the sheet:
   (two consecutive falls on the same rung with BERP ≥ 3, fear ≤ 5, soft catch).
 
 ### 2.4 Program block
-Enables `program.week` (from `start_date`), `program.phase`, `program.is_light_week` on
+Enables `program.week`, `program.phase`, `program.is_light_week` on
 every record, week-based widgets, and **prescriptions** via a reference table keyed by
-item × week. The program can be restarted (new start date = new *run*). Every record
-stores `run` so you can compare run 1 and run 2 of the same program.
+item × week. A program **starts on an ISO week** of the year (`2026-W42`, D-103), not a date:
+week 1 runs from that week's Monday, and `program.week` counts whole weeks from there (the
+same in the sheet's formulas). The program can be restarted (a new start week = a new *run*).
+Every record stores `run` so you can compare run 1 and run 2 of the same program. (The draft
+YAMLs in `design/modules/` still show `start_date`; the program-block issue changes them.)
 
 ### 2.5 Reference tables
 ```yaml

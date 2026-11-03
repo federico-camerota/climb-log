@@ -10,7 +10,8 @@ M3 (the journal app: logging in the app on the computer, Today, records with fix
 dashboard at parity with the old Summary sheets, and the sheet's Summary tab) done, released
 as v0.3.0. M4 (analytics: the metric layer, widget library v1, training load, before/after and
 grades, the Explore page with correlations; also SVG charts and a calendar day's records)
-done, released as v0.4.0 (`07-roadmap.md`, D-086–D-098). Next is M5, the program modules.
+done, released as v0.4.0 (`07-roadmap.md`, D-086–D-098). Next: a few journal additions (hardest send, more body parts, a protein log), then M5, the
+program modules with a training plan (D-103).
 Last updated 2026-11-04.
 
 ## Read in this order

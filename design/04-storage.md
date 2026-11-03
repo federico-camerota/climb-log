@@ -398,6 +398,8 @@ stored on disk (`~/.local/share/climblog/snapshots/<module>.json.gz`, folder set
 | Climbing journal | Google Sheets | daily use, hand entry when away |
 | Shoulder program | Google Sheets | daily use |
 | Fear of falling | Google Sheets | daily use |
+| Training plan (M5, D-103) | decided in its issue | the week's planned sessions |
+| Protein log (before M5, D-103) | decided in its issue | protein per meal, the day's total |
 | **Finger strength** (4th) | local `.xlsx` | real journal (max hangs, finger curls) and the end-to-end test of the local backend, child entities and conditional fields (D-019, D-025) |
 
 Automated tests additionally use throwaway synthetic workbooks in a temp dir; they never touch the real journals.
