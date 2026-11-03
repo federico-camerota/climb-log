@@ -38,7 +38,7 @@ PAGES = {  # file → (path, height)
     "dashboard.png": (f"/dashboards/journal?date={DAY}", 2100),
     "load.png": (f"/dashboards/journal?date={DAY}&view=load", 1250),
     "explore.png": (
-        f"/explore?range=custom&start={START}&end={DAY}&tab=pair&x={SLEEP}&y={FEEL}",
+        f"/explore?tab=pair&x={SLEEP}&y={FEEL}&pair-range=custom&pair-start={START}&pair-end={DAY}",
         1000,
     ),
 }

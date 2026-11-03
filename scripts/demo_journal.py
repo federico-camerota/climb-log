@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from climblog.modules import load_module
+from climblog.modules.schema import Module
 from climblog.storage import RecordWriter, XlsxBackend, sync_module
 
 JOURNAL = Path(__file__).parent.parent / "modules" / "journal.yaml"
@@ -127,8 +128,20 @@ def write(path: Path, end: dt.date, seed: int, weeks: int = 26) -> int:
                 records.append(("session", session(rng, day, 2, form - 0.5)))
         elif roll < 0.7:
             records.append(("rest_day", rest_day(rng, day, form)))
-    RecordWriter(module, repo).add_many(records)
+    RecordWriter(module, repo).add_many([(e, tracked(module, e, r)) for e, r in records])
     return len(records)
+
+
+def tracked(module: Module, entity: str, values: dict[str, Any]) -> dict[str, Any]:
+    """The values without the fields not tracked yet on the record's day (`since:`, 03 §2.2):
+    the app's form doesn't ask for them, so a real journal has them blank."""
+    day = dt.date.fromisoformat(values["date"])
+    fields = module.entities[entity].fields
+    return {
+        name: value
+        for name, value in values.items()
+        if (since := getattr(fields.get(name), "since", None)) is None or day >= since
+    }
 
 
 def main() -> None:
