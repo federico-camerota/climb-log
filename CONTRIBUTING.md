@@ -10,9 +10,10 @@ The full workflow is in [`design/08-workflow.md`](design/08-workflow.md); the sh
 - **Conventional Commits**: `feat: …`, `fix: …`, `docs: …`; imperative subject of at most
   72 characters, and a body that explains why.
 - **Checks**: `make install` sets up the pre-commit hooks; `make lint` and `make test` must pass,
-  and CI runs them on every pull request. The formula parity tests need LibreOffice: they run
-  when `soffice` works (or `CLIMBLOG_SOFFICE="snap run libreoffice"` with
-  `CLIMBLOG_SOFFICE_TMP=build/lo-parity` for a snap) and are skipped otherwise, CI included.
+  and CI runs them on every pull request that changes more than Markdown (D-104). The formula
+  parity tests need LibreOffice: they run when `soffice` works (or
+  `CLIMBLOG_SOFFICE="snap run libreoffice"` with `CLIMBLOG_SOFFICE_TMP=build/lo-parity` for a
+  snap) and are skipped otherwise, CI included.
   Run them before a pull request that changes formulas, expressions or schema sync.
 - **API types**: the frontend's types of the API (`frontend/src/api/schema.ts`) are generated
   from the backend's OpenAPI schema. After changing an API model, run `make api-types` and
