@@ -60,10 +60,11 @@ export function useHidden(module: string, entity: string, values: Values, enable
 }
 
 /** One record by its key (null: none yet). */
-export function useRecord(module: string, entity: string, key: Values) {
+export function useRecord(module: string, entity: string, key: Values, enabled = true) {
   return useQuery({
     queryKey: ["record", module, entity, key],
     queryFn: () => getRecord(module, entity, key),
+    enabled,
   });
 }
 

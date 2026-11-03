@@ -20,8 +20,8 @@ import { useHidden, useRecord, useRecords } from "../api/queries";
 import { DataStatus } from "../components/DataStatus";
 import { ChildRows, type ChildApi } from "./ChildRows";
 import { FieldInput } from "./FieldInput";
-import { formGroups, scaleOf, type EntityDef, type FormDef } from "./schema";
-import { isScale, problem, toApi, toInput, unchanged, type InputValue } from "./values";
+import { formGroups, keyOf, scaleOf, type EntityDef, type FormDef } from "./schema";
+import { asText, isScale, problem, toApi, toInput, unchanged, type InputValue } from "./values";
 
 // The inputs that hold text as typed (FieldInput's text inputs): a bad value is shown in them.
 const TYPED_AS_TEXT = new Set(["text", "integer", "number", "percent", "duration", "grade", "ref"]);
@@ -35,18 +35,23 @@ interface Props {
   // the record's data issues (Records' edit drawer, D-082): each shows under its field, and a
   // bad value typed in a text-like field starts in the input as typed, to be corrected
   issues?: Issue[];
+  // a new record whose key number was left blank (`default: next`, a meal) was saved: its key,
+  // number included, so the page can show it (D-107)
+  onCreated?: (key: Values) => void;
 }
 
 /** A module form for one record (06-ui Log): created the first time it is saved (the pre-session
  * form), completed later on the same key (the post-session form). */
 export function RecordForm(props: Props) {
   const { module, form, recordKey } = props;
-  const record = useRecord(module.id, form.entity, recordKey);
+  // a blank key part (a number left for the backend: the next one) is a new record: none to read
+  const isNew = Object.values(recordKey).some((value) => value === "");
+  const record = useRecord(module.id, form.entity, recordKey, !isNew);
   // the entity's records say whether the workbook is reachable: offline, nothing is saved
   const status = useRecords(module.id, form.entity);
   const offline = status.data?.offline === true;
   const [saved, setSaved] = useState<Written | null>(null);
-  if (record.isPending) return <Loader />;
+  if (record.isPending && !isNew) return <Loader />;
   if (record.isError) {
     return (
       <Alert color="red" title="Can't read the record">
@@ -54,7 +59,7 @@ export function RecordForm(props: Props) {
       </Alert>
     );
   }
-  const values = record.data?.record.values ?? null;
+  const values = isNew ? null : (record.data?.record.values ?? null);
   return (
     <Stack>
       {offline && status.data !== undefined && <DataStatus records={status.data} />}
@@ -64,7 +69,10 @@ export function RecordForm(props: Props) {
         key={JSON.stringify(values)} // a new read starts the form again (a draft is kept)
         {...props}
         read={values}
-        onSaved={setSaved}
+        onSaved={(written) => {
+          setSaved(written);
+          if (isNew) props.onCreated?.(keyValues(props.entity, written));
+        }}
         onReload={() => void record.refetch()}
       />
     </Stack>
@@ -169,7 +177,9 @@ function Editor({
       let written: Written | null = null;
       if (read === null) {
         // the record first: its child rows need it
-        written = await addRecord(module.id, form.entity, { ...recordKey, ...payload });
+        // a blank key part is left out: the backend gives the next number (D-050)
+        const given = Object.fromEntries(Object.entries(recordKey).filter(([, v]) => v !== ""));
+        written = await addRecord(module.id, form.entity, { ...given, ...payload });
       } else if (changed.length > 0) {
         const expected = Object.fromEntries(fields.map(([name]) => [name, read[name] ?? null]));
         written = await updateRecord(module.id, form.entity, recordKey, payload, expected);
@@ -177,7 +187,8 @@ function Editor({
       for (const block of rows) await block.save();
       if (rows.length === 0 && written !== null) return written;
       // the child rows changed the record's derived values (the number of sets): read it again
-      const fresh = await getRecord(module.id, form.entity, recordKey);
+      const key = written === null ? recordKey : keyValues(entity, written);
+      const fresh = await getRecord(module.id, form.entity, key);
       if (fresh === null) throw new Error("The record is gone: reload the page");
       return fresh;
     },
@@ -400,4 +411,11 @@ function splitProblems(
         ? [{ field: error.field, message: error.message }]
         : [];
   return [all.filter((p) => p.field in values), all.filter((p) => !(p.field in values))];
+}
+
+/** The key of a written record, as the Log page's URL holds it (text). */
+function keyValues(entity: EntityDef, written: Written): Values {
+  return Object.fromEntries(
+    keyOf(entity).map((name) => [name, asText(written.record.values[name] ?? null)]),
+  );
 }

@@ -161,7 +161,7 @@ meanwhile. One PR each, in this order:
 - **Protein log** (#129): a new small module, one row per meal or snack with its grams, the day's total
   derived (a day record with meal rows as children, or meal rows summed per day: settled in its
   plan), a daily target in g/day as a setting (body weight isn't logged, D-025), on Today and in
-  a dashboard line against the target.
+  a dashboard line against the target. → done (D-107): meal rows summed per day.
 
 ### M5 · Program modules ☐
 Issues #130–#142 in milestone "M5 · Program modules", in build order: program block, training
@@ -215,6 +215,8 @@ module and dashboard, fear rules, module and dashboard, combined recommendation,
 - **Global Overview dashboard** (`06-ui.md`): one page across modules (calendar heatmap, status
   board, load chart, recent wins and reflections, program progress cards); today each module
   has its own dashboard.
+- **A food list for the protein log** (D-107): usual foods with their protein per portion,
+  picked instead of typing the grams; needs M5's reference tables.
 - **Planned vs done** (D-103): match the training plan's planned sessions to the sessions
   logged in the journal and the programs (done, moved, skipped, unplanned), per week.
 

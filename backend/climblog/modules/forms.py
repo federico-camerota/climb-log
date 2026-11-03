@@ -22,6 +22,7 @@ from climblog.modules.checks import expression_env
 from climblog.modules.schema import BaseField, Entity, Module, TextField
 
 DONE, PARTIAL, MISSING = "done", "partial", "missing"
+ANOTHER = "another"  # a form with `repeat: true`: one more record can be added (D-107)
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,7 @@ class Form:
     phase: str | None
     sections: tuple[str, ...] | None  # None: every field of the entity
     repeats: bool  # child rows in the form (finger-strength sets): the form's own fields count
+    another: bool = False  # `repeat: true`: many records a day (meals), Today offers one more
 
 
 @dataclass(frozen=True)
@@ -40,7 +42,7 @@ class Due:
     form: str
     label: str  # "Pre session"
     key: dict[str, Value]  # the record's key; just the date for a new record
-    status: str  # done / partial / missing
+    status: str  # done / partial / missing, or another (a repeated form's next record)
     missing: list[str]  # the sections (or fields) still to fill
     log_check: Value = None  # the record's own check, when the entity has one (`log_check`)
 
@@ -65,6 +67,7 @@ def forms_of(module: Module) -> dict[str, Form]:
             form.phase,
             tuple(form.sections) if form.sections is not None else None,
             bool(form.children),
+            form.repeat,
         )
         for name, form in (module.forms or {}).items()
     }
@@ -163,6 +166,10 @@ def due(
                             record.get("log_check"),
                         )
                     )
+        for f in entry:  # a repeated form: after the day's records, one more (D-107)
+            if f.another and on_day.get(f.entity):
+                date = _date_field(module.entities[f.entity])
+                items.append(Due(f.name, form_label(f.name), {date: day}, ANOTHER, []))
     first = module.entities[usable[0].entity]
     dates = [
         d

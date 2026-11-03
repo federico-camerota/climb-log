@@ -11,6 +11,7 @@ import {
   GridComponent,
   LegendComponent,
   MarkAreaComponent,
+  MarkLineComponent,
   TooltipComponent,
   VisualMapComponent,
 } from "echarts/components";
@@ -29,6 +30,7 @@ register([
   LegendComponent,
   TooltipComponent,
   MarkAreaComponent,
+  MarkLineComponent, // a goal across bars (D-107)
   DataZoomComponent,
   VisualMapComponent,
   SVGRenderer,

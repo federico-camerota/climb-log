@@ -7,6 +7,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- A protein log module (`modules/protein.yaml`): grams of protein per meal or snack, the day's
+  total against a daily target (140 g by default) on Today and in the sheet's Summary tab, and
+  protein per day with the target and per week on its dashboard. Today offers "Add another"
+  after the day's meals (forms with `repeat: true`) (#129, D-107).
 - Soreness of the upper back, lower back, core / abs, hips / glutes, knees / ankles and legs,
   before and after sessions and on rest days, counted in Physical readiness and status and in
   the log check like the other parts (module v3, from 2026-11-06: run `climblog check journal
@@ -35,6 +39,7 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   (D-101).
 
 ### Changed
+- Bars on a dashboard can draw a goal across them (`goal:`, a number or a setting) (D-107).
 - CI skips lint and tests when only Markdown changed, cancels a pull request's superseded
   runs, and runs pytest on every core (pytest-xdist, also in `make test`) (D-104).
 - The finger-strength session's start time is optional: Today no longer counts it as missing

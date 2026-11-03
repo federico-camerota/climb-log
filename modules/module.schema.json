@@ -200,6 +200,21 @@
           "minimum": 1,
           "title": "Last",
           "type": "integer"
+        },
+        "goal": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Goal"
         }
       },
       "required": [

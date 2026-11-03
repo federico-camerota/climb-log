@@ -211,6 +211,7 @@ class BarsData(BaseModel):
     values: list[float | None]
     n: list[int]  # the values behind each bar
     last: int  # bars shown at first (periods)
+    goal: float | None  # a target drawn across the bars (protein per day), if the widget has one
 
 
 class Stack(BaseModel):
