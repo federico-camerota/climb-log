@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // ECharts behind a small wrapper of our own (D-008, D-070): only the parts the dashboard uses
-// are registered (a smaller bundle), and the chart follows the light/dark scheme.
+// are registered (a smaller bundle), and the chart follows the light/dark scheme. Drawn as SVG,
+// not on a canvas (D-097): Firefox's GPU canvas on Linux can leave a drawn chart blank until a
+// click repaints it, and our charts are a few hundred points at most.
 import { useComputedColorScheme } from "@mantine/core";
 import { BarChart, BoxplotChart, HeatmapChart, LineChart, ScatterChart } from "echarts/charts";
 import {
@@ -13,7 +15,7 @@ import {
   VisualMapComponent,
 } from "echarts/components";
 import { init, use as register, type EChartsCoreOption } from "echarts/core";
-import { CanvasRenderer } from "echarts/renderers";
+import { SVGRenderer } from "echarts/renderers";
 import { useEffect, useRef } from "react";
 
 register([
@@ -29,7 +31,7 @@ register([
   MarkAreaComponent,
   DataZoomComponent,
   VisualMapComponent,
-  CanvasRenderer,
+  SVGRenderer,
 ]);
 
 interface Props {
@@ -47,7 +49,7 @@ export function Chart({ option, height = 320, label }: Props) {
 
   useEffect(() => {
     if (box.current === null) return undefined;
-    const created = init(box.current, dark ? "dark" : undefined);
+    const created = init(box.current, dark ? "dark" : undefined, { renderer: "svg" });
     chart.current = created;
     const observer = new ResizeObserver(() => {
       created.resize();

@@ -72,6 +72,7 @@ def test_weekly_load_sessions_and_rest_days() -> None:
     )
     assert (second["load"], second["sessions"], second["rest_days"]) == (250, 1, 1)
     assert first["rest_days"] == 1
+    assert (first["days"], second["days"]) == (2, 1)  # two sessions on day 0: one day trained
     assert found["shown"] == 12
 
 
@@ -90,7 +91,7 @@ def test_the_ratio_follows_the_ewma_from_the_baseline() -> None:
     sessions = [session(n, 100) for n in range(27)] + [session(27, 400)]
     found = compute(sessions, day(27))
     la, lc = 2 / 8, 2 / 29
-    a = c = 0.0
+    a = c = (27 * 100 + 400) / 28  # both start at the mean daily load of the first 28 days
     for n in range(28):
         load = 400 if n == 27 else 100
         a, c = load * la + (1 - la) * a, load * lc + (1 - lc) * c
@@ -100,6 +101,13 @@ def test_the_ratio_follows_the_ewma_from_the_baseline() -> None:
     assert [w["acwr"] for w in weeks[:3]] == [None, None, None]  # before the baseline
     assert weeks[3]["acwr"] == round(a / c, 2)  # the current week: at the day asked
     assert found["zones"] == [0.8, 1.3, 1.5]
+
+
+def test_a_steady_load_gives_a_ratio_of_1_from_the_baseline() -> None:
+    # started at 0, the chronic average would still be ~14% low on day 28: ratio ~1.16
+    sessions = [session(n, 100) for n in range(40)]
+    assert compute(sessions, day(27))["acwr_today"] == 1.0
+    assert compute(sessions, day(39))["acwr_today"] == 1.0
 
 
 def test_before_the_baseline_there_is_no_ratio() -> None:
@@ -135,10 +143,11 @@ def test_streaks() -> None:
     assert compute([session(n, 100) for n in days], day(13))["current_streak"] == 0
 
 
-def test_finger_training_is_stacked_not_in_the_ratio() -> None:
+def test_finger_training_is_apart_not_in_the_ratio() -> None:
     fingers: list[dict[str, Value]] = [
         {"date": day(1), "session_type": "Max hangs", "set_load": 48},
         {"date": day(2), "session_type": "Finger curls", "set_load": 30},
+        {"date": day(3), "session_type": "Max hangs", "set_load": None},  # sets, no effort
     ]
     found = compute([session(0, 300)], day(3), fingers=fingers)
     [week] = found["weeks"]
@@ -147,6 +156,7 @@ def test_finger_training_is_stacked_not_in_the_ratio() -> None:
         [78],
         300,
     )
+    assert week["others_without"] == [1]  # shown as "(1 without load)", not silently left out
     missing = compute([session(0, 300)], day(3))
     assert (missing["others"], missing["absent"]) == ([], ["Finger training (sets x effort)"])
 
@@ -182,6 +192,8 @@ def test_options_are_checked(problems: Problems) -> None:
     assert any("'rest_day.mood' is not a field of 'session'" in p for p in problems(bad))
     bad = text.replace("      rest: rest_day\n", "      rest: rest\n")
     assert any("no entity 'rest'" in p for p in problems(bad))
+    bad = text.replace("      load: session.session_load\n", "      load: session.venue\n")
+    assert any("load: 'session.venue' is not a number" in p for p in problems(bad))
     widget = WIDGET.validate_python({"widget": "training_load", "load": "session.session_load"})
     with pytest.raises(ValueError, match="zones go up"):
         WIDGET.validate_python({"widget": "training_load", "load": "x.y", "zones": [2, 1, 3]})

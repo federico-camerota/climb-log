@@ -215,7 +215,7 @@ class BarsData(BaseModel):
 
 class Stack(BaseModel):
     label: str  # a value of the field (or "" for a single stack)
-    values: list[float]  # one per week
+    values: list[float | None]  # one per week; None: a mean over a week with nothing logged
 
 
 class WeekbarsData(BaseModel):
@@ -292,9 +292,11 @@ class LoadWeek(BaseModel):
     start: dt.date  # its Monday
     load: float  # the sum of the records' loads
     sessions: int
+    days: int  # days with at least one session (two sessions on one day: 1)
     without_load: int  # records missing an input: counted as 0
     rest_days: int
-    others: list[float]  # one per other source, stacked
+    others: list[float]  # one per other source (its own chart: other units)
+    others_without: list[int]  # per other source: its records without a value (e.g. no effort)
     acwr: float | None  # at the week's last day (or the day asked); none before the baseline
     monotony: float | None
     strain: float | None

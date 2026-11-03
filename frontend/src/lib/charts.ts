@@ -196,18 +196,10 @@ export function loadOption(data: TrainingLoadData): EChartsCoreOption {
     series: [
       {
         type: "bar",
-        stack: "load",
         name: "Climbing journal",
         data: data.weeks.map((w) => w.load),
         itemStyle: { color: PALETTE[0] },
       },
-      ...data.others.map((label, i) => ({
-        type: "bar",
-        stack: "load",
-        name: label,
-        data: data.weeks.map((w) => w.others[i] ?? 0),
-        itemStyle: { color: PALETTE[(i + 2) % PALETTE.length] },
-      })),
       {
         type: "line",
         name: "ACWR",
@@ -228,6 +220,27 @@ export function loadOption(data: TrainingLoadData): EChartsCoreOption {
   };
 }
 
+/** The other sources' weekly loads (e.g. finger training, sets × effort), stacked on a chart
+ * of their own: their units differ from the journal's (D-092). */
+export function othersOption(data: TrainingLoadData): EChartsCoreOption {
+  const weeks = data.weeks.map((w) => w.label);
+  return {
+    tooltip: { trigger: "axis" },
+    legend: { top: 0 },
+    grid: { left: 56, right: 48, top: 40, bottom: 64 },
+    xAxis: { type: "category", data: weeks },
+    yAxis: { type: "value" },
+    series: data.others.map((label, i) => ({
+      type: "bar",
+      stack: "others",
+      name: label,
+      data: data.weeks.map((w) => w.others[i] ?? 0),
+      itemStyle: { color: PALETTE[(i + 2) % PALETTE.length] },
+    })),
+    ...zoom(weeks.length, data.shown),
+  };
+}
+
 /** Where a ratio lies among the zones. */
 export function zoneOf(ratio: number, zones: number[]): string {
   const [low = 0.8, high = 1.3, top = 1.5] = zones;
@@ -244,10 +257,12 @@ export function pairStats(data: PrePostData, group: number): PairStats[] {
   return data.pairs.map((p) => (group < 0 ? p.all : (p.groups[group] ?? p.all)));
 }
 
-/** Whether a change is for the better: up on a higher-is-better scale, down on a lower one. */
+/** A change's colour: green up and red down on a higher-is-better scale (mood); neutral on a
+ * lower-is-better one (soreness), which is expected to rise after a session (D-093). */
 export function changeTone(change: number | null, lowerBetter: boolean | null): string {
   if (change === null || change === 0 || lowerBetter === null) return "dimmed";
-  return change < 0 === lowerBetter ? "green" : "red";
+  if (lowerBetter) return "inherit";
+  return change > 0 ? "green" : "red";
 }
 
 /** A dumbbell per pair: the mean before and after, joined. */
@@ -321,6 +336,7 @@ export function bodyOption(data: BodyHeatmapData, source: number): EChartsCoreOp
       left: "center",
       bottom: 0,
       inRange: { color: data.lower_better === false ? [...ramp].reverse() : ramp },
+      text: [decimal(max), decimal(min)], // the scale's ends, at the colour bar
     },
     series: [
       {
