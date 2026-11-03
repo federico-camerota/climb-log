@@ -401,7 +401,7 @@ views:
     - {widget: weekbars, metric: session.session_type, label: Sessions per week by type}
   # Progress (D-093): how sessions change mood and soreness (the same question before and
   # after; a body part added to the soreness template shows up here too), and soreness by
-  # body part and week. Grade charts come with #101.
+  # body part and week, and the grades tried.
   progress:
     - widget: pre_post
       label: Before → after, by session type
@@ -416,3 +416,12 @@ views:
         - {label: After sessions, fields: session.ph_post_}
         - {label: Rest days, fields: rest_day.body_}
       weeks: 12
+    # Grades (D-094): the hardest grade *tried* per session (not sends); French and gym on
+    # separate axes, never converted (D-017), gym grades one series per venue.
+    - widget: grades
+      label: Hardest grade tried
+      grade: session.hardest_grade
+      venue: session.venue
+      setting: session.setting
+      group: month
+      last: 6

@@ -17,6 +17,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from climblog.analytics.grade_charts import grade_charts
 from climblog.analytics.load import Other, training_load
 from climblog.analytics.metrics import Query, run_query
 from climblog.analytics.progress import body_heatmap, pre_post
@@ -31,6 +32,7 @@ from climblog.modules.schema import (
     BodyHeatmapWidget,
     BoxByWidget,
     ChoiceField,
+    GradesWidget,
     HeatmapWidget,
     KpiWidget,
     LineWidget,
@@ -130,6 +132,8 @@ def compute_view(
             result.append(pre_post(module, widget, tables, day))
         elif isinstance(widget, BodyHeatmapWidget):
             result.append(body_heatmap(module, widget, tables, day))
+        elif isinstance(widget, GradesWidget):
+            result.append(grade_charts(module, widget, tables, day))
         else:
             result.append(_planned(widget))
     return result

@@ -20,6 +20,7 @@ import {
   BarsCard,
   BodyHeatmapCard,
   BoxByCard,
+  GradesCard,
   PrePostCard,
   ScatterCard,
   StackedCard,
@@ -152,6 +153,8 @@ function Widgets({ view }: { view: View }) {
             return <PrePostCard key={i} data={w} />;
           case "body_heatmap":
             return <BodyHeatmapCard key={i} data={w} />;
+          case "grades":
+            return <GradesCard key={i} data={w} />;
           case "planned":
             return <PlannedCard key={i} data={w} />;
           default:

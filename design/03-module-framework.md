@@ -588,6 +588,17 @@ Before/after and body maps (#100, D-093):
   weeks: 12
 ```
 
+Grades (#101, D-094):
+
+```yaml
+- widget: grades             # French and gym on their own axes, never converted
+  grade: session.hardest_grade
+  venue: session.venue       # gym grades: one series per venue
+  setting: session.setting   # the "by setting" table
+  group: month               # the pyramid's periods (or week)
+  last: 6
+```
+
 Still shown as "not drawn yet": `status_strip`, `radar`, `delta_table`, `ladder`,
 `program_grid`, `before_after` (M5 or later); `weekbars` by `program_week` (M5); a line split by
 another entity's fields and `box_by` time-of-day `bins` (backlog, 05 §3.5).

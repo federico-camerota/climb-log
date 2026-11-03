@@ -1415,6 +1415,78 @@
       "title": "GradeField",
       "type": "object"
     },
+    "GradesWidget": {
+      "additionalProperties": false,
+      "description": "A grade field over time (French and gym on separate axes, never converted, D-017), gym\ngrades one series per venue (each gym grades its own way); sessions by grade per period\n(a pyramid); and by setting and venue.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "grades",
+          "title": "Widget",
+          "type": "string"
+        },
+        "grade": {
+          "title": "Grade",
+          "type": "string"
+        },
+        "venue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Venue"
+        },
+        "setting": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Setting"
+        },
+        "group": {
+          "default": "month",
+          "enum": [
+            "week",
+            "month"
+          ],
+          "title": "Group",
+          "type": "string"
+        },
+        "last": {
+          "default": 6,
+          "minimum": 1,
+          "title": "Last",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "widget",
+        "grade"
+      ],
+      "title": "GradesWidget",
+      "type": "object"
+    },
     "HeatmapMark": {
       "additionalProperties": false,
       "description": "A letter on a day's square from a field of its records, e.g. setting Outdoor → O.",
@@ -4427,6 +4499,7 @@
                     "body_heatmap": "#/$defs/BodyHeatmapWidget",
                     "box_by": "#/$defs/BoxByWidget",
                     "delta_table": "#/$defs/LaterWidget",
+                    "grades": "#/$defs/GradesWidget",
                     "heatmap_calendar": "#/$defs/HeatmapWidget",
                     "kpi": "#/$defs/KpiWidget",
                     "ladder": "#/$defs/LaterWidget",
@@ -4495,6 +4568,9 @@
                   },
                   {
                     "$ref": "#/$defs/BodyHeatmapWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/GradesWidget"
                   },
                   {
                     "$ref": "#/$defs/LaterWidget"

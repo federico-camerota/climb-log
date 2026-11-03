@@ -23,6 +23,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - Before → after (#100, D-093): the journal's new `progress` dashboard shows how sessions change
   mood and each body part's soreness (means before and after, the change and n, per session
   type), and soreness by body part and week before sessions, after them and on rest days.
+- Grade charts (#101, D-094), in the `progress` dashboard: the hardest grade tried per session
+  over time (French and gym on their own axes, gym grades per venue), sessions by hardest
+  grade tried per month, and by setting and venue.
 
 ### Changed
 - M4 scoped (`design/07-roadmap.md`): eight issues, the analyses useful on little data first

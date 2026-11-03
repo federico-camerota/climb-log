@@ -361,6 +361,65 @@ class BodyHeatmapData(BaseModel):
     shown: int
 
 
+class GradePoint(BaseModel):
+    date: dt.date
+    index: float  # comparable only within the series' system (D-047)
+    grade: str  # as logged
+    setting: str | None
+    venue: str | None
+
+
+class GradeSeries(BaseModel):
+    system: Literal["french", "gym"]
+    venue: str | None  # gym grades: one series per venue
+    label: str
+    points: list[GradePoint]
+
+
+class Tick(BaseModel):
+    index: float
+    label: str  # 6a, 6a+, …
+
+
+class PyramidRow(BaseModel):
+    label: str  # the series'
+    grades: list[str]  # easiest first
+    counts: list[list[int]]  # [grade][period]: sessions with that hardest grade tried
+
+
+class Pyramid(BaseModel):
+    periods: list[str]  # 2026-10 or 2026-W44, none skipped
+    rows: list[PyramidRow]
+
+
+class SettingRow(BaseModel):
+    setting: str
+    system: str
+    sessions: int
+    hardest: str
+    median: str
+
+
+class VenueRow(BaseModel):
+    venue: str
+    system: str
+    sessions: int
+    hardest: str
+    median: str
+
+
+class GradesData(BaseModel):
+    widget: Literal["grades"]
+    label: str | None
+    series: list[GradeSeries]  # French first, then gym per venue
+    french_ticks: list[Tick]
+    pyramid: Pyramid
+    by_setting: list[SettingRow]
+    by_venue: list[VenueRow]
+    unparsed: int  # values that aren't grades of the field's systems, left out
+    last: int  # periods shown at first
+
+
 class PlannedData(BaseModel):
     widget: Literal["planned"]
     label: str | None
@@ -385,6 +444,7 @@ WidgetData = Annotated[
     | TrainingLoadData
     | PrePostData
     | BodyHeatmapData
+    | GradesData
     | PlannedData,
     Field(discriminator="widget"),
 ]

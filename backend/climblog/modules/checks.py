@@ -26,6 +26,7 @@ from climblog.modules.schema import (
     DateField,
     Entity,
     GradeField,
+    GradesWidget,
     HeatmapWidget,
     KpiWidget,
     LineWidget,
@@ -667,6 +668,20 @@ def _views(module: Module) -> list[Problem]:
                                 (*at, "by"), f"'{widget.by}' is not a field of the pairs' entity"
                             )
                         )
+            elif isinstance(widget, GradesWidget):
+                metrics.append(((*at, "grade"), widget.grade))
+                found = metric_of(module, widget.grade)
+                if isinstance(found, tuple):
+                    field = module.entities[found[0]].fields.get(found[1])
+                    if not isinstance(field, GradeField):
+                        problems.append(
+                            Problem((*at, "grade"), f"'{widget.grade}' is not a grade field")
+                        )
+                for key in ("venue", "setting"):
+                    other = getattr(widget, key)
+                    if other is not None:
+                        metrics.append(((*at, key), other))
+                        problems += _same_entity(other, widget.grade, (*at, key))
             elif isinstance(widget, BodyHeatmapWidget):
                 for j, source in enumerate(widget.sources):
                     problems += _template_fields(

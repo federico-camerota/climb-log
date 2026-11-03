@@ -870,6 +870,19 @@ class BodyHeatmapWidget(_Widget):
     weeks: int = Field(12, ge=1)  # shown at first
 
 
+class GradesWidget(_Widget):
+    """A grade field over time (French and gym on separate axes, never converted, D-017), gym
+    grades one series per venue (each gym grades its own way); sessions by grade per period
+    (a pyramid); and by setting and venue."""
+
+    widget: Literal["grades"]
+    grade: str  # `entity.field`, a grade field
+    venue: str | None = None  # `entity.field`: gym grades split by its value
+    setting: str | None = None  # `entity.field`, e.g. indoor / outdoor
+    group: Literal["week", "month"] = "month"  # the pyramid's periods
+    last: int = Field(6, ge=1)  # periods shown at first
+
+
 class LaterWidget(BaseModel):
     """A widget of the planned library (03 §2.7) the app doesn't draw yet (M4/M5): its options
     are checked when it is."""
@@ -902,6 +915,7 @@ Widget = Annotated[
     | TrainingLoadWidget
     | PrePostWidget
     | BodyHeatmapWidget
+    | GradesWidget
     | LaterWidget,
     Field(discriminator="widget"),
 ]

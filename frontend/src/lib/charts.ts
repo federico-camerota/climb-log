@@ -7,6 +7,7 @@ import type {
   BarsData,
   BodyHeatmapData,
   BoxByData,
+  GradesData,
   PrePostData,
   ScatterData,
   StackedData,
@@ -329,5 +330,59 @@ export function bodyOption(data: BodyHeatmapData, source: number): EChartsCoreOp
       },
     ],
     ...zoom(data.weeks.length, data.shown),
+  };
+}
+
+/** Grades over time: French on the left axis (labelled 6a, 6a+, …), gym grades on the right
+ * one, never converted (D-017). */
+export function gradesOption(data: GradesData): EChartsCoreOption {
+  const labels = new Map(data.french_ticks.map((t) => [t.index, t.label]));
+  const ticks = data.french_ticks.map((t) => t.index);
+  const hasGym = data.series.some((s) => s.system === "gym");
+  const hasFrench = data.series.some((s) => s.system === "french");
+  const axes: Record<string, unknown>[] = [];
+  if (hasFrench)
+    axes.push({
+      type: "value",
+      name: "French",
+      min: Math.min(...ticks) - 1,
+      max: Math.max(...ticks) + 1,
+      interval: 1,
+      axisLabel: { formatter: (v: number) => labels.get(v) ?? "" },
+    });
+  if (hasGym) axes.push({ type: "value", name: "Gym", scale: true, minInterval: 1 });
+  return {
+    tooltip: {
+      trigger: "item",
+      formatter: (p: { seriesName: string; value: [string, number, string] }) =>
+        `${shortDate(p.value[0])} · ${p.seriesName}: ${p.value[2]}`,
+    },
+    legend: { top: 0 },
+    grid: { left: 56, right: 56, top: 48, bottom: 40 },
+    xAxis: { type: "time" },
+    yAxis: axes,
+    series: data.series.map((series, i) => ({
+      type: "line",
+      name: series.label,
+      yAxisIndex: series.system === "gym" && hasFrench ? 1 : 0,
+      data: series.points.map((p) => [p.date, p.index, p.grade]),
+      symbolSize: 8,
+      lineStyle: { width: 1.5, opacity: 0.6 },
+      itemStyle: { color: PALETTE[i % PALETTE.length] },
+    })),
+  };
+}
+
+/** Sessions by hardest grade tried in a period, the hardest grade at the top. */
+export function pyramidOption(data: GradesData, row: number, period: number): EChartsCoreOption {
+  const found = data.pyramid.rows[row];
+  const grades = found?.grades ?? [];
+  const counts = (found?.counts ?? []).map((c) => c[period] ?? 0);
+  return {
+    tooltip: { trigger: "axis" },
+    grid: { left: 56, right: 24, top: 8, bottom: 32 },
+    xAxis: { type: "value", minInterval: 1, name: "Sessions" },
+    yAxis: { type: "category", data: grades },
+    series: [{ type: "bar", name: "Sessions", data: counts, itemStyle: { color: PALETTE[0] } }],
   };
 }

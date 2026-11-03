@@ -114,7 +114,7 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
 - Pre → post deltas by session type (paired dots per body part) and soreness by body part ×
   week. → done (D-093, #100): the journal's `progress` view.
 - Grades: hardest grade over time (French and gym on separate axes, D-017/D-047), grade
-  pyramid by period, indoor vs outdoor, by venue.
+  pyramid by period, indoor vs outdoor, by venue. → done (D-094, #101).
 - Explore page: pick metrics, range, grouping and filters; shown as a line or bars.
 - Correlation: a pair (scatter, regression line, Pearson and Spearman r, 95% CI, n, an
   optional lag, greyed out under the minimum n), a matrix (Spearman, cells hidden under the
