@@ -128,6 +128,20 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
   below, and v0.4.0 is tagged then.
 - **Done when**: the explorer can answer "does sleep relate to my session feel?" with n and CI.
 
+### Before M5: audit follow-ups ☐
+The M1–M4 audit against the design docs (2026-11-04) found features promised for M1–M4 that
+were never built; these come first (the rest went to M6 or the backlog, or out of the docs):
+- **Finger-strength sets in the app**: the Log form's repeated set rows, each new set copying
+  the previous one's protocol and load (`copy_previous`; 06-ui Log).
+- **The legacy Log Search's filters** on Records: date range, weekday, status class and value,
+  derived values searched too, matches highlighted (00 §1, 05 §2, §3.6).
+- **Weakest class** in the app, as on the legacy Summary – Recent (00 §1).
+- **This week's load** on Today's snapshot (06-ui Today).
+- **Offline on Log**: the page says it is read-only before you type, as Records and Today do.
+- **Module options in forms**: `visible_if` shows a field only when its condition holds,
+  `suggest_from_history` suggests the values typed before (venue, partners), and the `forms:`
+  block is checked at load; the unused `hidden_in_form` and `searchable` options are removed.
+
 ### M5 · Program modules ☐
 - `program:` block (weeks, phases, runs), reference tables, `ref` fields, prefilled fields.
 - `shoulder.yaml` + importer (plan, exercise log, check-ins, retests); review-flag rule;
@@ -139,9 +153,14 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
   parity with the legacy dashboards.
 
 ### M6 · Polish & extensibility ☐
-- Settings UI (thresholds, sources, backups restore, data issues).
+- Settings UI (thresholds, sources, backups restore, data issues; test connection, schema sync
+  with a diff preview, enable/disable a module, the Google account; a "notes language"
+  setting).
 - Saved explorer views, period reports, exports.
-- Optional: offline outbox for Google; module editor UI; insights feed.
+- The log check as a to-do list of every incomplete record (05 §2); links from the
+  recommendation's reasons to their records (05 §4).
+- Optional: offline outbox for Google; module editor UI; insights feed, with personal patterns
+  (05 §4 item 6).
 
 ### Backlog (no milestone yet)
 - **LAN mode + PIN** (D-010): the app from the phone on the home network. Out of M3: the phone
@@ -154,7 +173,8 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
   stemming (§3.6), finger-strength charts (§3.5), search across all modules (§2); and the
   regularised regression of §3.2 once n ≥ ~40; the body silhouette for "today" (§3.1); the
   Explore page's box-by and heatmap chart types (`06-ui.md`; it draws lines and bars, and
-  correlation's scatter and matrix).
+  correlation's scatter and matrix); a lag on Explore's Over time tab; the calendar coloured
+  by any metric (§3.1).
 - **Training load in the recommendation** (`05-analytics.md` §4 item 3): an acute:chronic
   ratio above the upper zone suggests MODERATE, as a soft signal next to the readiness rule;
   the ratio itself is on the journal's `load` dashboard (D-092).
@@ -173,8 +193,9 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
 - **Hand-entry tests**: fixtures with rows typed "by a human" (blank keys, reordered columns, Italian notes starting with `'`,
   `7,5` decimals, legacy choice values, orphan section rows).
 - **Expression/rules unit tests** for each rule in `00-current-state.md`.
-- **Frontend**: component tests for the form renderer from sample schemas; a Playwright
-  smoke test of "log a session" end to end.
+- **Frontend**: component tests for the form renderer from sample schemas, and page tests
+  with the API stubbed (vitest). The end-to-end Playwright smoke test was dropped after the
+  M1–M4 audit.
 
 ## Order rationale
 The Journal comes first because it holds the most data and is the main daily habit; it also

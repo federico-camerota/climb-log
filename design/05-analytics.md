@@ -2,9 +2,11 @@
 
 All analysis runs in the backend on the cached records, in plain Python with scipy for the
 distributions (D-087, no pandas). The frontend renders
-the results with ECharts. Every chart has a time-range selector (7 d / 30 d / 90 d /
-program run / all / custom) and filters (module-specific choices such as session type,
-indoor/outdoor, venue, weekday).
+the results with ECharts. The Explore page has a time-range selector (7 d / 30 d / 90 d / all /
+custom) and filters (module-specific choices such as session type, indoor/outdoor) for every
+tab (D-095, D-096); dashboard charts show their view's fixed span, the score line with a range
+picker and the bars with a zoom slider (D-083, D-091), without filters: to filter, use Explore
+(decided after the M1–M4 audit). A "program run" range comes with the programs (M5).
 
 ## 0. Small-data honesty
 Data starts at 2026-10. Many analyses only become meaningful after weeks or months, so:
@@ -56,7 +58,8 @@ its `since:` are left out (03 §2.2), as in the formulas and the dashboard.
   (D-084, #78): per prompt the top 3 by score then the newest, as the legacy lists.
 - Rest-day log with status and days since the last climb. Done (D-084, #78): the last 14 days,
   newest first, with the averages and the latest rest-day note.
-- Log check (incomplete records) is shown as a to-do list.
+- Log check (incomplete records): per day on Today (D-080) and as a column on Records
+  (D-081); a to-do list of every incomplete record is M6.
 - Search across all text fields with filters (all modules, highlighted matches, no 40-row cap).
 - Shoulder weekly dashboard (completion %, primer, symptom averages, G/Y/R days, review flags).
 - Fear: per-track rung progress, Fear Map deltas, 20Q category averages per session and week.
@@ -64,7 +67,8 @@ its `since:` are left out (03 §2.2), as in the formulas and the dashboard.
 ## 3. New analyses
 
 ### 3.1 Journal / training
-- **Calendar heatmap** (GitHub-style): each day coloured by overall status or any metric;
+- **Calendar heatmap** (GitHub-style): each day coloured by overall status (any metric:
+  backlog);
   rest days and program sessions shown as markers. Click a day to open its records (done,
   D-098).
 - **Trend lines with bands**: any metric with a rolling mean and the LOW/WATCH bands shaded.
@@ -188,10 +192,12 @@ input is listed as a reason:
    or step back to).
 5. Program schedule: which shoulder session (A/B, prescription for this week) is due.
 6. Personal patterns (when enough data): e.g. "your feel score after ≥ 2 rest days averages +0.8".
+   M6, with the insights feed.
 
 Output: a headline (RECOVER / MODERATE / GREEN LIGHT), a suggested session content
 (e.g. "Shoulder session B (W2 prescription) + Fear rungs A3, F2 indoor"), and reasons with
-links. Logic lives in config/plugins so it can evolve.
+links (the reasons are done, D-076; links to the records behind them: M6). Logic lives in
+config/plugins so it can evolve.
 
 ## 5. Exports
 - Any chart: PNG/SVG; any table: CSV.
