@@ -112,7 +112,7 @@ views:
        series: [{metric: session.est_1rm_left, label: Left}, {metric: session.est_1rm_right, label: Right}]}
     # M4: a neutral band from -10 to 10 % behind it (bands here are status bands, D-083)
     - {widget: line, series: [{metric: session.lr_imbalance_pct}], label: Left/right imbalance}
-    - {widget: weekbars, metric: session.n_sets, split_by: session.session_type, stacked: true}
+    - {widget: weekbars, metric: session.n_sets, agg: sum, split_by: session.session_type, label: Sets per week}
     - {widget: box_by, metric: session.readiness, by: session.start_time, bins: [morning, afternoon, evening]}
     - {widget: scatter, x: session.readiness, y: session.top_added_kg, label: Readiness vs performance}
     - {widget: text_feed, entity: session, lists: [{label: Notes, text: notes}], window_days: 28, top: 10}

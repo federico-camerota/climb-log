@@ -53,6 +53,7 @@ export function lineOption(
   rolling: boolean,
   today: string,
 ): EChartsCoreOption {
+  if (data.x != null) return lineOverX(data, data.x);
   const labels = data.points.map(pointLabel);
   const lines = data.series.flatMap((series, i) => {
     const colour = PALETTE[i % PALETTE.length];
@@ -125,4 +126,28 @@ export function lineOption(
 /** The bands' finite bounds (a band without a lower or upper bound runs to the axis's end). */
 function bounds(data: LineData): number[] {
   return data.bands.flatMap((b) => [b.from, b.to]).filter((v): v is number => v !== null);
+}
+
+/** A line over another metric than the date (`x`): each series' mean at each value of x. */
+function lineOverX(data: LineData, xs: number[]): EChartsCoreOption {
+  return {
+    tooltip: { trigger: "axis" },
+    legend: { data: data.series.map((s) => s.label), top: 0 },
+    grid: { left: 40, right: 24, top: 48, bottom: 48 },
+    xAxis: {
+      type: "value",
+      scale: true,
+      name: data.x_label ?? "",
+      nameLocation: "middle",
+      nameGap: 28,
+    },
+    yAxis: { type: "value", scale: true },
+    series: data.series.map((series, i) => ({
+      type: "line",
+      name: series.label,
+      data: xs.map((x, j) => [x, series.values[j] ?? null]),
+      connectNulls: true,
+      itemStyle: { color: PALETTE[i % PALETTE.length] },
+    })),
+  };
 }

@@ -2,7 +2,7 @@
 // ECharts behind a small wrapper of our own (D-008, D-070): only the parts the dashboard uses
 // are registered (a smaller bundle), and the chart follows the light/dark scheme.
 import { useComputedColorScheme } from "@mantine/core";
-import { HeatmapChart, LineChart } from "echarts/charts";
+import { BarChart, BoxplotChart, HeatmapChart, LineChart, ScatterChart } from "echarts/charts";
 import {
   CalendarComponent,
   DataZoomComponent,
@@ -18,6 +18,9 @@ import { useEffect, useRef } from "react";
 register([
   LineChart,
   HeatmapChart,
+  BarChart,
+  BoxplotChart,
+  ScatterChart,
   CalendarComponent,
   GridComponent,
   LegendComponent,
