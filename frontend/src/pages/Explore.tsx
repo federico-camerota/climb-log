@@ -32,6 +32,7 @@ import {
   exploreOption,
   fits,
   metricGroup,
+  metricNames,
   metricQuery,
   readState,
   writeState,
@@ -71,8 +72,6 @@ export function Explore() {
   const state = readState(params);
   const today = dayjs().format("YYYY-MM-DD");
   const catalogue = useMetrics();
-  const query = metricQuery(state, today);
-  const result = useMetricQuery(query);
 
   const correlation = readCorrelation(params);
 
@@ -88,18 +87,26 @@ export function Explore() {
   const byId = new Map(metrics.map((m) => [m.id, m]));
   const picked = state.metrics.map((id) => byId.get(id)).filter((m): m is MetricInfo => !!m);
   const entities = new Set(picked.map((m) => `${m.module}.${m.entity}`));
+  // one point per record needs metrics of one entity: by day otherwise (the URL may ask)
+  const oneEntity = entities.size <= 1;
+  const group = state.group === "none" && !oneEntity ? "day" : state.group;
+  const names = metricNames(metrics);
+  const result = useMetricQuery(metricQuery({ ...state, group }, today));
   const filters = (catalogue.data?.filters ?? []).filter((f) =>
     entities.has(`${f.module}.${f.entity}`),
   );
   // the React compiler memoizes this (D-070's lint): no useMemo by hand
-  const option = result.data ? exploreOption(result.data, metrics, state.chart) : null;
+  // the chart names the picked metrics apart from each other only ("Sleep hours", not
+  // "Sleep hours · Wellbeing · before" when no other sleep hours is picked)
+  const shown = metricNames(picked);
+  const option = result.data ? exploreOption(result.data, metrics, state.chart, shown) : null;
 
   const groups = new Map<string, { value: string; label: string; disabled: boolean }[]>();
   for (const m of metrics) {
     const items = groups.get(metricGroup(m)) ?? [];
     items.push({
       value: m.id,
-      label: m.label,
+      label: names.get(m.id) ?? m.label,
       disabled: !state.metrics.includes(m.id) && !fits(m, picked),
     });
     groups.set(metricGroup(m), items);
@@ -187,9 +194,15 @@ export function Explore() {
                     <Group align="end">
                       <Select
                         label="Points"
-                        data={GROUPS}
+                        data={GROUPS.map((g) => ({
+                          ...g,
+                          disabled: g.value === "none" && !oneEntity,
+                        }))}
+                        description={
+                          oneEntity ? undefined : "Each record: metrics of one entity only"
+                        }
                         allowDeselect={false}
-                        value={state.group}
+                        value={group}
                         onChange={(value) => {
                           update({ group: value ?? "day" });
                         }}
@@ -198,7 +211,7 @@ export function Explore() {
                         label="Aggregate"
                         data={AGGS}
                         allowDeselect={false}
-                        disabled={state.group === "none"}
+                        disabled={group === "none"}
                         value={state.agg}
                         onChange={(value) => {
                           update({ agg: value ?? "mean" });
@@ -277,7 +290,7 @@ export function Explore() {
                         {result.data.series
                           .map((s) => {
                             const n = s.n.reduce((a, b) => a + b, 0);
-                            return `${byId.get(s.metric)?.label ?? s.metric}: n = ${String(n)}`;
+                            return `${shown.get(s.metric) ?? s.metric}: n = ${String(n)}`;
                           })
                           .join(" · ")}
                       </Text>

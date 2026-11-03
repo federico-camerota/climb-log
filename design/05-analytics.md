@@ -30,8 +30,9 @@ GET /api/metrics/query?metric=journal.session.wb_score&metric=shoulder.checkin.p
 ```
 
 The answer: `points` (start, end, label: `2026-10-30`, `2026-W44`, `2026-10`; a record's key
-with `group=none`) and per metric its `values`, the `n` behind each value and the `rolling`
-mean. `group=none` is one point per record (metrics of one entity); day points are the days
+with `group=none`) and per metric its `values`, the `n` behind each value, the `rolling`
+mean and its status `bands` when a dashboard line draws it with bands (the class scores'
+LOW/WATCH/GOOD, from the settings; D-095). `group=none` is one point per record (metrics of one entity); day points are the days
 with a record, week (from Monday) and month points run without gaps. Cross-module joins are
 **by calendar day** (D-088); `lag=k` reads every metric after the first k days later ("pain
 next morning" joined to the previous day's session). A filter applies to its entity's metrics.
@@ -63,7 +64,8 @@ next morning" joined to the previous day's session). A filter applies to its ent
 
 ### 3.1 Journal / training
 - **Calendar heatmap** (GitHub-style): each day coloured by overall status or any metric;
-  rest days and program sessions shown as markers. Click a day to open its records.
+  rest days and program sessions shown as markers. Click a day to open its records (done,
+  D-098).
 - **Trend lines with bands**: any metric with a rolling mean and the LOW/WATCH bands shaded.
 - **Pre → post deltas**: how a session changes mood, soreness per body part (paired dot
   plot), by session type.
@@ -72,7 +74,8 @@ next morning" joined to the previous day's session). A filter applies to its ent
 - Done (D-093, #100), the journal's `progress` view: `pre_post` (mood and each body part's
   soreness before → after: means, change and n over the sessions with both answers, per
   session type) and `body_heatmap` (soreness by body part and week, before sessions, after
-  them and on rest days). The body silhouette went to the backlog.
+  them and on rest days). A body part counts from its `since:` date; a retired one shows while
+  the range has values for it. The body silhouette went to the backlog.
 - **Training load**:
   - session load = duration × effort (session-RPE method);
   - weekly load, **acute:chronic workload ratio** (7 d / 28 d, EWMA variant),
@@ -81,8 +84,10 @@ next morning" joined to the previous day's session). A filter applies to its ent
   - The ACWR is shown as context with zones, not as a hard rule.
   - Done (D-092, #99): the `training_load` widget in the journal's `load` view (Dashboards →
     load): weekly load (a session missing duration or effort counts as 0 and the week says
-    so), rest days, finger training stacked (sets x effort, not in the ratio), ACWR from the
-    28th day on with zones 0.8 / 1.3 / 1.5, monotony and strain per week, current and longest
+    so), sessions and days trained, rest days, finger training on a chart of its own (sets x
+    effort, other units, not in the ratio; a session without effort is flagged too), ACWR
+    from the 28th day on (both averages started at the first 28 days' mean, so a steady load
+    reads 1) with zones 0.8 / 1.3 / 1.5, monotony and strain per week, current and longest
     streaks; sessions per week by type as `weekbars`.
 - **Recovery patterns**: performance metrics (feel score, overall score, hardest grade) vs
   days since the previous session (box plot), vs rest-day type before it, vs weekday.
@@ -91,7 +96,8 @@ next morning" joined to the previous day's session). A filter applies to its ent
   axes, never converted, D-017/D-047), grade pyramid by period, indoor vs outdoor, by venue.
   Done (D-094, #101), in the `progress` view: the hardest grade *tried* per session over time
   (French one series, gym one series per venue, on their own axes), sessions by hardest grade
-  tried per month, and by setting and venue (sessions, hardest, median).
+  tried per month, and by setting and venue (sessions, hardest, median; gym grades always per
+  venue). Values typed in the sheet that aren't grades are counted on the card.
 - **Venue/partner view**: sessions and average feel by venue/partner.
 - **Wins timeline**: banked wins by size, filterable, for a motivation feed.
 - **Reflection themes**: frequency of words/keywords in "what felt off" / "what to change"
@@ -171,7 +177,8 @@ input is listed as a reason:
    one (M5): each block already says its headline, so "the most conservative wins" can order
    them.
 2. Shoulder: latest status / review flag (RED or REVIEW NOW → recover / avoid provocative climbing).
-3. Training load: ACWR above the upper zone → suggest moderate (soft signal).
+3. Training load: ACWR above the upper zone → suggest moderate (soft signal). Backlog
+   (`07-roadmap.md`): the ratio is on the `load` dashboard (D-092), not in the advice yet.
 4. Fear program: what is planned this week (target rungs not yet cleared, the rung to repeat
    or step back to).
 5. Program schedule: which shoulder session (A/B, prescription for this week) is due.

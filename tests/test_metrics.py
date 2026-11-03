@@ -339,9 +339,17 @@ def test_the_query_api(client: TestClient) -> None:
             "values": [7.0, 8.0],
             "n": [1, 1],
             "rolling": None,
+            "bands": None,  # no dashboard line draws sleep hours with bands
         }
     ]
     assert body["sources"][0]["module"] == "journal"
+    # the class scores: the bands the dashboard's scores line draws, from the settings
+    scores = client.get("/api/metrics/query", params={"metric": "journal.session.wb_score"})
+    assert scores.json()["series"][0]["bands"] == [
+        {"label": "LOW", "from": None, "to": 4.0},
+        {"label": "WATCH", "from": 4.0, "to": 6.0},
+        {"label": "GOOD", "from": 6.0, "to": None},
+    ]
 
 
 def test_the_query_api_says_what_is_wrong(client: TestClient) -> None:

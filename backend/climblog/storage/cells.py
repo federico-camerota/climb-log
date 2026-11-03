@@ -61,6 +61,12 @@ class CellError(ValueError):
         super().__init__(message)
 
 
+# In a full table's row (`Catalog.full_tables`): the fields whose cell couldn't be read (a
+# `value` data issue, the value blanked), comma-separated, so a chart can say how many it
+# left out. Field names start with a letter, so the key can't be one.
+VALUE_ISSUES = "_issues"
+
+
 @dataclass(frozen=True)
 class DataIssue:
     """A problem in the sheet: shown in the UI with its place (04 §4)."""

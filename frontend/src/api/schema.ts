@@ -591,6 +591,8 @@ export interface components {
              * Format: date
              */
             end: string;
+            /** Entity */
+            entity: string;
             /** Extra */
             extra: string | null;
             /** Label */
@@ -701,6 +703,8 @@ export interface components {
         LoadWeek: {
             /** Acwr */
             acwr: number | null;
+            /** Days */
+            days: number;
             /** Label */
             label: string;
             /** Load */
@@ -709,6 +713,8 @@ export interface components {
             monotony: number | null;
             /** Others */
             others: number[];
+            /** Others Without */
+            others_without: number[];
             /** Rest Days */
             rest_days: number;
             /** Sessions */
@@ -774,6 +780,8 @@ export interface components {
         };
         /** MetricSeries */
         MetricSeries: {
+            /** Bands */
+            bands?: components["schemas"]["BandData"][] | null;
             /** Metric */
             metric: string;
             /** N */
@@ -1194,6 +1202,8 @@ export interface components {
             setting: string;
             /** System */
             system: string;
+            /** Venue */
+            venue?: string | null;
         };
         /** SideBySideData */
         SideBySideData: {
@@ -1250,7 +1260,7 @@ export interface components {
             /** Label */
             label: string;
             /** Values */
-            values: number[];
+            values: (number | null)[];
         };
         /** StackedData */
         StackedData: {
