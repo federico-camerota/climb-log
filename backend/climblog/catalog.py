@@ -11,18 +11,27 @@ D-055), and its derived values are computed on every read. Writes to one module 
 import datetime as dt
 import threading
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from climblog.analytics.load import Other, training_load
 from climblog.config import AppConfig, ConfigError, config_path, load_config
 from climblog.expr import Value
 from climblog.modules import Module, ModuleError
 from climblog.modules.checks import recommendation_plan
 from climblog.modules.compute import compute_module
 from climblog.modules.forms import Day, due, hidden
-from climblog.modules.recommend import Advice, recommend
-from climblog.storage import CachedRepository, DataIssue, load_data, read_settings
+from climblog.modules.recommend import Advice, Reason, recommend
+from climblog.modules.schema import TrainingLoadWidget
+from climblog.modules.summary import summarize, summary_plan
+from climblog.storage import (
+    CachedRepository,
+    DataIssue,
+    StorageError,
+    load_data,
+    read_settings,
+)
 from climblog.storage.cells import VALUE_ISSUES
 
 
@@ -34,6 +43,20 @@ class EntityRecords:
     issues: list[DataIssue]  # of the entity's tabs
     as_of: dt.datetime | None
     offline: bool
+
+
+@dataclass(frozen=True)
+class WeekLoad:
+    """This week's training load on Today (06-ui, D-102): the module's first `training_load`
+    widget, Monday to the day."""
+
+    label: str  # the widget's, e.g. "Training load"
+    load: float
+    sessions: int
+    without_load: int  # sessions missing duration or effort: counted as 0
+    acwr: float | None  # the acute:chronic ratio on the day (None while building a baseline)
+    zones: list[float]  # the widget's, for the ratio's wording
+    others: list[tuple[str, float, int]]  # other modules' loads: (label, load, without a value)
 
 
 @dataclass
@@ -99,13 +122,65 @@ class Catalog:
         if plan is None:
             return None
         full, settings = self.full_tables(entry)
-        return recommend(module, plan, full, settings, day)
+        advice = recommend(module, plan, full, settings, day)
+        if summary_plan(module) is None:
+            return advice
+        # a reason may be a summary value (the weakest area): read with the summary's
+        values = summarize(module, full, settings, day).values
+        reasons = [Reason(r.name, r.label, values.get(r.name)) for r in advice.reasons]
+        return replace(advice, reasons=reasons)
 
-    def due(self, entry: Entry, day: dt.date) -> Day:
-        """The module's forms on `day`: what is done and what is missing (D-080)."""
+    def due(self, entry: Entry, day: dt.date) -> tuple[Day, WeekLoad | None]:
+        """The module's forms on `day`: what is done and what is missing (D-080), and this
+        week's load when the module has a `training_load` widget (D-102)."""
         assert entry.module is not None
+        module = entry.module
         full, settings = self.full_tables(entry)
-        return due(entry.module, full, day, settings)
+        widget = next(
+            (
+                w
+                for view in (module.views or {}).values()
+                for w in view
+                if isinstance(w, TrainingLoadWidget)
+            ),
+            None,
+        )
+        week = None
+        if widget is not None:
+            found = training_load(module, widget, full, day, self.others(entry))
+            if found["weeks"]:
+                this = found["weeks"][-1]  # the week of the day
+                week = WeekLoad(
+                    widget.label or "Training load",
+                    this["load"],
+                    this["sessions"],
+                    this["without_load"],
+                    found["acwr_today"],
+                    list(widget.zones),
+                    [
+                        (label, load, without)
+                        for label, load, without in zip(
+                            found["others"], this["others"], this["others_without"], strict=True
+                        )
+                    ],
+                )
+        return due(module, full, day, settings), week
+
+    def others(self, entry: Entry) -> Other:
+        """Another loaded module by its `module:` id, with its records (unreadable: none)."""
+
+        def find(module_id: str) -> tuple[Module, Any] | None:
+            for other in self.entries.values():
+                if other.module is not None and other.module.module == module_id:
+                    if other is entry or other.repo is None:
+                        continue
+                    try:
+                        return other.module, self.full_tables(other)[0]
+                    except StorageError:
+                        return None
+            return None
+
+        return find
 
     def hidden(self, entry: Entry, entity: str, values: Mapping[str, Value]) -> list[str]:
         """The entity's fields a form hides for these values (`visible_if`, 03 §2.1b)."""

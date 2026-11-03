@@ -17,6 +17,7 @@ from climblog.modules.formulas import (
     Dialect,
     FormulaColumn,
     Template,
+    app_only_values,
     compile_formulas,
     formula_columns,
     side_by_side_formulas,
@@ -275,7 +276,8 @@ def _value_names(module: Module) -> list[str]:
     assert plan is not None
     advice = recommendation_plan(module)
     names = [s.key for s in advice.values.steps] + ["headline", "text"] if advice else []
-    return names + [s.key for s in plan.values.steps]
+    app_only = app_only_values(module)
+    return names + [s.key for s in plan.values.steps if s.key not in app_only]
 
 
 def _value_types(module: Module) -> dict[str, str]:

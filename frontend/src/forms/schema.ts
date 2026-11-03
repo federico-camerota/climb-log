@@ -68,6 +68,7 @@ export interface FormDef {
 }
 
 interface Schema {
+  status_levels?: string[]; // best → worst
   scales?: Record<string, ScaleDef>;
   entities?: Record<string, EntityDef>;
   forms?: Record<string, FormDef>;
@@ -75,6 +76,10 @@ interface Schema {
 
 function schemaOf(module: ModuleInfo): Schema {
   return module.module_schema ?? {};
+}
+
+export function statusLevelsOf(module: ModuleInfo): string[] {
+  return schemaOf(module).status_levels ?? [];
 }
 
 export function formsOf(module: ModuleInfo): Record<string, FormDef> {

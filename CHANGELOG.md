@@ -15,6 +15,12 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - The finger-strength Log form edits the session's sets: hang sets or curl sets by session
   type, "+ set" copying the previous set's protocol and load, sets removed or changed, all saved
   with the session; Today lists the finger-strength form (#124, D-101).
+- Records filters as the legacy Log Search: a date range, weekdays, a status class and value;
+  the search finds derived values too (statuses, log check) and highlights the words found
+  (D-102).
+- Today shows the weakest area of the latest session with the recommendation, and this week's
+  training load (load, sessions, ratio, finger training) (D-102).
+- The Log form says it is read-only, with Save off, when the workbook can't be reached (D-102).
 - Finger-strength sessions log wellbeing: mood and energy before, fatigue and mood after, from
   2026-11-03 (module v4: run `climblog check finger_strength --apply` to add the columns)
   (D-101).

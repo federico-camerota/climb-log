@@ -14,7 +14,6 @@ from pydantic import BaseModel, Field
 
 from climblog.analytics import compute_view
 from climblog.api.modules import catalog
-from climblog.modules.schema import Module
 from climblog.storage import StorageError
 
 router = APIRouter()
@@ -482,17 +481,7 @@ def get_view(request: Request, module: str, view: str, date: dt.date | None = No
     except StorageError as error:
         raise HTTPException(503, str(error)) from None
 
-    def others(module_id: str) -> tuple[Module, Any] | None:
-        """Another loaded module by its `module:` id, with its records (unreadable: none)."""
-        for other in current.entries.values():
-            if other.module is not None and other.module.module == module_id and other is not entry:
-                try:
-                    return other.module, current.full_tables(other)[0]
-                except StorageError:
-                    return None
-        return None
-
-    widgets = compute_view(entry.module, views[view], tables, settings, day, others)
+    widgets = compute_view(entry.module, views[view], tables, settings, day, current.others(entry))
     return View.model_validate(
         {
             "module": module,

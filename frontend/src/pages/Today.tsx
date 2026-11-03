@@ -7,6 +7,7 @@ import { Link, useSearchParams } from "react-router";
 import type { DueForm, ModuleAdvice, ModuleDay } from "../api/client";
 import { useRecommendation, useToday } from "../api/queries";
 import { asText } from "../forms/values";
+import { decimal, zoneOf } from "../lib/charts";
 import { formatDateTime } from "../lib/format";
 
 const HEADLINE_COLOURS: Record<string, string> = {
@@ -116,6 +117,27 @@ function DueLists({ date }: { date: string }) {
   );
 }
 
+/** This week's training load (06-ui Today, D-102), as the dashboard's load card counts it. */
+function WeekLine({ week }: { week: NonNullable<ModuleDay["week"]> }) {
+  const parts = [
+    `${week.label}: ${decimal(week.load)}`,
+    `${String(week.sessions)} ${week.sessions === 1 ? "session" : "sessions"}`,
+  ];
+  if (week.without_load > 0) parts.push(`${String(week.without_load)} without load`);
+  if (week.acwr !== null) {
+    parts.push(`ratio ${decimal(week.acwr)} (${zoneOf(week.acwr, week.zones)})`);
+  }
+  for (const other of week.others) parts.push(`${other.label}: ${decimal(other.load)}`);
+  return (
+    <Text size="sm">
+      <Text span fw={500}>
+        This week
+      </Text>{" "}
+      (from Monday) · {parts.join(" · ")}
+    </Text>
+  );
+}
+
 function DueList({ day, date }: { day: ModuleDay; date: string }) {
   return (
     <Card withBorder>
@@ -129,6 +151,7 @@ function DueList({ day, date }: { day: ModuleDay; date: string }) {
             </Text>
           )}
         </Group>
+        {day.week !== null && <WeekLine week={day.week} />}
         {day.any_one && <Text size="sm">Nothing logged yet: one of these.</Text>}
         {day.items.map((item) => (
           <DueItem

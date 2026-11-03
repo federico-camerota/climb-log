@@ -29,6 +29,22 @@ class DueForm(BaseModel):
     log_check: Any = None  # the record's own check, when the entity has one
 
 
+class OtherLoad(BaseModel):
+    label: str  # e.g. "Finger training (sets x effort)"
+    load: float
+    without: int  # its records without a value
+
+
+class WeekLoad(BaseModel):
+    label: str
+    load: float  # Monday to the day
+    sessions: int
+    without_load: int  # sessions missing duration or effort (counted as 0)
+    acwr: float | None  # None while the baseline builds
+    zones: list[float]  # context for the ratio (0.8 / 1.3 / 1.5)
+    others: list[OtherLoad]
+
+
 class ModuleDay(BaseModel):
     module: str
     name: str
@@ -37,6 +53,7 @@ class ModuleDay(BaseModel):
     last: dt.date | None  # the latest record (of the first form's entity) up to the day
     last_label: str | None  # e.g. "Session"
     days_since: int | None
+    week: WeekLoad | None  # this week's training load, when the module has one (D-102)
     notes: list[str]  # forms left out, and why
     as_of: dt.datetime | None
     offline: bool
@@ -58,7 +75,7 @@ def get_today(request: Request, date: dt.date | None = None) -> Today:
         if entry.module is None or not forms_of(entry.module):
             continue
         try:
-            result = current.due(entry, day)
+            result, week = current.due(entry, day)
         except StorageError as error:
             problems.append(f"{name}: {error}")
             continue
@@ -72,6 +89,17 @@ def get_today(request: Request, date: dt.date | None = None) -> Today:
                 last=result.last,
                 last_label=result.last_label,
                 days_since=(day - result.last).days if result.last is not None else None,
+                week=None
+                if week is None
+                else WeekLoad(
+                    label=week.label,
+                    load=week.load,
+                    sessions=week.sessions,
+                    without_load=week.without_load,
+                    acwr=week.acwr,
+                    zones=week.zones,
+                    others=[OtherLoad(label=a, load=b, without=c) for a, b, c in week.others],
+                ),
                 notes=result.notes,
                 as_of=entry.repo.as_of,
                 offline=entry.repo.offline,

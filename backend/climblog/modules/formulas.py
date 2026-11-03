@@ -213,8 +213,17 @@ def summary_formulas(
     }
     compiler = _DayCompiler(module, _Plans(module), columns, refs, names, dialect)
     for step in plan.values.steps:
+        if step.key in app_only_values(module):
+            continue
         result[step.key] = "=" + compiler.value_of(step)
     return result
+
+
+def app_only_values(module: Module) -> set[str]:
+    """The summary's values with `sheet_formula: false`: computed in the app, not in the sheet
+    (no other value may read them there)."""
+    found = module.summary.values if module.summary is not None else {}
+    return {key for key, entry in found.items() if _sheet_formula(entry) is False}
 
 
 def side_by_side_formulas(

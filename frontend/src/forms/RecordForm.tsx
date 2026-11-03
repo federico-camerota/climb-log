@@ -17,6 +17,7 @@ import {
   type Written,
 } from "../api/client";
 import { useHidden, useRecord, useRecords } from "../api/queries";
+import { DataStatus } from "../components/DataStatus";
 import { ChildRows, type ChildApi } from "./ChildRows";
 import { FieldInput } from "./FieldInput";
 import { formGroups, scaleOf, type EntityDef, type FormDef } from "./schema";
@@ -41,6 +42,9 @@ interface Props {
 export function RecordForm(props: Props) {
   const { module, form, recordKey } = props;
   const record = useRecord(module.id, form.entity, recordKey);
+  // the entity's records say whether the workbook is reachable: offline, nothing is saved
+  const status = useRecords(module.id, form.entity);
+  const offline = status.data?.offline === true;
   const [saved, setSaved] = useState<Written | null>(null);
   if (record.isPending) return <Loader />;
   if (record.isError) {
@@ -53,8 +57,10 @@ export function RecordForm(props: Props) {
   const values = record.data?.record.values ?? null;
   return (
     <Stack>
+      {offline && status.data !== undefined && <DataStatus records={status.data} />}
       {saved !== null && <SavedSummary written={saved} />}
       <Editor
+        offline={offline}
         key={JSON.stringify(values)} // a new read starts the form again (a draft is kept)
         {...props}
         read={values}
@@ -67,6 +73,7 @@ export function RecordForm(props: Props) {
 
 interface EditorProps extends Props {
   read: Values | null; // the record as read; null: none yet
+  offline: boolean; // the workbook can't be reached: read-only
   onSaved: (written: Written) => void;
   onReload: () => void;
 }
@@ -78,6 +85,7 @@ function Editor({
   entity,
   recordKey,
   read,
+  offline,
   onSaved,
   onReload,
   issues = [],
@@ -284,7 +292,7 @@ function Editor({
         )}
         {nothing && <Text c="dimmed">Nothing changed.</Text>}
         <Group>
-          <Button type="submit" loading={save.isPending}>
+          <Button type="submit" loading={save.isPending} disabled={offline}>
             {read === null ? "Save" : "Save changes"}
           </Button>
         </Group>

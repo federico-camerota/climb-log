@@ -49,6 +49,7 @@ def test_the_summary_for_a_day() -> None:
     assert values["days_ago"] == "2 day(s) ago"
     assert values["latest_status"] == "LOW"
     assert (values["weakest"], values["lowest_score"]) == ("Physical", 3.3)  # 3.25, as the sheet
+    assert values["weakest_area"] == "Physical · 3.3"  # for the app's reasons (D-102)
     assert values["low_sessions"] == 1
     assert str(values["text"]).startswith("RECOVER — ")
     # side by side: newest first, a day's second session before its first, blank past the first
@@ -103,6 +104,17 @@ summary:
         (
             "  rows: [{label: Advice, value: text}]\n",
             "summary.rows[0].value: no value 'text' (the module has no recommendation:)",
+        ),
+        (
+            "    app: {expr: 'last_mood + 1', sheet_formula: false}\n"
+            "  rows: [{label: Mood, value: app}]\n",
+            "summary.rows[0].value: 'app' is app only (sheet_formula: false)",
+        ),
+        (
+            "    app: {expr: 'last_mood + 1', sheet_formula: false}\n"
+            "    more: 'app + 1'\n"
+            "  rows: [{label: Mood, value: more}]\n",
+            "summary.values.more: reads app: app only (sheet_formula: false)",
         ),
         (
             "  tab: Sessions\n  rows: [{label: Mood, value: last_mood}]\n",
@@ -187,3 +199,32 @@ def test_sync_on_google_writes_the_summary_and_finds_no_drift() -> None:
     assert first == "Summary"
     assert find_drift(JOURNAL, repo) == []
     assert not [line for line in sync_module(JOURNAL, repo) if "Summary" in line]
+
+
+def test_an_app_only_value_is_not_written_to_the_sheet(tmp_path: Path) -> None:
+    path = tmp_path / "journal.xlsx"
+    sync_module(JOURNAL, XlsxBackend(path))
+    sheet = openpyxl.load_workbook(path)["Summary"]
+    written = [str(c.value) for row in sheet.iter_rows() for c in row if c.value is not None]
+    assert "wb_latest" in written  # a value the rows read, below them
+    assert "weakest_area" not in written  # app only (D-102)
+
+
+def test_a_reason_can_be_a_summary_value(tmp_path: Path) -> None:
+    from climblog.catalog import Catalog, Entry
+    from climblog.config import AppConfig
+    from climblog.storage import CachedRepository, RecordWriter, Snapshots
+
+    path = tmp_path / "journal.xlsx"
+    sync_module(JOURNAL, XlsxBackend(path))
+    RecordWriter(JOURNAL, XlsxBackend(path)).add(
+        "session", {"date": dt.date(2026, 10, 28), "wb_mood_pre": 3, "ph_pre_fingers": 2}
+    )
+    catalog = Catalog(AppConfig())
+    cached = CachedRepository("journal", XlsxBackend(path), Snapshots(tmp_path / "s"))
+    entry = Entry("journal", JOURNAL, [], cached)
+    advice = catalog.advice(entry, dt.date(2026, 10, 30))
+    assert advice is not None
+    found = {r.name: r.value for r in advice.reasons}
+    values = summarize(JOURNAL, catalog.full_tables(entry)[0], {}, dt.date(2026, 10, 30)).values
+    assert found["weakest_area"] == values["weakest_area"] is not None

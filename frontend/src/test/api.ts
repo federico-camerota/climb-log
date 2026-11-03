@@ -43,7 +43,7 @@ export function module(id: string, name: string, entities: string[]): ModuleInfo
     version: 1,
     kind: "journal",
     problems: [],
-    module_schema: { entities: Object.fromEntries(entities.map((e) => [e, {}])) },
+    module_schema: { entities: Object.fromEntries(entities.map((e) => [e, { fields: {} }])) },
   };
 }
 

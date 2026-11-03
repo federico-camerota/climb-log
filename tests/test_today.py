@@ -347,3 +347,46 @@ def test_the_finger_wellbeing_counts_from_its_since_day() -> None:
     assert (found.status, found.missing) == ("partial", ["Wellbeing · before", "Wellbeing · after"])
     wellbeing: Row = {"wb_mood_pre": 7, "wb_energy_pre": 6, "wb_fatigue_post": 5, "wb_mood_post": 8}
     assert due(FINGERS, {"session": [new | wellbeing]}, later).items[0].status == "done"
+
+
+# ---- this week's load (D-102) ----
+
+
+def test_the_api_gives_this_weeks_load(tmp_path: Path) -> None:
+    """Monday 26 to Friday 30 Oct, worked out by hand: 60 x 7 + 90 x 5 = 870 from three
+    sessions, one without effort (0); fingers: 3 sets x effort 8 = 24."""
+    catalog = Catalog(AppConfig())
+    for name, module in (("journal", JOURNAL), ("finger_strength", FINGERS)):
+        path = tmp_path / f"{name}.xlsx"
+        sync_module(module, XlsxBackend(path))
+        cached = CachedRepository(name, XlsxBackend(path), Snapshots(tmp_path / name))
+        catalog.entries[name] = Entry(name, module, [], cached)
+    journal = RecordWriter(JOURNAL, XlsxBackend(tmp_path / "journal.xlsx"))
+    for day, minutes, effort in [
+        (25, 120, 8),
+        (27, 60, 7),
+        (28, 75, None),
+        (29, 90, 5),
+        (31, 60, 6),
+    ]:
+        values: Row = {"date": dt.date(2026, 10, day), "duration_min": minutes}
+        journal.add("session", values | ({} if effort is None else {"feel_effort": effort}))
+    fingers = RecordWriter(FINGERS, XlsxBackend(tmp_path / "finger_strength.xlsx"))
+    fingers.add(
+        "session", {"date": dt.date(2026, 10, 28), "session_type": "Max hangs", "session_rpe": 8}
+    )
+    for kg in (10, 12.5, 15):
+        fingers.add("hang_set", {"date": dt.date(2026, 10, 28), "added_kg": kg})
+
+    body = TestClient(create_app(catalog=catalog)).get("/api/today", params={"date": "2026-10-30"})
+    journal_day, finger_day = body.json()["modules"]
+    assert journal_day["week"] == {
+        "label": "Training load",
+        "load": 870.0,
+        "sessions": 3,
+        "without_load": 1,
+        "acwr": None,  # from the first session + 27 days
+        "zones": [0.8, 1.3, 1.5],
+        "others": [{"label": "Finger training (sets x effort)", "load": 24.0, "without": 0}],
+    }
+    assert finger_day["week"] is None  # no training_load widget of its own

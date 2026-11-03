@@ -99,6 +99,38 @@ describe("Records table", () => {
     expect(screen.getByText("2 of 3 shown")).toBeInTheDocument();
   });
 
+  it("searches the derived values too and highlights the matches", async () => {
+    api();
+    renderApp(PAGE);
+    await userEvent.type(await screen.findByRole("textbox", { name: "Search" }), "low");
+    expect(bodyRows().map((r) => r[0])).toEqual(["28/10/2026"]); // its wb status
+    expect(screen.getByText("LOW", { selector: "mark" })).toBeInTheDocument();
+    await userEvent.clear(screen.getByRole("textbox", { name: "Search" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Search" }), "28/10");
+    expect(screen.getAllByText("28/10", { selector: "mark" })).toHaveLength(2);
+  });
+
+  it("filters by date range, weekday and status, as the legacy Log Search", async () => {
+    api();
+    renderApp(PAGE);
+    const from = await screen.findByRole("textbox", { name: "From" });
+    await userEvent.type(from, "21/10/2026");
+    await userEvent.tab();
+    expect(bodyRows()).toHaveLength(2);
+    await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(bodyRows()).toHaveLength(3);
+
+    await userEvent.click(screen.getByLabelText("Weekday", { selector: "input" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Tue", hidden: true }));
+    expect(bodyRows().map((r) => r[0])).toEqual(["20/10/2026"]); // a Tuesday
+    await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+
+    await userEvent.click(screen.getByLabelText("Status", { selector: "input" }));
+    await userEvent.click(await screen.findByRole("option", { name: "GOOD", hidden: true }));
+    expect(bodyRows().map((r) => r[0])).toEqual(["20/10/2026"]);
+    expect(screen.getByText("1 of 3 shown")).toBeInTheDocument();
+  });
+
   it("marks a data issue in its cell and lists every issue", async () => {
     api();
     renderApp(PAGE);
