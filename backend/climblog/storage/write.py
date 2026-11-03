@@ -71,10 +71,10 @@ class RecordWriter:
         value."""
         ent = self._entity(entity)
         record = self._check(ent, values)
-        key = self._complete_key(ent, record)
+        data = load_data(self.module, self.repo)
+        key = self._complete_key(ent, record, (entity, data))
         record.update(zip(_key(ent), key, strict=True))
         self._check_free(ent, key)
-        data = load_data(self.module, self.repo)
         self._check_parent(ent, record, data)
         self.repo.apply(self._appends(ent, record, self._now()))
         return key
@@ -90,7 +90,8 @@ class RecordWriter:
         for entity, values in records:
             ent = self._entity(entity)
             record = self._check(ent, values)
-            key = self._complete_key(ent, record)
+            batch = [k for e, k in taken if e == entity]
+            key = self._complete_key(ent, record, (entity, data), batch)
             record.update(zip(_key(ent), key, strict=True))
             if (entity, key) in taken:
                 described = describe_key(_key(ent), key)
@@ -244,9 +245,25 @@ class RecordWriter:
             raise WriteError(problems[0][1], problems[0][0], problems)
         return checked
 
-    def _complete_key(self, entity: Entity, values: Mapping[str, Value]) -> Key:
-        """The key from the values, a blank part taking its default; still blank fails."""
-        key = tuple(self._or_default(entity, part, values.get(part)) for part in _key(entity))
+    def _complete_key(
+        self,
+        entity: Entity,
+        values: Mapping[str, Value],
+        adding: tuple[str, ModuleData] | None = None,
+        batch: Sequence[Key] = (),
+    ) -> Key:
+        """The key from the values, a blank part taking its default; still blank fails. When
+        adding a record (`adding`: the entity's name and the loaded data), a blank `next` part
+        gets the next number (D-050): the highest among the records with the same other key
+        parts (and those added before it in a batch), plus one."""
+        parts = _key(entity)
+        found = [self._or_default(entity, part, values.get(part)) for part in parts]
+        if adding is not None:
+            name, data = adding
+            for i, part in enumerate(parts):
+                if found[i] is None and _field(entity, part).default == NEXT:
+                    found[i] = _next_number(i, found, data.entities[name].records, parts, batch)
+        key = tuple(found)
         if None in key:
             blank = _key(entity)[key.index(None)]
             raise WriteError(f"no {blank}: a {entity.label.lower()} needs one", blank)
@@ -254,7 +271,7 @@ class RecordWriter:
 
     def _or_default(self, entity: Entity, name: str, value: Value) -> Value:
         """The value, or the field's default when blank (as on read, D-048). A `next` number
-        is not filled in yet: it stays blank (D-050)."""
+        stays blank here: `_complete_key` numbers it when a record is added (D-050)."""
         field = _field(entity, name)
         if value is None and field.default not in (None, NEXT):
             return parse_cell(self.module, field, field.default)  # checked at load
@@ -354,6 +371,24 @@ class RecordWriter:
 
     def _now(self) -> dt.datetime:
         return self.clock().replace(microsecond=0)
+
+
+def _next_number(
+    i: int,
+    key: Sequence[Value],
+    records: Sequence[Mapping[str, Value]],
+    parts: Sequence[str],
+    batch: Sequence[Key],
+) -> int | None:
+    """The next number of key part `i` (e.g. a set's number on its date): one more than the
+    highest among the records sharing the other parts; None while another part is blank."""
+    others = [j for j in range(len(parts)) if j != i]
+    if any(key[j] is None for j in others):
+        return None
+    taken = [r.get(parts[i]) for r in records if all(r.get(parts[j]) == key[j] for j in others)]
+    taken += [k[i] for k in batch if all(k[j] == key[j] for j in others)]
+    numbers = [int(v) for v in taken if isinstance(v, int | float) and not isinstance(v, bool)]
+    return max(numbers, default=0) + 1
 
 
 def _key(entity: Entity) -> list[str]:

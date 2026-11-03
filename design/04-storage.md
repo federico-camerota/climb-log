@@ -61,7 +61,8 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
   - Values are checked as they would read back (`parse_cell`), so a write never makes a data
     issue; booleans are written `Yes`/`No`, text always as text cells (§3b).
   - A new record needs a complete key (blank parts take their `default:`, as on read; a
-    `default: next` number must still be given, D-050) that no row of its tabs holds yet,
+    blank `default: next` number becomes one more than the highest among the records with the
+    same other key parts, D-050, #114) that no row of its tabs holds yet,
     orphan section rows included; a child needs its parent row. A split record gets a row in
     its anchor tab and in each section tab it has values for.
   - New rows go into the **first free row**: from row 3, the first whose columns other than
