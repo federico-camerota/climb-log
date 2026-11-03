@@ -92,6 +92,7 @@ class HeatmapMark(BaseModel):
 class HeatmapData(BaseModel):
     widget: Literal["heatmap_calendar"]
     label: str | None
+    entity: str  # the metric's entity, e.g. session: a clicked day opens its records
     start: dt.date  # the first day of the first month shown (not before the first record's)
     end: dt.date  # the day asked
     extra: str | None  # the extra entity, e.g. rest_day

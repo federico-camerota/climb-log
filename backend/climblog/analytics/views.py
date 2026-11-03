@@ -362,6 +362,7 @@ def _heatmap(widget: HeatmapWidget, records: Records, day: dt.date) -> dict[str,
     return {
         "widget": "heatmap_calendar",
         "label": widget.label,
+        "entity": entity,  # whose records a day opens (with the extra entity's)
         "start": start.isoformat(),
         "end": day.isoformat(),
         "extra": extra_label,

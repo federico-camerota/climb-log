@@ -1,14 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ModuleInfo } from "../api/client";
 import { DIARY, HEALTH, stubApi } from "../test/api";
 import { renderApp } from "../test/render";
 
-// jsdom draws no canvas: the chart is a labelled box here (lib/lineChart.test.ts checks its option)
+// The chart is a labelled box here (lib/lineChart.test.ts checks its option); a clickable one
+// gets a button that clicks its item of 28/10 (a calendar day).
 vi.mock("../components/Chart", () => ({
-  Chart: ({ label }: { label: string }) => <div role="img" aria-label={label} />,
+  Chart: ({ label, onClick }: { label: string; onClick?: (item: { value: unknown }) => void }) => (
+    <div role="img" aria-label={label}>
+      {onClick !== undefined && (
+        <button
+          type="button"
+          onClick={() => {
+            onClick({ value: ["2026-10-28", 0] });
+          }}
+        >
+          Click 28/10
+        </button>
+      )}
+    </div>
+  ),
 }));
 
 const WITH_VIEW: ModuleInfo = {
@@ -64,6 +79,7 @@ const VIEW = {
     {
       widget: "heatmap_calendar",
       label: "Training calendar",
+      entity: "session",
       start: "2026-10-01",
       end: "2026-10-30",
       extra: "rest_day",
@@ -388,5 +404,59 @@ describe("Dashboards", () => {
     stubApi({ "/api/health": HEALTH, "/api/modules": { modules: [DIARY], problems: [] } });
     renderApp("/dashboards/diary");
     expect(await screen.findByText("Module 'diary' has no views.")).toBeInTheDocument();
+  });
+
+  it("opens a calendar day's records in a drawer, read-only, with Edit and Log", async () => {
+    const records = (entity: string, rows: object[]) => ({
+      module: "diary",
+      entity,
+      as_of: "2026-10-30T09:05:00",
+      offline: false,
+      issues: [],
+      records: rows,
+    });
+    stubApi({
+      "/api/health": HEALTH,
+      "/api/modules": { modules: [WITH_VIEW], problems: [] },
+      "/api/modules/diary/views/overview?date=2026-10-30": VIEW,
+      "/api/modules/diary/session": records("session", [
+        {
+          values: {
+            date: "2026-10-28",
+            session_no: 1,
+            venue: "[TEST] Wall",
+            setting: "Outdoor",
+            notes: "Fictional note",
+            wb_sleep_hours: 7.5,
+            wb_mood_pre: null,
+          },
+          derived: { overall_status: "LOW", wb_score: 6.5, weekday: "Wed" },
+          rows: { Sessions: 3 },
+        },
+        { values: { date: "2026-10-29", session_no: 1 }, derived: {}, rows: { Sessions: 4 } },
+      ]),
+      "/api/modules/diary/rest_day": records("rest_day", []),
+    });
+    renderApp("/dashboards/diary?date=2026-10-30");
+    expect(await screen.findByText(/click it to see its records/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Click 28/10" }));
+    const drawer = await screen.findByRole("dialog", { name: "Wed 28/10/2026" });
+    const inside = within(drawer);
+    expect(await inside.findByText("Session 1")).toBeInTheDocument();
+    expect(inside.getByText("Overall status")).toBeInTheDocument();
+    expect(inside.getByText("LOW")).toBeInTheDocument();
+    expect(inside.getByText("Wb score 6,5")).toBeInTheDocument();
+    expect(inside.getByText("Session details")).toBeInTheDocument();
+    expect(inside.getByText("Venue [TEST] Wall · Setting Outdoor")).toBeInTheDocument();
+    expect(inside.getByText("Sleep hours 7,5")).toBeInTheDocument(); // the blank mood left out
+    expect(inside.getByText(/Fictional note/)).toBeInTheDocument();
+    expect(inside.queryByText(/2026-10-29/)).toBeNull(); // another day's session
+    expect(inside.getByText("Rest day: none that day.")).toBeInTheDocument();
+    expect(inside.getByRole("link", { name: "Log this day" })).toHaveAttribute(
+      "href",
+      "/log/diary?date=2026-10-28",
+    );
+    await userEvent.click(inside.getByRole("button", { name: "Edit" }));
+    expect(await screen.findAllByRole("dialog")).toHaveLength(2); // the edit drawer on top
   });
 });

@@ -499,6 +499,8 @@ export interface components {
              * Format: date
              */
             end: string;
+            /** Entity */
+            entity: string;
             /** Extra */
             extra: string | null;
             /** Label */
