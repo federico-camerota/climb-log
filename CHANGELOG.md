@@ -30,6 +30,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   (`core = "sysmon"`); the Python tests took ~8 minutes in CI, mostly the coverage tracer's
   overhead (locally 462 s → 177 s).
 
+### Fixed
+- Dashboard charts are drawn as SVG instead of on a canvas (D-097): in Firefox on Linux with GPU
+  canvas acceleration, some charts stayed blank until clicked.
+
 ## [0.3.0] - 2026-11-02
 
 M3: the journal app: logging, Today, records, dashboard and the sheet's Summary tab
