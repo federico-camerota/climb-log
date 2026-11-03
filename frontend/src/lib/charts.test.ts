@@ -21,6 +21,7 @@ import {
   decimal,
   gradesOption,
   loadOption,
+  othersOption,
   pairStats,
   prePostOption,
   pyramidOption,
@@ -185,7 +186,7 @@ describe("the chart options", () => {
     ]);
   });
 
-  it("stacks the weekly loads and draws the ratio on its own axis with zones", () => {
+  it("draws the journal load with the ratio on its own axis, other sources apart", () => {
     const data: TrainingLoadData = {
       widget: "training_load",
       label: null,
@@ -202,9 +203,11 @@ describe("the chart options", () => {
           start: "2026-10-26",
           load: 900,
           sessions: 3,
+          days: 2,
           without_load: 0,
           rest_days: 1,
           others: [40],
+          others_without: [1],
           acwr: 2.4,
           monotony: null,
           strain: null,
@@ -215,14 +218,17 @@ describe("the chart options", () => {
       current_streak: 0,
     };
     const option = loadOption(data) as Option;
-    expect(option.series.map((s) => [s.name, s.stack, s.yAxisIndex])).toEqual([
-      ["Climbing journal", "load", undefined],
-      ["Fingers", "load", undefined],
-      ["ACWR", undefined, 1],
+    expect(option.series.map((s) => [s.name, s.yAxisIndex])).toEqual([
+      ["Climbing journal", undefined],
+      ["ACWR", 1],
+    ]);
+    const others = othersOption(data) as Option; // other units: a chart of their own
+    expect(others.series.map((s) => [s.name, s.stack, s.data])).toEqual([
+      ["Fingers", "others", [40]],
     ]);
     const axes = option.yAxis as Record<string, unknown>[];
     expect(axes[1]).toMatchObject({ min: 0, max: 2.5 }); // room for 2.4
-    const zones = (option.series[2]?.markArea as { data: { yAxis: number }[][] }).data;
+    const zones = (option.series[1]?.markArea as { data: { yAxis: number }[][] }).data;
     expect(zones.map(([from, to]) => [from?.yAxis, to?.yAxis])).toEqual([
       [0, 0.8],
       [0.8, 1.3],
@@ -273,7 +279,8 @@ describe("the chart options", () => {
       changeTone(2, true),
       changeTone(0, true),
       changeTone(1, null),
-    ]).toEqual(["green", "green", "red", "dimmed", "dimmed"]);
+      changeTone(-1, false),
+    ]).toEqual(["green", "inherit", "inherit", "dimmed", "dimmed", "red"]); // soreness: neutral
   });
 
   it("maps body parts by week, red at the bad end of the scale", () => {
@@ -305,8 +312,14 @@ describe("the chart options", () => {
       [0, 0, 3],
       [1, 1, 6],
     ]);
-    const map = option.visualMap as { min: number; max: number; inRange: { color: string[] } };
+    const map = option.visualMap as {
+      min: number;
+      max: number;
+      inRange: { color: string[] };
+      text: string[];
+    };
     expect([map.min, map.max, map.inRange.color.at(-1)]).toEqual([1, 10, "#e03131"]);
+    expect(map.text).toEqual(["10", "1"]); // the scale's ends at the colour bar
     const better = bodyOption({ ...data, lower_better: false }, 0) as Option;
     expect((better.visualMap as { inRange: { color: string[] } }).inRange.color[0]).toBe("#e03131");
   });

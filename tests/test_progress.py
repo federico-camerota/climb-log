@@ -165,3 +165,57 @@ def test_a_pair_of_plain_numbers_has_no_direction(load: LoadYaml) -> None:
     widget = (module.views or {})["progress"][0]
     [found] = compute_view(module, [widget], {"session": []}, {}, day(1))
     assert found["pairs"][0]["lower_better"] is None
+
+
+def test_values_before_a_fields_since_are_left_out() -> None:
+    # elbows are tracked from 2026-10-20 (`since:` in journal.yaml): day(15)
+    sessions = [
+        session(0, ph_pre_elbows=2, ph_post_elbows=6),  # typed before it was tracked
+        session(16, ph_pre_elbows=3, ph_post_elbows=4),
+    ]
+    deltas, heat = widgets(sessions, on=20)
+    elbows = next(p for p in deltas["pairs"] if p["label"] == "Elbows")
+    assert elbows["all"] == {"n": 1, "pre": 3, "post": 4, "change": 1}
+    row = heat["parts"].index("Elbows")
+    assert heat["sources"][0]["values"][row] == [None, None, 3]  # weeks of 10-05, 10-12, 10-19
+
+
+def test_a_retired_body_part_shows_while_it_has_values(load: LoadYaml) -> None:
+    text = (ROOT / "modules" / "journal.yaml").read_text(encoding="utf-8")
+    module = load(
+        text.replace(
+            "    skin:       {type: scale, scale: s10_down, tags: [soreness]}",
+            "    skin:       {type: scale, scale: s10_down, tags: [soreness], retired: true}",
+        )
+    )
+    views = (module.views or {})["progress"]
+
+    def labels(sessions: list[dict[str, Value]]) -> tuple[list[str], list[str]]:
+        deltas, heat, *_ = compute_view(module, views, {"session": sessions}, {}, day(6))
+        return [p["label"] for p in deltas["pairs"]], heat["parts"]
+
+    pairs, parts = labels([session(0, ph_pre_fingers=2, ph_post_fingers=4)])
+    assert "Skin" not in pairs and "Skin" not in parts  # retired, no values: hidden
+    pairs, parts = labels([session(0, ph_pre_skin=2, ph_post_skin=4)])
+    assert "Skin" in pairs and "Skin" in parts  # its history still shows
+
+
+def test_charted_pairs_and_templates_are_numbers(problems: Problems) -> None:
+    text = (ROOT / "modules" / "journal.yaml").read_text(encoding="utf-8")
+    bad = text.replace(
+        "pairs: [{label: Mood, pre: session.wb_mood_pre, post: session.wb_mood_post}]",
+        "pairs: [{label: Words, pre: session.venue, post: session.notes}]",
+    )
+    found = problems(bad)
+    assert any("'session.venue' is not a number" in p for p in found)
+    assert any("'session.notes' is not a number" in p for p in found)
+    bad = text.replace(
+        "    skin:       {type: scale, scale: s10_down, tags: [soreness]}\n",
+        "    skin:       {type: scale, scale: s10_down, tags: [soreness]}\n"
+        "    where:      {type: text}\n",
+    )
+    found = problems(bad)
+    assert any(
+        "template_pairs[0]: 'soreness' has fields that aren't numbers: where" in p for p in found
+    )
+    assert any("template: 'soreness' has fields that aren't numbers: where" in p for p in found)

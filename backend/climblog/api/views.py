@@ -92,6 +92,7 @@ class HeatmapMark(BaseModel):
 class HeatmapData(BaseModel):
     widget: Literal["heatmap_calendar"]
     label: str | None
+    entity: str  # the metric's entity, e.g. session: a clicked day opens its records
     start: dt.date  # the first day of the first month shown (not before the first record's)
     end: dt.date  # the day asked
     extra: str | None  # the extra entity, e.g. rest_day
@@ -215,7 +216,7 @@ class BarsData(BaseModel):
 
 class Stack(BaseModel):
     label: str  # a value of the field (or "" for a single stack)
-    values: list[float]  # one per week
+    values: list[float | None]  # one per week; None: a mean over a week with nothing logged
 
 
 class WeekbarsData(BaseModel):
@@ -292,9 +293,11 @@ class LoadWeek(BaseModel):
     start: dt.date  # its Monday
     load: float  # the sum of the records' loads
     sessions: int
+    days: int  # days with at least one session (two sessions on one day: 1)
     without_load: int  # records missing an input: counted as 0
     rest_days: int
-    others: list[float]  # one per other source, stacked
+    others: list[float]  # one per other source (its own chart: other units)
+    others_without: list[int]  # per other source: its records without a value (e.g. no effort)
     acwr: float | None  # at the week's last day (or the day asked); none before the baseline
     monotony: float | None
     strain: float | None
@@ -394,6 +397,7 @@ class Pyramid(BaseModel):
 
 class SettingRow(BaseModel):
     setting: str
+    venue: str | None = None  # a gym grade's venue: each gym grades its own way
     system: str
     sessions: int
     hardest: str

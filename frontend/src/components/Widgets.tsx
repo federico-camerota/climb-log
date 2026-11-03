@@ -28,31 +28,11 @@ import type {
 import { formatDateTime, monthName } from "../lib/format";
 import { CALENDAR_HEIGHT, dayKey, heatmapOption, PIECES } from "../lib/heatmap";
 import { lineOption, RANGES, type Range } from "../lib/lineChart";
+import { STATUS_COLOURS } from "../lib/status";
+import type { ModuleInfo } from "../api/client";
 import { Chart } from "./Chart";
-
-// Statuses and their colours (the journal's levels; other levels are shown plain).
-const STATUS_COLOURS: Record<string, string> = {
-  GOOD: "green",
-  GREEN: "green",
-  WATCH: "yellow",
-  YELLOW: "yellow",
-  LOW: "red",
-  RED: "red",
-  "NEEDS ATTENTION": "red",
-  "WORTH NOTING": "yellow",
-};
-
-export function Status({ value }: { value: unknown }) {
-  if (typeof value !== "string" || value === "") return <Text c="dimmed">–</Text>;
-  const colour = STATUS_COLOURS[value];
-  return colour === undefined ? (
-    <Text>{value}</Text>
-  ) : (
-    <Badge variant="light" color={colour}>
-      {value}
-    </Badge>
-  );
-}
+import { DayRecords } from "./DayRecords";
+import { Status } from "./Status";
 
 function shownValue(value: unknown): string {
   if (value === null || value === undefined) return "–";
@@ -253,8 +233,9 @@ function dayLabel(date: string, key: Record<string, unknown>): string {
 
 /** A day per square from the first record's month: coloured by its sessions' worst status,
  * rest days lighter, a letter for the kind of day; a caption and a legend below. */
-export function HeatmapCard({ data }: { data: HeatmapData }) {
+export function HeatmapCard({ data, module }: { data: HeatmapData; module: ModuleInfo }) {
   const dark = useComputedColorScheme("light") === "dark";
+  const [day, setDay] = useState<string | null>(null);
   const option = useMemo(() => {
     const body = getComputedStyle(document.body).getPropertyValue("--mantine-color-body").trim();
     return heatmapOption(data, dark, body === "" ? undefined : body);
@@ -265,10 +246,18 @@ export function HeatmapCard({ data }: { data: HeatmapData }) {
       <Title order={4}>{data.label ?? "Calendar"}</Title>
       <Text size="sm" c="dimmed" mb="xs">
         Each square is a day, coloured by that day&apos;s session status (the worse of two
-        sessions); rest days are lighter. Hover a day for details.
+        sessions); rest days are lighter. Hover a day for details, click it to see its records.
       </Text>
       <div style={{ overflowX: "auto" }}>
-        <Chart option={option} height={CALENDAR_HEIGHT} label={data.label ?? "Calendar"} />
+        <Chart
+          option={option}
+          height={CALENDAR_HEIGHT}
+          label={data.label ?? "Calendar"}
+          onClick={(item) => {
+            const date: unknown = Array.isArray(item.value) ? item.value[0] : undefined;
+            if (typeof date === "string") setDay(date);
+          }}
+        />
       </div>
       <Group gap="md" mt="xs" aria-label="Legend">
         {PIECES.filter((p) => shown.has(p.key) || !p.key.startsWith("rest ")).map((p) => (
@@ -283,6 +272,14 @@ export function HeatmapCard({ data }: { data: HeatmapData }) {
           </Text>
         ))}
       </Group>
+      <DayRecords
+        module={module}
+        entities={data.extra === null ? [data.entity] : [data.entity, data.extra]}
+        date={day}
+        onClose={() => {
+          setDay(null);
+        }}
+      />
     </Card>
   );
 }
