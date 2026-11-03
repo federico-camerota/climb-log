@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=module.schema.json
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Climbing journal: the module that replaces Climbing_Journal.xlsx (design/00-current-state.md §1).
 # Every rule of the legacy workbook is here; tests/test_journal.py checks each one (D-056).
 

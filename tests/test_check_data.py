@@ -14,9 +14,15 @@ import check_data
         "backend/climblog/old.XLSM",
         "design/mockups-old/real.xlsx",
         "tests/fixtures/../real.xlsx",
+        "snapshots/journal.json.gz",  # an app snapshot: the journal's records
+        "build/demo/snapshots/journal.json.gz",
+        "client_secret_123.apps.googleusercontent.com.json",  # secrets: anywhere
+        "tests/fixtures/google-token.json",
+        ".env",
+        "frontend/.env.local",
     ],
 )
-def test_spreadsheets_outside_allowed_dirs_are_rejected(path: str) -> None:
+def test_personal_data_outside_allowed_dirs_is_rejected(path: str) -> None:
     assert check_data.is_forbidden(path)
 
 
@@ -26,6 +32,9 @@ def test_spreadsheets_outside_allowed_dirs_are_rejected(path: str) -> None:
         "design/mockups/mockup-climbing-journal.xlsx",
         "tests/fixtures/legacy/journal.xlsx",
         "tests/fixtures/sessions.csv",
+        "tests/fixtures/snapshot.json.gz",  # a fictional snapshot fixture
+        "frontend/src/api/schema.json",
+        "package.json",
         "backend/climblog/main.py",
         "README.md",
     ],
