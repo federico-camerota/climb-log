@@ -90,13 +90,13 @@ function ModuleViews({ module, date }: { module: ModuleInfo; date: string }) {
           }}
         />
       )}
-      <ViewWidgets module={module.id} view={view} date={date} />
+      <ViewWidgets module={module} view={view} date={date} />
     </Stack>
   );
 }
 
-function ViewWidgets({ module, view, date }: { module: string; view: string; date: string }) {
-  const query = useView(module, view, date);
+function ViewWidgets({ module, view, date }: { module: ModuleInfo; view: string; date: string }) {
+  const query = useView(module.id, view, date);
   if (query.isPending) return <Loader />;
   if (query.isError) {
     return (
@@ -105,10 +105,10 @@ function ViewWidgets({ module, view, date }: { module: string; view: string; dat
       </Alert>
     );
   }
-  return <Widgets view={query.data} />;
+  return <Widgets view={query.data} module={module} />;
 }
 
-function Widgets({ view }: { view: View }) {
+function Widgets({ view, module }: { view: View; module: ModuleInfo }) {
   const kpis = view.widgets.filter((w) => w.widget === "kpi");
   return (
     <Stack>
@@ -127,7 +127,7 @@ function Widgets({ view }: { view: View }) {
           case "line":
             return <LineCard key={i} data={w} today={view.date} />;
           case "heatmap_calendar":
-            return <HeatmapCard key={i} data={w} />;
+            return <HeatmapCard key={i} data={w} module={module} />;
           case "side_by_side":
             return <SideBySideCard key={i} data={w} />;
           case "text_feed":

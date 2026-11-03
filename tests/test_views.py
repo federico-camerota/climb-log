@@ -144,9 +144,10 @@ def test_the_calendar_takes_a_days_worst_status_and_marks_rest_days() -> None:
     ]
     found = one("heatmap_calendar", *rows, rest=rest)
     # from the first record's month, not a year of empty months
-    assert (found["start"], found["end"], found["extra"]) == (
+    assert (found["start"], found["end"], found["entity"], found["extra"]) == (
         "2026-10-01",
         "2026-10-31",
+        "session",  # a clicked day opens the session and rest-day records
         "rest_day",
     )
     assert found["marks"] == [
