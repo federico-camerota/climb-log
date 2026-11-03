@@ -6,7 +6,16 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 
 ## [Unreleased]
 
+### Added
+- Forms show a field with `visible_if` only while its condition holds, and a hidden field isn't
+  saved or counted as missing on Today; text fields with `suggest_from_history` (the journal's
+  venue and partners) suggest the values typed before (#122, D-100).
+- The `forms:` block of a module YAML is checked at load: its entity, sections and child forms
+  (D-100).
+
 ### Changed
+- The unused field options `hidden_in_form` and `searchable` are removed: a module that sets
+  them no longer loads (D-099, D-100).
 - The commit check refuses the app's snapshots (`*.json.gz`) outside the fictional-data folders,
   and OAuth secrets, tokens and `.env` files anywhere, not only spreadsheets (it also catches a
   file added by force past `.gitignore`).

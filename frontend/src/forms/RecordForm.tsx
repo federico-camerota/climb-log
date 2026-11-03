@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { Alert, Badge, Button, Group, Loader, Stack, Text, Title } from "@mantine/core";
 import { useForm } from "@mantine/form";
+import { useDebouncedValue } from "@mantine/hooks";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   addRecord,
@@ -14,7 +15,7 @@ import {
   type Values,
   type Written,
 } from "../api/client";
-import { useRecord } from "../api/queries";
+import { useHidden, useRecord, useRecords } from "../api/queries";
 import { FieldInput } from "./FieldInput";
 import { formGroups, scaleOf, type EntityDef, type FormDef } from "./schema";
 import { isScale, problem, toApi, toInput, unchanged, type InputValue } from "./values";
@@ -97,15 +98,48 @@ function Editor({
   const [draft] = useState(() => loadDraft(draftKey));
   const [restored, setRestored] = useState(draft !== null);
   const [nothing, setNothing] = useState(false);
+  const hiddenRef = useRef(new Set<string>()); // the fields hidden now (below), for validation
   const editor = useForm<Record<string, InputValue>>({
     mode: "controlled",
     initialValues: { ...initial, ...(draft ?? {}) },
     // a draft comes back with the errors it had (D-079): the API's are known only on save
     initialErrors: { ...issueErrors, ...(draft === null ? {} : loadDraftErrors(draftKey)) },
     validate: Object.fromEntries(
-      fields.map(([name, field]) => [name, (value: InputValue) => problem(field, value)]),
+      fields.map(([name, field]) => [
+        name,
+        // a hidden field isn't checked: it isn't saved either
+        (value: InputValue) => (hiddenRef.current.has(name) ? null : problem(field, value)),
+      ]),
     ),
   });
+
+  // `visible_if` (03 §2.1b): the backend says which fields to hide for the values typed so far
+  // (debounced); until it first answers, the conditional fields stay hidden
+  const conditional = fields.filter(([, field]) => field.visible_if != null).map(([n]) => n);
+  const typed = JSON.stringify(
+    Object.fromEntries(
+      fields.map(([name, field]) => [name, toApi(field, editor.getValues()[name] ?? null)]),
+    ),
+  );
+  const [settled] = useDebouncedValue(typed, 300);
+  const answer = useHidden(
+    module.id,
+    form.entity,
+    JSON.parse(settled) as Values,
+    conditional.length > 0,
+  );
+  const hidden = new Set(conditional.length > 0 ? (answer.data ?? conditional) : []);
+  useEffect(() => {
+    hiddenRef.current = hidden;
+  });
+  const shownFields = fields.filter(([name]) => !hidden.has(name));
+
+  // `suggest_from_history`: the values typed before in the entity's records, newest first
+  const suggesting = fields.filter(([, field]) => field.suggest_from_history === true);
+  const history = useRecords(module.id, form.entity, suggesting.length > 0);
+  const suggestions = Object.fromEntries(
+    suggesting.map(([name]) => [name, pastValues(history.data?.records ?? [], name)]),
+  );
   useEffect(() => {
     if (editor.isDirty()) saveDraft(draftKey, editor.values, editor.errors);
   }, [editor, draftKey]);
@@ -113,7 +147,7 @@ function Editor({
   const queryClient = useQueryClient();
   const save = useMutation({
     mutationFn: (values: Record<string, InputValue>) => {
-      const changed = fields.filter(
+      const changed = shownFields.filter(
         ([name, field]) => !unchanged(field, read?.[name], values[name] ?? null),
       );
       const payload = Object.fromEntries(
@@ -138,7 +172,7 @@ function Editor({
   });
 
   const submit = editor.onSubmit((values) => {
-    const same = fields.every(([name, field]) =>
+    const same = shownFields.every(([name, field]) =>
       unchanged(field, read?.[name], values[name] ?? null),
     );
     setNothing(read !== null && same);
@@ -173,24 +207,28 @@ function Editor({
             </Group>
           </Alert>
         )}
-        {groups.map((group) => (
-          <Stack key={group.section ?? ""} gap="xs">
-            {group.label !== null && <Title order={4}>{group.label}</Title>}
-            {group.fields.map(([name, field]) => (
-              <FieldInput
-                key={name}
-                name={name}
-                field={field}
-                scale={scale(name)}
-                value={editor.getValues()[name] ?? null}
-                onChange={(value) => {
-                  editor.setFieldValue(name, value);
-                }}
-                error={editor.errors[name] as string | undefined}
-              />
-            ))}
-          </Stack>
-        ))}
+        {groups
+          .map((group) => ({ ...group, fields: group.fields.filter(([n]) => !hidden.has(n)) }))
+          .filter((group) => group.fields.length > 0)
+          .map((group) => (
+            <Stack key={group.section ?? ""} gap="xs">
+              {group.label !== null && <Title order={4}>{group.label}</Title>}
+              {group.fields.map(([name, field]) => (
+                <FieldInput
+                  key={name}
+                  name={name}
+                  field={field}
+                  scale={scale(name)}
+                  value={editor.getValues()[name] ?? null}
+                  onChange={(value) => {
+                    editor.setFieldValue(name, value);
+                  }}
+                  error={editor.errors[name] as string | undefined}
+                  suggestions={suggestions[name]}
+                />
+              ))}
+            </Stack>
+          ))}
         {conflict && (
           <Alert color="orange" title="Changed in the sheet since you opened the form">
             <Stack gap="xs">
@@ -217,6 +255,20 @@ function Editor({
       </Stack>
     </form>
   );
+}
+
+/** A field's distinct values in the records, newest first (the records come in sheet order). */
+function pastValues(records: { values: Values }[], name: string): string[] {
+  const dated = records
+    .map((r) => ({
+      date: typeof r.values.date === "string" ? r.values.date : "",
+      value: r.values[name],
+    }))
+    .filter(
+      (r): r is { date: string; value: string } => typeof r.value === "string" && r.value !== "",
+    )
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return [...new Set(dated.map((r) => r.value))];
 }
 
 const STATUS_COLOURS: Record<string, string> = { GOOD: "green", WATCH: "yellow", LOW: "red" };

@@ -14,7 +14,7 @@ from climblog.config import AppConfig
 from climblog.expr import Value
 from climblog.main import create_app
 from climblog.modules import Module, load_module
-from climblog.modules.forms import due, field_label, form_fields, forms_of
+from climblog.modules.forms import due, field_label, form_fields, forms_of, hidden
 from climblog.storage import CachedRepository, RecordWriter, Snapshots, XlsxBackend, sync_module
 
 JOURNAL = load_module(Path(__file__).parent.parent / "modules" / "journal.yaml")
@@ -240,3 +240,79 @@ def test_modules_without_forms_are_left_out(load: LoadYaml, tmp_path: Path) -> N
     catalog.entries["plain"] = Entry("plain", plain, [], cached)
     body = TestClient(create_app(catalog=catalog)).get("/api/today").json()
     assert body["modules"] == [] and body["problems"] == []
+
+
+# ---- visible_if (#122, D-099) ----
+
+OUTDOOR_SLEEP = DIARY.replace(
+    "unit: h, section: wb_pre}",
+    "unit: h, section: wb_pre, visible_if: \"setting == 'Outdoor'\"}",
+)
+
+
+def test_a_field_hidden_by_its_condition_is_not_missing(load: LoadYaml) -> None:
+    module = load(OUTDOOR_SLEEP)
+    indoor: Row = {"venue": "[ESEMPIO] Nord", "setting": "Indoor", "wb_mood_pre": 7}
+    assert hidden(module, "session", indoor, {}) == ["wb_sleep_hours"]
+    found = due(module, {"session": [session(indoor)]}, DAY).items[0]
+    assert found.status == "done"  # no sleep hours asked indoors
+    outdoor = indoor | {"setting": "Outdoor"}
+    assert hidden(module, "session", outdoor, {}) == []
+    found = due(module, {"session": [session(outdoor)]}, DAY).items[0]
+    assert (found.status, found.missing) == ("partial", ["Wellbeing · before"])
+    assert hidden(module, "session", {}, {}) == ["wb_sleep_hours"]  # no setting yet: hidden
+
+
+def test_the_api_says_which_fields_a_form_hides(load: LoadYaml, tmp_path: Path) -> None:
+    module = load(OUTDOOR_SLEEP)
+    path = tmp_path / "diary.xlsx"
+    sync_module(module, XlsxBackend(path))
+    catalog = Catalog(AppConfig())
+    cached = CachedRepository("diary", XlsxBackend(path), Snapshots(tmp_path / "snapshots"))
+    catalog.entries["diary"] = Entry("diary", module, [], cached)
+    api = TestClient(create_app(catalog=catalog))
+    url = "/api/modules/diary/session/hidden"
+    indoor = api.post(url, json={"values": {"setting": "Indoor"}}).json()
+    assert indoor == {"hidden": ["wb_sleep_hours"]}
+    assert api.post(url, json={"values": {"setting": "outdoor"}}).json() == {"hidden": []}
+    # a value that can't be read yet counts as blank
+    nope = api.post(url, json={"values": {"setting": "Nope"}}).json()
+    assert nope == {"hidden": ["wb_sleep_hours"]}
+    assert api.post("/api/modules/diary/nope/hidden", json={"values": {}}).status_code == 404
+
+
+def test_a_condition_can_use_the_settings(load: LoadYaml) -> None:
+    module = load(
+        DIARY.replace(
+            "venue: {type: text, section: info}",
+            "venue: {type: text, section: info, visible_if: 'settings.ask_venue == 1'}",
+        ).replace("forms:", "settings:\n  ask_venue: {type: number, default: 1}\nforms:", 1)
+    )
+    assert hidden(module, "session", {}, {"ask_venue": 1}) == []
+    assert hidden(module, "session", {}, {"ask_venue": 0}) == ["venue"]
+
+
+# ---- the forms: block is checked at load ----
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        ("rest_day: {entity: rest_day}", "rest_day: {entity: rest}", "no entity 'rest'"),
+        ("sections: [info, wb_pre]", "sections: [info, wb]", "'session' has no section 'wb'"),
+        (
+            "rest_day: {entity: rest_day}",
+            "rest_day: {entity: rest_day, colour: red}",
+            "unknown key",
+        ),
+        (
+            "rest_day: {entity: rest_day}",
+            "rest_day: {entity: rest_day, children: [{entity: session}]}",
+            "'session' is not a child entity of 'rest_day'",
+        ),
+    ],
+)
+def test_forms_are_checked(problems: Problems, old: str, new: str, message: str) -> None:
+    text = DIARY.replace(old, new)
+    assert text != DIARY
+    assert any(message in line for line in problems(text)), problems(text)

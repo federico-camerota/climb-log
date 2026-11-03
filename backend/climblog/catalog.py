@@ -10,7 +10,7 @@ D-055), and its derived values are computed on every read. Writes to one module 
 
 import datetime as dt
 import threading
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -20,9 +20,9 @@ from climblog.expr import Value
 from climblog.modules import Module, ModuleError
 from climblog.modules.checks import recommendation_plan
 from climblog.modules.compute import compute_module
-from climblog.modules.forms import Day, due
+from climblog.modules.forms import Day, due, hidden
 from climblog.modules.recommend import Advice, recommend
-from climblog.storage import CachedRepository, DataIssue, load_data
+from climblog.storage import CachedRepository, DataIssue, load_data, read_settings
 from climblog.storage.cells import VALUE_ISSUES
 
 
@@ -104,8 +104,14 @@ class Catalog:
     def due(self, entry: Entry, day: dt.date) -> Day:
         """The module's forms on `day`: what is done and what is missing (D-080)."""
         assert entry.module is not None
-        full, _ = self.full_tables(entry)
-        return due(entry.module, full, day)
+        full, settings = self.full_tables(entry)
+        return due(entry.module, full, day, settings)
+
+    def hidden(self, entry: Entry, entity: str, values: Mapping[str, Value]) -> list[str]:
+        """The entity's fields a form hides for these values (`visible_if`, 03 §2.1b)."""
+        assert entry.module is not None and entry.repo is not None
+        settings = read_settings(entry.module, entry.repo.pinned())
+        return hidden(entry.module, entity, values, settings)
 
     def full_tables(
         self, entry: Entry

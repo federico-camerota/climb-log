@@ -139,8 +139,10 @@ with it blank gets the highest number so far plus one (#114).
   started being tracked: records before that date are not considered incomplete because of
   it, and charts start the series at that date.
 - **Conditional fields**: `visible_if: "session_type == 'Max hangs'"` shows a field in
-  forms only when the condition holds. In the sheet the column always exists. For hand
-  entry it is simply left blank, and validation ignores it when the condition is false.
+  forms only when the condition holds (D-100: the app evaluates it as you type; a hidden field
+  isn't saved, and Today doesn't count it as missing). In the sheet the column always exists.
+  For hand entry it is simply left blank, and validation ignores it when the condition is
+  false.
 - **Child entities** (one-to-many): `parent: {entity: session, key: [...]}` declares, for
   example, many `set` rows per finger-strength session. The child tab repeats the parent key
   columns, so hand entry needs no ids. A child tab may **fix** part of the parent key
@@ -661,9 +663,10 @@ problem (unknown scale, key field that does not exist), e.g.
 - `climblog module schema` prints the JSON Schema. It is committed as `modules/module.schema.json`
   (a test keeps it current); a first line `# yaml-language-server: $schema=<path to it>` gives
   autocompletion and inline errors in VS Code (YAML extension).
-- Blocks of later milestones (`program`, `reference`, `forms`, `aggregates`, `rules`) are
-  accepted as they are until their issue adds the checks; `views` (D-083, D-091) and
-  `recommendation` (D-076) are checked.
+- Blocks of later milestones (`program`, `reference`, `aggregates`, `rules`) are accepted as
+  they are until their issue adds the checks; `forms` (D-100: entity, sections, phase, child
+  forms and their `copy_previous`; M5's `batch_over`, `keep_fields`, `due` accepted as they
+  are), `views` (D-083, D-091) and `recommendation` (D-076) are checked.
   Templates, split and child entities are checked (§2.1b), and so are derived fields (§2.2),
   except the deferred ones.
 

@@ -21,6 +21,8 @@ export interface FieldDef {
   choices?: string[];
   multiline?: boolean;
   retired?: boolean;
+  visible_if?: string; // shown only while this condition holds (the backend says, D-099)
+  suggest_from_history?: boolean; // a text field suggests the values typed before
 }
 
 export interface ScaleDef {

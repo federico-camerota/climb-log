@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { ColorSwatch, Group, Select, Text, Textarea, TextInput } from "@mantine/core";
+import { Autocomplete, ColorSwatch, Group, Select, Text, Textarea, TextInput } from "@mantine/core";
 import { DateInput, TimeInput } from "@mantine/dates";
 
 import { fieldLabel, type FieldDef, type ScaleDef } from "./schema";
@@ -12,10 +12,11 @@ interface Props {
   value: InputValue;
   onChange: (value: InputValue) => void;
   error?: string;
+  suggestions?: string[]; // values typed before (`suggest_from_history`), newest first
 }
 
 /** The input for one field, by its type (03 §2.6, 06-ui Log). Notes are Italian (D-024). */
-export function FieldInput({ name, field, scale, value, onChange, error }: Props) {
+export function FieldInput({ name, field, scale, value, onChange, error, suggestions }: Props) {
   const label = fieldLabel(name, field, scale);
   const common = { label, description: field.help, error, required: field.required === true };
   const text = typeof value === "string" ? value : "";
@@ -80,6 +81,16 @@ export function FieldInput({ name, field, scale, value, onChange, error }: Props
           }}
           autosize
           minRows={2}
+          lang="it"
+          spellCheck
+        />
+      ) : suggestions !== undefined ? (
+        <Autocomplete
+          {...common}
+          data={suggestions}
+          value={text}
+          onChange={set}
+          limit={8}
           lang="it"
           spellCheck
         />
