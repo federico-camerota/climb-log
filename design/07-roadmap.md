@@ -103,7 +103,8 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
 (D-087); modules joined by date (D-088).
 - Metric query layer (`05-analytics.md` §1): the catalogue of metrics (every numeric field and
   derived value) and a query API with range, grouping (day, week, month), aggregation, rolling
-  mean, filters and a lag; it grows out of `analytics/views.py` (D-072).
+  mean, filters and a lag; it grows out of `analytics/views.py` (D-072). → done (D-090, #97):
+  `GET /api/metrics` and `GET /api/metrics/query`.
 - Widget library v1: `bars`, `weekbars`/`stacked`, `box_by` and `scatter`, and the `line`'s
   `split_by` and `x` (kpi, line with bands and the calendar heatmap are done, D-083/D-084).
 - Training load: weekly session-RPE load, ACWR (EWMA, shown with zones, not as a rule),

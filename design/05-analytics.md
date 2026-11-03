@@ -16,19 +16,26 @@ Data starts at 2026-10. Many analyses only become meaningful after weeks or mont
 
 ## 1. Metric layer
 Every numeric field and derived numeric field of every entity is a **metric** with an id
-like `journal.session.wb_score`. A metric query:
+like `journal.session.wb_score` (the module as named in the app config); every choice field
+is a **filter**. Done (D-090, #97): `analytics/metrics.py`, `GET /api/metrics` (the catalogue:
+label, section, unit, range, direction) and a query in the URL, so a view can be bookmarked:
 
-```json
-{ "metrics": ["journal.session.wb_score", "shoulder.checkin.pain_next_am"],
-  "range": {"from": "2026-10-01", "to": "2026-12-31"},
-  "group": "day | week | month | program_week | none",
-  "agg": "mean | min | max | sum | count | latest",
-  "rolling": 7,
-  "filters": {"journal.session.session_type": ["Climbing"]} }
+```
+GET /api/metrics/query?metric=journal.session.wb_score&metric=shoulder.checkin.pain_next_am
+    &start=2026-10-01&end=2026-12-31          # default: the first record … today
+    &group=week                               # none | day (default) | week | month
+    &agg=mean                                 # mean | min | max | sum | count | latest
+    &rolling=4&lag=1
+    &filter=journal.session.session_type=Climbing&filter=journal.session.session_type=Hangboard
 ```
 
-Cross-module joins are **by date** (and optionally with a lag: "pain next morning" joined to
-the previous day's session). That is all the explorer needs.
+The answer: `points` (start, end, label: `2026-10-30`, `2026-W44`, `2026-10`; a record's key
+with `group=none`) and per metric its `values`, the `n` behind each value and the `rolling`
+mean. `group=none` is one point per record (metrics of one entity); day points are the days
+with a record, week (from Monday) and month points run without gaps. Cross-module joins are
+**by calendar day** (D-088); `lag=k` reads every metric after the first k days later ("pain
+next morning" joined to the previous day's session). A filter applies to its entity's metrics.
+`program_week` grouping comes with the program modules (M5).
 
 ## 2. Parity analyses (from the current sheets)
 - Status board: latest status and score per class, average of the last 4 vs the previous 4,

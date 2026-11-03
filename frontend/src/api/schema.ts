@@ -21,6 +21,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Metrics
+         * @description Every loaded module's metrics and filters, in config and YAML order.
+         */
+        get: operations["get_metrics_api_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Query Metrics
+         * @description The metrics lined up by record, day, week or month (see the module docstring).
+         */
+        get: operations["query_metrics_api_metrics_query_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/modules": {
         parameters: {
             query?: never;
@@ -277,6 +317,21 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** FilterInfo */
+        FilterInfo: {
+            /** Choices */
+            choices: string[];
+            /** Entity */
+            entity: string;
+            /** Field */
+            field: string;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Module */
+            module: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -393,12 +448,45 @@ export interface components {
             /** Rolling */
             rolling: number | null;
             /** Series */
-            series: components["schemas"]["SeriesData"][];
+            series: components["schemas"]["climblog__api__views__SeriesData"][];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             widget: "line";
+        };
+        /** MetricCatalogue */
+        MetricCatalogue: {
+            /** Filters */
+            filters: components["schemas"]["FilterInfo"][];
+            /** Metrics */
+            metrics: components["schemas"]["MetricInfo"][];
+        };
+        /** MetricInfo */
+        MetricInfo: {
+            /** Derived */
+            derived: boolean;
+            /** Direction */
+            direction: string | null;
+            /** Entity */
+            entity: string;
+            /** Field */
+            field: string;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Module */
+            module: string;
+            /** Scale */
+            scale: [
+                number,
+                number
+            ] | null;
+            /** Section */
+            section: string | null;
+            /** Unit */
+            unit: string | null;
         };
         /** ModuleAdvice */
         ModuleAdvice: {
@@ -555,6 +643,46 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** PointData */
+        PointData: {
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            } | null;
+            /** Label */
+            label: string;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+        };
+        /** QueryResult */
+        QueryResult: {
+            /**
+             * Agg
+             * @enum {string}
+             */
+            agg: "mean" | "min" | "max" | "sum" | "count" | "latest";
+            /**
+             * Group
+             * @enum {string}
+             */
+            group: "none" | "day" | "week" | "month";
+            /** Lag */
+            lag: number;
+            /** Points */
+            points: components["schemas"]["PointData"][];
+            /** Series */
+            series: components["schemas"]["climblog__api__metrics__SeriesData"][];
+            /** Sources */
+            sources: components["schemas"]["SourceInfo"][];
+        };
         /** Reason */
         Reason: {
             /** Label */
@@ -624,17 +752,6 @@ export interface components {
             /** Label */
             label: string;
         };
-        /** SeriesData */
-        SeriesData: {
-            /** Label */
-            label: string;
-            /** Metric */
-            metric: string;
-            /** Rolling */
-            rolling: (number | null)[] | null;
-            /** Values */
-            values: (number | null)[];
-        };
         /** SideBySideData */
         SideBySideData: {
             /** Groups */
@@ -675,6 +792,15 @@ export interface components {
             values: {
                 [key: string]: unknown;
             };
+        };
+        /** SourceInfo */
+        SourceInfo: {
+            /** As Of */
+            as_of: string | null;
+            /** Module */
+            module: string;
+            /** Offline */
+            offline: boolean;
         };
         /** StatusBoardData */
         StatusBoardData: {
@@ -806,6 +932,28 @@ export interface components {
             as_of: string | null;
             record: components["schemas"]["Record"];
         };
+        /** SeriesData */
+        climblog__api__metrics__SeriesData: {
+            /** Metric */
+            metric: string;
+            /** N */
+            n: number[];
+            /** Rolling */
+            rolling: (number | null)[] | null;
+            /** Values */
+            values: (number | null)[];
+        };
+        /** SeriesData */
+        climblog__api__views__SeriesData: {
+            /** Label */
+            label: string;
+            /** Metric */
+            metric: string;
+            /** Rolling */
+            rolling: (number | null)[] | null;
+            /** Values */
+            values: (number | null)[];
+        };
     };
     responses: never;
     parameters: never;
@@ -831,6 +979,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    get_metrics_api_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricCatalogue"];
+                };
+            };
+        };
+    };
+    query_metrics_api_metrics_query_get: {
+        parameters: {
+            query: {
+                metric: string[];
+                start?: string | null;
+                end?: string | null;
+                group?: "none" | "day" | "week" | "month";
+                agg?: "mean" | "min" | "max" | "sum" | "count" | "latest";
+                rolling?: number | null;
+                lag?: number;
+                filter?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
