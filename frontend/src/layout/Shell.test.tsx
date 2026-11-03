@@ -12,7 +12,7 @@ describe("Shell", () => {
     renderApp("/");
     expect(screen.getByRole("heading", { name: "climb-log" })).toBeInTheDocument();
     expect(await screen.findByText("Server OK · v0.0.0")).toBeInTheDocument();
-    for (const page of ["Today", "Log", "Records", "Dashboards", "Settings"]) {
+    for (const page of ["Today", "Log", "Records", "Dashboards", "Explore", "Settings"]) {
       expect(screen.getByRole("link", { name: page })).toBeInTheDocument();
     }
     expect(screen.getByRole("link", { name: "Today" })).toHaveAttribute("data-active", "true");

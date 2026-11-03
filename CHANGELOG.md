@@ -26,6 +26,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - Grade charts (#101, D-094), in the `progress` dashboard: the hardest grade tried per session
   over time (French and gym on their own axes, gym grades per venue), sessions by hardest
   grade tried per month, and by setting and venue.
+- Explore page (#102, D-095): any metrics of any module over a range, per record, day, week or
+  month, with an aggregate, a rolling mean, filters on choice fields, as a line or bars, with
+  n; two units at most, each on its own axis; the view is in the URL, so it can be bookmarked.
 
 ### Changed
 - M4 scoped (`design/07-roadmap.md`): eight issues, the analyses useful on little data first

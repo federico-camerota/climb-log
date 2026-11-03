@@ -7,12 +7,14 @@ import { QueryClient, useQuery } from "@tanstack/react-query";
 import {
   ApiError,
   getHealth,
+  getMetrics,
   getModules,
   getRecommendation,
   getRecord,
   getRecords,
   getToday,
   getView,
+  queryMetrics,
   type Values,
 } from "./client";
 
@@ -63,5 +65,18 @@ export function useView(module: string, view: string, date: string) {
   return useQuery({
     queryKey: ["view", module, view, date],
     queryFn: () => getView(module, view, date),
+  });
+}
+
+export function useMetrics() {
+  return useQuery({ queryKey: ["metrics"], queryFn: getMetrics });
+}
+
+/** A metric query; none while `query` is null (no metric picked yet). */
+export function useMetricQuery(query: string | null) {
+  return useQuery({
+    queryKey: ["metric-query", query],
+    queryFn: () => queryMetrics(query ?? ""),
+    enabled: query !== null,
   });
 }
