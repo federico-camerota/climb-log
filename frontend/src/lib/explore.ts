@@ -206,7 +206,7 @@ export function exploreOption(
         yAxisIndex: axis,
         data: series.rolling,
         connectNulls: true,
-        showSymbol: false,
+        symbol: "none", // a plain thick line, in the legend too
         itemStyle: { color: colour },
         lineStyle: { width: 3 },
       },

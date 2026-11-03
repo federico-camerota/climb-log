@@ -75,7 +75,7 @@ export function lineOption(
         name: `${series.label} (mean of ${String(data.rolling ?? "")})`,
         data: series.rolling,
         connectNulls: true,
-        showSymbol: false,
+        symbol: "none", // a plain thick line, in the legend too
         itemStyle: { color: colour },
         lineStyle: { color: colour, width: 3 },
       },

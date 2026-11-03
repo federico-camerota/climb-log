@@ -51,12 +51,15 @@ describe("the line chart", () => {
       ["GOOD", 6, 10],
     ]);
     expect([plain.yAxis.min, plain.yAxis.max]).toEqual([0, 10]); // scores
-    const rolling = lineOption(data, "all", true, "2026-10-31") as { series: { name: string }[] };
+    const rolling = lineOption(data, "all", true, "2026-10-31") as {
+      series: { name: string; symbol?: string }[];
+    };
     expect(rolling.series.map((s) => s.name)).toEqual([
       "bands",
       "Wellbeing",
       "Wellbeing (mean of 4)",
     ]);
+    expect(rolling.series[2]?.symbol).toBe("none"); // a plain line, in the legend too
   });
 
   it("fits the axis to values that aren't scores", () => {

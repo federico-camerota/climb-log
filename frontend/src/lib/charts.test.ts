@@ -151,6 +151,7 @@ describe("the chart options", () => {
       [6, 5],
       [8, 9],
     ]);
+    expect(option.series[2]?.symbol).toBe("none"); // a dashed line, in the legend too
     const tooltip = option.tooltip as {
       formatter: (p: { value: [number, number, string] }) => string;
     };

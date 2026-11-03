@@ -144,7 +144,7 @@ export function scatterOption(data: ScatterData): EChartsCoreOption {
         [from, intercept + slope * from],
         [to, intercept + slope * to],
       ],
-      showSymbol: false,
+      symbol: "none", // a dashed line, in the legend too
       lineStyle: { color: "#868e96", type: "dashed" },
     });
   }

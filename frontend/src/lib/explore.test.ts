@@ -149,6 +149,8 @@ describe("the Explore page's state", () => {
       ["Sleep hours (rolling mean)", 0],
       ["Mood", 1],
     ]);
+    // the rolling mean is a thick line without dots, in the legend too; the values have dots
+    expect(option.series.map((s) => s.symbol)).toEqual([undefined, "none", undefined]);
     const tooltip = option.tooltip as {
       formatter: (
         p: { dataIndex: number; seriesId: string; seriesName: string; value: number | null }[],
