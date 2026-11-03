@@ -116,6 +116,15 @@ export function Explore() {
   // by default (D-096)
   const window = new URLSearchParams(metricQuery({ ...state, metrics: ["any"] }, today) ?? "");
   const feel = metrics.find((m) => m.field === "feel_score");
+  // what the correlation tabs cover: the range, and each filter (it applies to its entity)
+  const filterLabels = new Map((catalogue.data?.filters ?? []).map((f) => [f.id, f.label]));
+  const scope = [
+    RANGES.find((r) => r.value === state.range)?.label ?? "",
+    ...Object.entries(state.filters).map(
+      ([id, values]) =>
+        `only ${(filterLabels.get(id) ?? id).toLowerCase()}: ${values.join(" or ")}`,
+    ),
+  ].join("; ");
   const withTarget = { ...correlation, target: correlation.target ?? feel?.id ?? null };
 
   return (
@@ -308,8 +317,7 @@ export function Explore() {
               <Tabs.Panel key={tab} value={tab} pt="md">
                 <Stack>
                   <Text size="sm" c="dimmed">
-                    Over the range picked in Over time (
-                    {RANGES.find((r) => r.value === state.range)?.label}).
+                    Over the range and filters picked in Over time ({scope}).
                   </Text>
                   <Panel
                     state={withTarget}

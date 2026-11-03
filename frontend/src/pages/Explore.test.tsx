@@ -227,4 +227,34 @@ describe("Explore", () => {
     expect(screen.getByText("Each record: metrics of one entity only")).toBeInTheDocument();
     vi.useRealTimers();
   });
+
+  it("applies the trends' filters to the correlation tabs, and says so", async () => {
+    const calls = api({
+      "/api/correlation/pair?x=diary.session.sleep&y=diary.session.mood&group=week&start=2026-10-01&end=2026-10-30&filter=diary.session.kind%3DClimbing":
+        {
+          x: "diary.session.sleep",
+          y: "diary.session.mood",
+          lag: 0,
+          n: 12,
+          min_n: 10,
+          too_few: false,
+          pearson: { r: 0.62, low: 0.05, high: 0.88, p: 0.03 },
+          spearman: { r: 0.5, low: -0.1, high: 0.83, p: 0.09 },
+          slope: 1,
+          intercept: 0,
+          points: [{ x: 7, y: 6, date: "2026-10-05" }],
+          sources: [],
+        },
+    });
+    renderApp(
+      `${PAGE}&filter=diary.session.kind=Climbing&tab=pair&x=diary.session.sleep&y=diary.session.mood&points=week`,
+    );
+    expect(await screen.findByRole("img", { name: "Pair chart" })).toBeInTheDocument();
+    expect(screen.getByText(/only session type: Climbing/)).toBeInTheDocument();
+    expect(calls.some((c) => c.path.includes("filter=diary.session.kind%3DClimbing"))).toBe(true);
+    expect(screen.getByRole("row", { name: /Spearman/ })).toHaveTextContent(
+      "could be none: the interval includes 0",
+    );
+    expect(screen.getByRole("row", { name: /^n/ })).toHaveTextContent("per week (means)");
+  });
 });

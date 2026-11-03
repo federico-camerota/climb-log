@@ -41,7 +41,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   Pearson r with 95% intervals and n, Y read days later), a correlation matrix, and what goes
   with a good session (each metric known before climbing against the feel score or any
   score, ranked); under the minimum n (`[analytics] min_n`, default 10) results are greyed
-  out or hidden. New dependency: scipy (BSD-3).
+  out or hidden; a pair can be read per record, day, week or month; Over time's filters apply
+  to every tab; words add "could be none" when the 95% interval includes 0. New dependency:
+  scipy (BSD-3).
+- Metrics leave out a field's values dated before its `since:` (Explore and correlations
+  counted values typed before a body part was tracked).
 
 ### Changed
 - M4 scoped (`design/07-roadmap.md`): eight issues, the analyses useful on little data first

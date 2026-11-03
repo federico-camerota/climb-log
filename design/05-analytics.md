@@ -36,7 +36,8 @@ LOW/WATCH/GOOD, from the settings; D-095). `group=none` is one point per record 
 with a record, week (from Monday) and month points run without gaps. Cross-module joins are
 **by calendar day** (D-088); `lag=k` reads every metric after the first k days later ("pain
 next morning" joined to the previous day's session). A filter applies to its entity's metrics.
-`program_week` grouping comes with the program modules (M5).
+`program_week` grouping comes with the program modules (M5). A field's values dated before
+its `since:` are left out (03 §2.2), as in the formulas and the dashboard.
 
 ## 2. Parity analyses (from the current sheets)
 - Status board: latest status and score per class, average of the last 4 vs the previous 4,
@@ -118,7 +119,11 @@ next morning" joined to the previous day's session). A filter applies to its ent
   `min_n` empty) and **What goes with a good session** (feel score by default, any score
   picked; each pre-session metric ranked by |r|, the too-few ones last), all over the range
   picked for the trends. "Associations, not causes" on every tab; `[analytics] min_n` in the
-  app config (default 10). "Predicts" became "goes with": no causal words.
+  app config (default 10). "Predicts" became "goes with": no causal words. After the live
+  test: the pair's points can be per record, day, week or month (each a period's means);
+  Over time's filters apply to all three tabs (each to its own entity's metrics) and the tabs
+  say which; when the 95% interval includes 0 the words add "could be none"; repeated
+  labels are told apart as on Over time.
 
 ### 3.3 Fear of Falling
 - Fall log: peak fear and BERP per fall over time; **predicted vs actual** (predicted

@@ -33,7 +33,8 @@ export interface paths {
         };
         /**
          * Get Pair
-         * @description X against Y, per record (one entity, no lag) or per day with Y read `lag` days later.
+         * @description X against Y, per record (one entity, no lag) or per day with Y read `lag` days later;
+         *     `group` asks for days, weeks or months instead (each point a period's means).
          */
         get: operations["get_pair_api_correlation_pair_get"];
         put?: never;
@@ -1543,6 +1544,7 @@ export interface operations {
                 method?: "pearson" | "spearman";
                 start?: string | null;
                 end?: string | null;
+                filter?: string[] | null;
             };
             header?: never;
             path?: never;
@@ -1576,6 +1578,7 @@ export interface operations {
                 x: string;
                 y: string;
                 lag?: number;
+                group?: ("none" | "day" | "week" | "month") | null;
                 start?: string | null;
                 end?: string | null;
                 filter?: string[] | null;
@@ -1613,6 +1616,7 @@ export interface operations {
                 method?: "pearson" | "spearman";
                 start?: string | null;
                 end?: string | null;
+                filter?: string[] | null;
             };
             header?: never;
             path?: never;

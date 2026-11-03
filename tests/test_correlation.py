@@ -191,6 +191,13 @@ def test_the_pair_api(client: TestClient) -> None:
     assert (body["n"], body["min_n"], body["too_few"]) == (5, 4, False)
     assert body["points"][0] == {"x": 6.0, "y": 5.0, "date": "2026-10-01"}
     assert body["pearson"]["r"] > 0.9
+    weekly = client.get("/api/correlation/pair", params={"x": SLEEP, "y": FEEL, "group": "week"})
+    assert weekly.json()["n"] == 2  # 1-4/10 and 5/10: two weeks' means
+    climbing = client.get(
+        "/api/correlation/pair",
+        params={"x": SLEEP, "y": FEEL, "filter": "journal.session.session_type=Climbing"},
+    )
+    assert climbing.json()["n"] == 0  # no session typed Climbing
     bad = client.get("/api/correlation/pair", params={"x": SLEEP, "y": "journal.session.nope"})
     assert (bad.status_code, bad.json()["detail"]) == (
         400,
@@ -204,5 +211,29 @@ def test_the_matrix_and_predictors_api(client: TestClient) -> None:
     assert client.get("/api/correlation/matrix", params={"metric": [SLEEP]}).status_code == 400
     ranked = client.get("/api/correlation/predictors", params={"target": FEEL}).json()
     assert ranked["predictors"][0]["metric"] == SLEEP
+    only = {"filter": "journal.session.session_type=Climbing"}
+    body = client.get("/api/correlation/matrix", params={"metric": [SLEEP, FEEL], **only}).json()
+    assert body["cells"][0][1]["n"] == 0
+    ranked = client.get("/api/correlation/predictors", params={"target": FEEL, **only}).json()
+    assert ranked["predictors"][0]["n"] == 0
     bad = client.get("/api/correlation/predictors", params={"target": "x.y.z"})
     assert bad.status_code == 400
+
+
+def test_filters_and_groups_reach_every_correlation() -> None:
+    rows = sessions_of(DATA)
+    for i, row in enumerate(rows):
+        row["session_type"] = "Climbing" if i % 3 else "Hangboard"
+    only = {"journal.session.session_type": ["Climbing"]}
+    climbing = aligned(SLEEP, FEEL, sources(rows), TODAY, filters=only)
+    assert len(climbing) == 8
+    cells = matrix([SLEEP, FEEL], sources(rows), TODAY, 3, filters=only)
+    assert cells[0][1].n == 8
+    # a filter of another entity's field is left out for a pair it doesn't apply to
+    rests = [{"date": day(i + 1), "mood": 5 + i % 4} for i in range(12)]
+    mixed = matrix(["journal.rest_day.mood", SLEEP], sources(rows, rests), TODAY, 3, filters=only)
+    assert mixed[0][1].n == 8
+    ranked = predictors(FEEL, sources(rows), TODAY, 3, filters=only)
+    assert {p.n for p in ranked if p.metric == SLEEP} == {8}
+    weekly = aligned(SLEEP, FEEL, sources(rows), TODAY, group="week")
+    assert len(weekly) == 3  # 1/10 (a Thursday) to 12/10: three Monday weeks
