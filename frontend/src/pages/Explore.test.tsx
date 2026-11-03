@@ -118,4 +118,82 @@ describe("Explore", () => {
     renderApp(PAGE);
     expect(await screen.findByText(/failed with HTTP 404|Not Found/)).toBeInTheDocument();
   });
+
+  it("shows a pair with n, its interval, and a warning under the minimum n", async () => {
+    api({
+      "/api/correlation/pair?x=diary.session.sleep&y=diary.session.mood&start=2026-10-01&end=2026-10-30":
+        {
+          x: "diary.session.sleep",
+          y: "diary.session.mood",
+          lag: 0,
+          n: 6,
+          min_n: 10,
+          too_few: true,
+          pearson: { r: 0.62, low: -0.3, high: 0.95, p: 0.2 },
+          spearman: { r: 0.55, low: -0.4, high: 0.93, p: 0.25 },
+          slope: 1,
+          intercept: 0,
+          points: [{ x: 7, y: 6, date: "2026-10-02" }],
+          sources: [],
+        },
+    });
+    renderApp(`${PAGE}&tab=pair&x=diary.session.sleep&y=diary.session.mood`);
+    expect(await screen.findByRole("img", { name: "Pair chart" })).toBeInTheDocument();
+    expect(screen.getByText(/Only 6 point\(s\): under 10/)).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /Pearson/ })).toHaveTextContent(
+      "Pearson (linear)0,62 (-0,30 to 0,95)a strong positive association",
+    );
+  });
+
+  it("ranks what goes with a good session, feel score by default", async () => {
+    const catalogue = {
+      ...CATALOGUE,
+      metrics: [
+        ...CATALOGUE.metrics,
+        {
+          ...CATALOGUE.metrics[1],
+          id: "diary.session.feel_score",
+          field: "feel_score",
+          label: "Feel score",
+        },
+      ],
+    };
+    api({
+      "/api/metrics": catalogue,
+      "/api/correlation/predictors?target=diary.session.feel_score&method=spearman&start=2026-10-01&end=2026-10-30":
+        {
+          target: "diary.session.feel_score",
+          method: "spearman",
+          min_n: 10,
+          predictors: [
+            {
+              metric: "diary.session.sleep",
+              n: 14,
+              too_few: false,
+              stat: { r: 0.4, low: 0.1, high: 0.7, p: 0.04 },
+            },
+            {
+              metric: "diary.session.mood",
+              n: 3,
+              too_few: true,
+              stat: { r: null, low: null, high: null, p: null },
+            },
+          ],
+          sources: [],
+        },
+    });
+    renderApp(`${PAGE}&tab=predictors`);
+    expect(await screen.findByRole("row", { name: /Sleep hours/ })).toHaveTextContent(
+      "Sleep hours0,40 (0,10 to 0,70)14a moderate positive association",
+    );
+    expect(screen.getByRole("row", { name: /Mood/ })).toHaveTextContent("too few (under 10)");
+    expect(screen.getByText(/Associations, not causes/)).toBeInTheDocument();
+  });
+
+  it("asks for two metrics in the matrix", async () => {
+    api();
+    renderApp(`${PAGE}&tab=matrix`);
+    expect(await screen.findByPlaceholderText("Pick two or more")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Matrix" })).toHaveAttribute("aria-selected", "true");
+  });
 });

@@ -64,7 +64,7 @@ class PointData(BaseModel):
     key: dict[str, Any] | None
 
 
-class SeriesData(BaseModel):
+class MetricSeries(BaseModel):
     metric: str
     values: list[float | None]
     n: list[int]
@@ -82,7 +82,7 @@ class QueryResult(BaseModel):
     agg: Agg
     lag: int
     points: list[PointData]
-    series: list[SeriesData]
+    series: list[MetricSeries]
     sources: list[SourceInfo]  # when each module's data was read
 
 
@@ -114,25 +114,8 @@ def query_metrics(
     filter: Annotated[list[str] | None, Query()] = None,  # `filter` as in the URL
 ) -> QueryResult:
     """The metrics lined up by record, day, week or month (see the module docstring)."""
-    filters: dict[str, list[str]] = {}
-    for item in filter or []:
-        f_id, sep, value = item.partition("=")
-        if not sep:
-            raise HTTPException(400, f"a filter is 'module.entity.field=value', not {item!r}")
-        filters.setdefault(f_id, []).append(value)
-    current = catalog(request)
-    sources: dict[str, Source] = {}
-    read: list[SourceInfo] = []
-    for name in dict.fromkeys(m.partition(".")[0] for m in metric):
-        entry = current.entries.get(name)
-        if entry is None or entry.module is None or entry.repo is None:
-            continue  # its metrics are unknown: run_query says so
-        try:
-            tables, _ = current.full_tables(entry)
-        except StorageError as error:
-            raise HTTPException(503, str(error)) from None
-        sources[name] = (entry.module, tables)
-        read.append(SourceInfo(module=name, as_of=entry.repo.as_of, offline=entry.repo.offline))
+    filters = parse_filters(filter)
+    sources, read = read_sources(request, metric)
     asked = MetricQuery(metric, start, end, group, agg, rolling, lag, filters)
     try:
         result = run_query(asked, sources, dt.date.today())
@@ -143,6 +126,38 @@ def query_metrics(
         agg=result.agg,
         lag=result.lag,
         points=[PointData.model_validate(p, from_attributes=True) for p in result.points],
-        series=[SeriesData.model_validate(s, from_attributes=True) for s in result.series],
+        series=[MetricSeries.model_validate(s, from_attributes=True) for s in result.series],
         sources=read,
     )
+
+
+def parse_filters(items: list[str] | None) -> dict[str, list[str]]:
+    """`module.entity.field=value` items as {filter: values}; 400 for one without `=`."""
+    filters: dict[str, list[str]] = {}
+    for item in items or []:
+        f_id, sep, value = item.partition("=")
+        if not sep:
+            raise HTTPException(400, f"a filter is 'module.entity.field=value', not {item!r}")
+        filters.setdefault(f_id, []).append(value)
+    return filters
+
+
+def read_sources(
+    request: Request, metrics: list[str]
+) -> tuple[dict[str, Source], list[SourceInfo]]:
+    """The records of the modules the metrics belong to (unknown modules are left out: the
+    query then says their metrics are unknown); 503 if one can't be read."""
+    current = catalog(request)
+    sources: dict[str, Source] = {}
+    read: list[SourceInfo] = []
+    for name in dict.fromkeys(m.partition(".")[0] for m in metrics):
+        entry = current.entries.get(name)
+        if entry is None or entry.module is None or entry.repo is None:
+            continue
+        try:
+            tables, _ = current.full_tables(entry)
+        except StorageError as error:
+            raise HTTPException(503, str(error)) from None
+        sources[name] = (entry.module, tables)
+        read.append(SourceInfo(module=name, as_of=entry.repo.as_of, offline=entry.repo.offline))
+    return sources, read

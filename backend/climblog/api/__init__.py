@@ -3,9 +3,10 @@
 
 from fastapi import APIRouter
 
-from climblog.api import health, metrics, modules, recommendation, today, views
+from climblog.api import correlation, health, metrics, modules, recommendation, today, views
 
 router = APIRouter(prefix="/api")
+router.include_router(correlation.router)
 router.include_router(health.router)
 router.include_router(metrics.router)
 router.include_router(modules.router)

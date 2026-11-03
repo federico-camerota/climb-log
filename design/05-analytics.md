@@ -106,6 +106,13 @@ next morning" joined to the previous day's session). A filter applies to its ent
 - **"What predicts a good session?"**: ranked list of single-metric associations with the
   overall or feel score (pre-session metrics only, so it is usable *before* climbing).
   Later, an optional regularised regression (statsmodels/sklearn) once n ≥ ~40.
+- Done (D-096, #103), on the Explore page: **Two metrics** (scatter with the least-squares
+  line, Spearman and Pearson r with 95% CIs, n, Y read 0–31 days later; under `min_n` greyed
+  with a warning), **Matrix** (2–12 metrics, Spearman or Pearson, per day, cells under
+  `min_n` empty) and **What goes with a good session** (feel score by default, any score
+  picked; each pre-session metric ranked by |r|, the too-few ones last), all over the range
+  picked for the trends. "Associations, not causes" on every tab; `[analytics] min_n` in the
+  app config (default 10). "Predicts" became "goes with": no causal words.
 
 ### 3.3 Fear of Falling
 - Fall log: peak fear and BERP per fall over time; **predicted vs actual** (predicted

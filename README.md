@@ -65,6 +65,9 @@ folder = "~/climbing/backups"
 
 [snapshots]        # optional: the app's local copy of the data, safe to delete
 folder = "~/climbing/snapshots"
+
+[analytics]        # optional: correlations under this n are greyed out (default 10)
+min_n = 10
 ```
 
 `uv run climblog check` then lists, for every module, where the workbook and the YAML

@@ -29,6 +29,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - Explore page (#102, D-095): any metrics of any module over a range, per record, day, week or
   month, with an aggregate, a rolling mean, filters on choice fields, as a line or bars, with
   n; two units at most, each on its own axis; the view is in the URL, so it can be bookmarked.
+- Correlations (#103, D-096), as Explore tabs: two metrics against each other (Spearman and
+  Pearson r with 95% intervals and n, Y read days later), a correlation matrix, and what goes
+  with a good session (each metric known before climbing against the feel score or any
+  score, ranked); under the minimum n (`[analytics] min_n`, default 10) results are greyed
+  out or hidden. New dependency: scipy (BSD-3).
 
 ### Changed
 - M4 scoped (`design/07-roadmap.md`): eight issues, the analyses useful on little data first
