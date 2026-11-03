@@ -26,6 +26,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
   (D-101).
 
 ### Changed
+- CI skips lint and tests when only Markdown changed, cancels a pull request's superseded
+  runs, and runs pytest on every core (pytest-xdist, also in `make test`) (D-104).
 - The finger-strength session's start time is optional: Today no longer counts it as missing
   (D-101).
 - The unused field options `hidden_in_form` and `searchable` are removed: a module that sets

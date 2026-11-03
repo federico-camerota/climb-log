@@ -19,8 +19,8 @@ dev:  ## run backend (:8000, auto-reload) and Vite (:5173, hot reload); open htt
 build:  ## build the frontend into backend/climblog/static, served by `climblog serve`
 	$(PNPM) build
 
-test:  ## run the Python and frontend tests
-	uv run pytest --cov=climblog --cov-report=term-missing
+test:  ## run the Python and frontend tests (pytest on every core: pytest-xdist, D-104)
+	uv run pytest -n auto --cov=climblog --cov-report=term-missing
 	$(PNPM) test
 
 fixtures:  ## write the fictional journal workbooks to tests/fixtures/ (git-ignored), to open them

@@ -51,7 +51,7 @@ Each milestone in `07-roadmap.md` is split into several PRs, each reviewable in 
 |---|---|---|
 | Format + lint | ruff (Python), eslint + prettier (TS) | pre-commit hook and CI |
 | Types | mypy `--strict` (Python), `tsc --noEmit` with `strict` (TS) | pre-commit (fast part) and CI |
-| Tests | pytest (+ coverage), vitest (an end-to-end Playwright smoke test was dropped after the M1–M4 audit: the API and pages are covered by their own tests) | CI on every push / PR |
+| Tests | pytest (+ coverage, on every core with pytest-xdist), vitest (an end-to-end Playwright smoke test was dropped after the M1–M4 audit: the API and pages are covered by their own tests) | CI on every PR and push to `main`, skipped with lint when only Markdown changed (D-104) |
 | Secrets & data | a check that no real data or credentials are staged (`.gitignore` + pre-commit `check-added-large-files`, `detect-private-key`, a custom check rejecting `.xlsx` outside `design/mockups/` and `tests/fixtures/`) | pre-commit and CI |
 | Licensing | new dependencies must be GPLv3-compatible; new source files start with `SPDX-License-Identifier: GPL-3.0-or-later` | review |
 | Docs | the PR checklist: design docs and `decisions.md` updated if behaviour changed | review |

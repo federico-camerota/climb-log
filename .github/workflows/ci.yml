@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Checks every push and pull request with the same commands used locally (D-040).
+# Checks every pull request and every push to main with the same commands used locally (D-040).
+# Lint and tests are skipped when only Markdown files changed (D-104).
 name: CI
 
 on:
@@ -8,6 +9,11 @@ on:
     branches: [main]
   pull_request:
 
+# A new push to a pull request cancels its run still going; on main every merge is checked.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -15,7 +21,21 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
+      # Two commits: a pull request's merge commit and its base, or main and the commit before.
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 2
+      - name: What changed
+        id: changes
+        run: |
+          # Anything but Markdown (or a diff that can't be read) runs lint and tests: the draft
+          # module YAMLs and the mock-up workbooks under design/ are read by the tests.
+          if files=$(git diff --name-only HEAD^1 HEAD) && ! grep -qv '\.md$' <<<"$files"; then
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "Only Markdown changed: lint and tests are skipped."
+          else
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          fi
       # uv installs the Python version from .python-version.
       - uses: astral-sh/setup-uv@v10.3.2
         with:
@@ -31,9 +51,14 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install dependencies
         run: make install
+      # The lint hooks are skipped here: the next step runs the same tools.
       - name: Pre-commit hooks (data check, file hygiene)
         run: uv run pre-commit run --all-files --show-diff-on-failure
+        env:
+          SKIP: ruff-format,ruff-check,mypy,frontend-lint
       - name: Lint and types
+        if: steps.changes.outputs.code == 'true'
         run: make lint
       - name: Tests
+        if: steps.changes.outputs.code == 'true'
         run: make test  # the formula parity tests are skipped here: no LibreOffice (D-057)
