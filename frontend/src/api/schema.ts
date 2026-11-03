@@ -180,6 +180,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/modules/{module}/{entity}/hidden": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hidden Fields
+         * @description The fields a form hides for its values so far (`visible_if`, 03 §2.1b): the form sends
+         *     what is typed as it changes. A value that can't be read yet counts as blank.
+         */
+        post: operations["hidden_fields_api_modules__module___entity__hidden_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/modules/{module}/{entity}/record": {
         parameters: {
             query?: never;
@@ -518,6 +539,13 @@ export interface components {
             /** Module */
             module: string;
         };
+        /** FormValues */
+        FormValues: {
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
+        };
         /** GradePoint */
         GradePoint: {
             /**
@@ -633,6 +661,11 @@ export interface components {
             label: string;
             /** Letter */
             letter: string;
+        };
+        /** Hidden */
+        Hidden: {
+            /** Hidden */
+            hidden: string[];
         };
         /** Issue */
         Issue: {
@@ -1876,6 +1909,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+        };
+    };
+    hidden_fields_api_modules__module___entity__hidden_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module: string;
+                entity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormValues"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Hidden"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

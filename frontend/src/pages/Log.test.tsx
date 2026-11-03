@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -233,5 +233,87 @@ describe("Log", () => {
     api({ "/api/modules": MODULES });
     renderApp("/log/journal");
     expect(await screen.findByText("Module 'journal' has no forms.")).toBeInTheDocument();
+  });
+});
+
+describe("Log, module options in forms (#122)", () => {
+  const schema = DIARY.module_schema as {
+    entities: { session: { fields: Record<string, object> } & object } & object;
+  } & object;
+  const fields = schema.entities.session.fields;
+  const OPTIONS = {
+    ...DIARY,
+    module_schema: {
+      ...schema,
+      entities: {
+        ...schema.entities,
+        session: {
+          ...schema.entities.session,
+          fields: {
+            ...fields,
+            venue: { ...fields.venue, suggest_from_history: true },
+            wb_sleep_hours: { ...fields.wb_sleep_hours, visible_if: "setting == 'Outdoor'" },
+          },
+        },
+      },
+    },
+  };
+  const hidden = (body: unknown) => {
+    const values = (body as { values: Record<string, unknown> }).values;
+    const shown = values.setting === "Outdoor";
+    return Promise.resolve(Response.json({ hidden: shown ? [] : ["wb_sleep_hours"] }));
+  };
+  const records = {
+    module: "diary",
+    entity: "session",
+    as_of: null,
+    offline: false,
+    issues: [],
+    records: [
+      { values: { date: "2026-10-20", venue: "[ESEMPIO] Falesia" }, derived: {}, rows: {} },
+      { values: { date: "2026-10-28", venue: "[ESEMPIO] Palestra" }, derived: {}, rows: {} },
+      { values: { date: "2026-10-25", venue: "[ESEMPIO] Palestra" }, derived: {}, rows: {} },
+    ],
+  };
+
+  it("shows a field only while its condition holds, and doesn't save it hidden", async () => {
+    const calls = stubApi({
+      "/api/health": HEALTH,
+      "/api/modules": { modules: [OPTIONS], problems: [] },
+      [`POST ${SESSION}/hidden`]: hidden,
+      [SESSION]: records,
+      [`POST ${SESSION}`]: written(READ),
+    });
+    renderApp(PRE);
+    expect(await screen.findByRole("combobox", { name: "Venue" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Sleep hours" })).not.toBeInTheDocument();
+    await pick("Setting", "Outdoor");
+    const sleep = await screen.findByRole("textbox", { name: "Sleep hours" });
+    await userEvent.type(sleep, "7");
+    await pick("Setting", "Indoor");
+    await screen.findByRole("button", { name: "Save" });
+    await new Promise((resolve) => setTimeout(resolve, 600)); // the debounced answer
+    expect(screen.queryByRole("textbox", { name: "Sleep hours" })).not.toBeInTheDocument();
+    await pick("Mood", "7");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    const post = calls.find((c) => c.method === "POST" && c.path === SESSION);
+    expect(post?.body).toEqual({
+      values: { date: "2026-10-30", session_no: "1", setting: "Indoor", wb_mood_pre: 7 },
+    }); // the hidden sleep hours typed before isn't saved
+  });
+
+  it("suggests the values typed before, newest first", async () => {
+    stubApi({
+      "/api/health": HEALTH,
+      "/api/modules": { modules: [OPTIONS], problems: [] },
+      [`POST ${SESSION}/hidden`]: hidden,
+      [SESSION]: records,
+    });
+    renderApp(PRE);
+    await userEvent.click(await screen.findByRole("combobox", { name: "Venue" }));
+    const list = await screen.findByRole("listbox", { name: "Venue", hidden: true });
+    const options = within(list).getAllByRole("option", { hidden: true });
+    expect(options.map((o) => o.textContent)).toEqual(["[ESEMPIO] Palestra", "[ESEMPIO] Falesia"]);
   });
 });

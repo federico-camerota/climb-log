@@ -2,7 +2,7 @@
 // TanStack Query hooks for the API (D-070): cached per key, refetched when the window
 // regains focus, so entries typed on the phone show up when coming back to the app.
 
-import { QueryClient, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, QueryClient, useQuery } from "@tanstack/react-query";
 
 import {
   ApiError,
@@ -15,6 +15,7 @@ import {
   getRecords,
   getToday,
   getView,
+  hiddenFields,
   queryMetrics,
   type Values,
 } from "./client";
@@ -39,10 +40,22 @@ export function useModules() {
   return useQuery({ queryKey: ["modules"], queryFn: getModules });
 }
 
-export function useRecords(module: string, entity: string) {
+export function useRecords(module: string, entity: string, enabled = true) {
   return useQuery({
     queryKey: ["records", module, entity],
     queryFn: () => getRecords(module, entity),
+    enabled,
+  });
+}
+
+/** The fields a form hides for its values so far (`visible_if`); the last answer is kept while
+ * the next is asked, so fields don't flicker as you type. */
+export function useHidden(module: string, entity: string, values: Values, enabled: boolean) {
+  return useQuery({
+    queryKey: ["hidden", module, entity, values],
+    queryFn: () => hiddenFields(module, entity, values),
+    enabled,
+    placeholderData: keepPreviousData,
   });
 }
 

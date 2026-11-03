@@ -141,6 +141,7 @@ were never built; these come first (the rest went to M6 or the backlog, or out o
 - **Module options in forms**: `visible_if` shows a field only when its condition holds,
   `suggest_from_history` suggests the values typed before (venue, partners), and the `forms:`
   block is checked at load; the unused `hidden_in_form` and `searchable` options are removed.
+  → done (D-100, #122).
 
 ### M5 · Program modules ☐
 - `program:` block (weeks, phases, runs), reference tables, `ref` fields, prefilled fields.

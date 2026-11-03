@@ -178,6 +178,18 @@ export function addRecord(module: string, entity: string, values: Values): Promi
   return send<Written>("POST", entityPath(module, entity), { values });
 }
 
+/** The fields a form hides for its values so far (`visible_if`, 03 §2.1b). */
+export async function hiddenFields(
+  module: string,
+  entity: string,
+  values: Values,
+): Promise<string[]> {
+  const found = await send<{ hidden: string[] }>("POST", `${entityPath(module, entity)}/hidden`, {
+    values,
+  });
+  return found.hidden;
+}
+
 /** Change some fields; `expected` holds them as read, so a change since is a 409 (D-075). */
 export function updateRecord(
   module: string,

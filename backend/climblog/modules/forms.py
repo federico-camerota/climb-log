@@ -8,7 +8,8 @@ shows the fields of its sections (in its phase), plus fields of other sections w
 What is due on a day: when no form's entity has a record that day, the module's entry forms
 (no phase, or `pre`) are listed as missing, any one of them (a session or a rest day); once
 there are records, each record's forms are listed (pre, then post), done / partial / missing by
-how many of their scored fields (everything but text) are filled.
+how many of their scored fields (everything but text) are filled. A field hidden by its
+`visible_if` doesn't count (`hidden`), as the form doesn't show it.
 """
 
 import datetime as dt
@@ -16,7 +17,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from climblog.expr import Value
+from climblog.expr import Value, evaluate, prepare
+from climblog.modules.checks import expression_env
 from climblog.modules.schema import BaseField, Entity, Module, TextField
 
 DONE, PARTIAL, MISSING = "done", "partial", "missing"
@@ -55,20 +57,33 @@ class Day:
 
 
 def forms_of(module: Module) -> dict[str, Form]:
-    """The module's forms that name an entity of the module (the block is not checked yet)."""
-    found: dict[str, Form] = {}
-    for name, raw in (module.forms or {}).items():
-        if not isinstance(raw, Mapping) or raw.get("entity") not in module.entities:
-            continue
-        sections = raw.get("sections")
-        found[name] = Form(
+    """The module's forms (checked at load: their entity, sections and child forms exist)."""
+    return {
+        name: Form(
             name,
-            str(raw["entity"]),
-            str(raw["phase"]) if raw.get("phase") is not None else None,
-            tuple(str(s) for s in sections) if isinstance(sections, list) else None,
-            bool(raw.get("children")),
+            form.entity,
+            form.phase,
+            tuple(form.sections) if form.sections is not None else None,
+            bool(form.children),
         )
-    return found
+        for name, form in (module.forms or {}).items()
+    }
+
+
+def hidden(
+    module: Module, entity: str, values: Mapping[str, Value], settings: Mapping[str, Value]
+) -> list[str]:
+    """The entity's fields hidden by their `visible_if` for these values: the condition isn't
+    yes (03 §2.1b). A form doesn't show them, and they don't count as missing."""
+    ent = module.entities[entity]
+    env = expression_env(module, ent.fields, ent.date_field)
+    return [
+        name
+        for name, f in ent.fields.items()
+        if isinstance(f, BaseField)
+        and f.visible_if is not None
+        and evaluate(prepare(f.visible_if, env), values, settings) is not True
+    ]
 
 
 def form_label(name: str) -> str:
@@ -102,6 +117,7 @@ def due(
     module: Module,
     tables: Mapping[str, Sequence[Mapping[str, Value]]],
     day: dt.date,
+    settings: Mapping[str, Value] | None = None,
 ) -> Day:
     """The module's forms on `day`. `tables[entity]` holds each record's stored and derived
     values (deleted ones left out)."""
@@ -140,7 +156,7 @@ def due(
             for record in records:
                 key = {part: record.get(part) for part in entity.key or [_date_field(entity)]}
                 for f in (f for f in usable if f.entity == e_name):
-                    status, missing = _status(module, f, record, day)
+                    status, missing = _status(module, f, record, day, settings or {})
                     items.append(
                         Due(
                             f.name,
@@ -167,15 +183,20 @@ def due(
 
 
 def _status(
-    module: Module, form: Form, record: Mapping[str, Value], day: dt.date
+    module: Module,
+    form: Form,
+    record: Mapping[str, Value],
+    day: dt.date,
+    settings: Mapping[str, Value],
 ) -> tuple[str, list[str]]:
     """Done when every scored field is filled (text and `optional: true` fields may stay
-    blank), partial when some are."""
+    blank, and fields hidden by `visible_if` don't count), partial when some are."""
     entity = module.entities[form.entity]
+    away = set(hidden(module, form.entity, record, settings))
     names = [
         n
         for n in form_fields(module, form)
-        if _tracked(entity, n, day) and not _optional(entity, n)
+        if _tracked(entity, n, day) and not _optional(entity, n) and n not in away
     ]
     scored = [n for n in names if not isinstance(entity.fields[n], TextField)] or names
     empty = [n for n in scored if record.get(n) is None]

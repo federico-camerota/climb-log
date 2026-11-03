@@ -19,7 +19,7 @@ from climblog.storage.check import Difference, check_schema
 from climblog.storage.drift import Drift, find_drift
 from climblog.storage.gsheets import GSheetsBackend
 from climblog.storage.layout import WorkbookLayout, workbook_layout
-from climblog.storage.load import EntityData, ModuleData, load_data
+from climblog.storage.load import EntityData, ModuleData, load_data, read_settings
 from climblog.storage.move import MoveReport, move_to_google
 from climblog.storage.snapshot import (
     CachedRepository,
@@ -71,6 +71,7 @@ __all__ = [
     "load_data",
     "move_to_google",
     "parse_cell",
+    "read_settings",
     "sync_module",
     "workbook_layout",
 ]

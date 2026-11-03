@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from climblog.catalog import Catalog, EntityRecords, Entry, served
 from climblog.expr import Value
+from climblog.modules.schema import BaseField
 from climblog.storage import (
     DataIssue,
     KeyTaken,
@@ -28,6 +29,7 @@ from climblog.storage import (
     WriteConflict,
     WriteError,
 )
+from climblog.storage.cells import CellError, parse_cell
 
 router = APIRouter()
 
@@ -223,6 +225,36 @@ def adopt_row(request: Request, module: str, entity: str, tab: str, row: int) ->
     with entry.lock, _write_errors():
         key = _writer(entry).adopt_row(entity, tab, row)
     return _written(current, entry, entity, key)
+
+
+class FormValues(BaseModel):
+    values: dict[str, Any]  # a form's values as typed so far (the API's types, as on save)
+
+
+class Hidden(BaseModel):
+    hidden: list[str]  # the fields whose `visible_if` doesn't hold for these values
+
+
+@router.post("/modules/{module}/{entity}/hidden")
+def hidden_fields(request: Request, module: str, entity: str, body: FormValues) -> Hidden:
+    """The fields a form hides for its values so far (`visible_if`, 03 §2.1b): the form sends
+    what is typed as it changes. A value that can't be read yet counts as blank."""
+    current = catalog(request)
+    entry = _entry(current, module, entity)
+    assert entry.module is not None
+    fields = entry.module.entities[entity].fields
+    values: dict[str, Value] = {}
+    for name, raw in body.values.items():
+        field = fields.get(name)
+        if isinstance(field, BaseField):
+            try:
+                values[name] = parse_cell(entry.module, field, raw)
+            except CellError:
+                values[name] = None
+    try:
+        return Hidden(hidden=current.hidden(entry, entity, values))
+    except StorageError as error:
+        raise HTTPException(503, str(error)) from None
 
 
 def _entry(current: Catalog, module: str, entity: str) -> Entry:

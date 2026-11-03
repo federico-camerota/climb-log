@@ -370,11 +370,6 @@
           "default": null,
           "title": "From"
         },
-        "hidden_in_form": {
-          "default": false,
-          "title": "Hidden In Form",
-          "type": "boolean"
-        },
         "visible_if": {
           "anyOf": [
             {
@@ -495,6 +490,36 @@
       "title": "Case",
       "type": "object"
     },
+    "ChildForm": {
+      "additionalProperties": false,
+      "description": "A child entity's rows inside a form (finger-strength sets): repeated, each new row\ncopying the previous row's `copy_previous` fields.",
+      "properties": {
+        "entity": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Entity",
+          "type": "string"
+        },
+        "repeat": {
+          "default": true,
+          "title": "Repeat",
+          "type": "boolean"
+        },
+        "copy_previous": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Copy Previous",
+          "type": "array"
+        }
+      },
+      "required": [
+        "entity"
+      ],
+      "title": "ChildForm",
+      "type": "object"
+    },
     "ChoiceField": {
       "additionalProperties": false,
       "properties": {
@@ -587,11 +612,6 @@
           ],
           "default": null,
           "title": "From"
-        },
-        "hidden_in_form": {
-          "default": false,
-          "title": "Hidden In Form",
-          "type": "boolean"
         },
         "visible_if": {
           "anyOf": [
@@ -775,11 +795,6 @@
           "default": null,
           "title": "From"
         },
-        "hidden_in_form": {
-          "default": false,
-          "title": "Hidden In Form",
-          "type": "boolean"
-        },
         "visible_if": {
           "anyOf": [
             {
@@ -923,11 +938,6 @@
           ],
           "default": null,
           "title": "From"
-        },
-        "hidden_in_form": {
-          "default": false,
-          "title": "Hidden In Form",
-          "type": "boolean"
         },
         "visible_if": {
           "anyOf": [
@@ -1253,6 +1263,102 @@
       "title": "FeedList",
       "type": "object"
     },
+    "FormModel": {
+      "additionalProperties": false,
+      "description": "A form of the Log page (06-ui, D-077): the fields of an entity, in a phase (pre, post),\nor of some sections; and child rows.",
+      "properties": {
+        "entity": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Entity",
+          "type": "string"
+        },
+        "phase": {
+          "anyOf": [
+            {
+              "enum": [
+                "pre",
+                "post",
+                "next_day",
+                "any"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phase"
+        },
+        "sections": {
+          "anyOf": [
+            {
+              "items": {
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sections"
+        },
+        "children": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ChildForm"
+          },
+          "title": "Children",
+          "type": "array"
+        },
+        "repeat": {
+          "default": false,
+          "title": "Repeat",
+          "type": "boolean"
+        },
+        "batch_over": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Batch Over"
+        },
+        "keep_fields": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Keep Fields",
+          "type": "array"
+        },
+        "due": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Due"
+        }
+      },
+      "required": [
+        "entity"
+      ],
+      "title": "FormModel",
+      "type": "object"
+    },
     "GradeField": {
       "additionalProperties": false,
       "properties": {
@@ -1345,11 +1451,6 @@
           ],
           "default": null,
           "title": "From"
-        },
-        "hidden_in_form": {
-          "default": false,
-          "title": "Hidden In Form",
-          "type": "boolean"
         },
         "visible_if": {
           "anyOf": [
@@ -2043,11 +2144,6 @@
           "default": null,
           "title": "From"
         },
-        "hidden_in_form": {
-          "default": false,
-          "title": "Hidden In Form",
-          "type": "boolean"
-        },
         "visible_if": {
           "anyOf": [
             {
@@ -2201,11 +2297,6 @@
           ],
           "default": null,
           "title": "From"
-        },
-        "hidden_in_form": {
-          "default": false,
-          "title": "Hidden In Form",
-          "type": "boolean"
         },
         "visible_if": {
           "anyOf": [
@@ -2540,11 +2631,6 @@
           "default": null,
           "title": "From"
         },
-        "hidden_in_form": {
-          "default": false,
-          "title": "Hidden In Form",
-          "type": "boolean"
-        },
         "visible_if": {
           "anyOf": [
             {
@@ -2872,11 +2958,6 @@
           "default": null,
           "title": "From"
         },
-        "hidden_in_form": {
-          "default": false,
-          "title": "Hidden In Form",
-          "type": "boolean"
-        },
         "visible_if": {
           "anyOf": [
             {
@@ -3052,11 +3133,6 @@
           ],
           "default": null,
           "title": "From"
-        },
-        "hidden_in_form": {
-          "default": false,
-          "title": "Hidden In Form",
-          "type": "boolean"
         },
         "visible_if": {
           "anyOf": [
@@ -4002,11 +4078,6 @@
           "default": null,
           "title": "From"
         },
-        "hidden_in_form": {
-          "default": false,
-          "title": "Hidden In Form",
-          "type": "boolean"
-        },
         "visible_if": {
           "anyOf": [
             {
@@ -4050,11 +4121,6 @@
         "multiline": {
           "default": false,
           "title": "Multiline",
-          "type": "boolean"
-        },
-        "searchable": {
-          "default": true,
-          "title": "Searchable",
           "type": "boolean"
         },
         "suggest_from_history": {
@@ -4476,7 +4542,11 @@
     "forms": {
       "anyOf": [
         {
-          "additionalProperties": true,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "$ref": "#/$defs/FormModel"
+            }
+          },
           "type": "object"
         },
         {

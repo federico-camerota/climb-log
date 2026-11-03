@@ -67,6 +67,11 @@ def load_data(module: Module, repo: Repository) -> ModuleData:
     return ModuleData(settings, entities, issues)
 
 
+def read_settings(module: Module, repo: Repository) -> dict[str, Value]:
+    """The module's settings alone (its `_settings` tab, defaults where missing or bad)."""
+    return _settings(module, repo, [])
+
+
 def _settings(module: Module, repo: Repository, issues: list[DataIssue]) -> dict[str, Value]:
     """Each setting from `_settings`, or its default when missing, blank or bad."""
     try:

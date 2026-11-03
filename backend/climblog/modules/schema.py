@@ -131,7 +131,6 @@ class BaseField(Strict):
     tags: list[Key] = []
     since: dt.date | None = None
     from_: str | None = Field(default=None, alias="from")  # prefilled from another module
-    hidden_in_form: bool = False
     visible_if: str | None = None  # condition on other fields, checked in checks.py
     retired: bool = False  # hidden from forms; column and data kept (§3)
     renamed_from: Key | None = None
@@ -193,8 +192,7 @@ class BoolField(BaseField):
 class TextField(BaseField):
     type: Literal["text"]
     multiline: bool = False
-    searchable: bool = True
-    suggest_from_history: bool = False
+    suggest_from_history: bool = False  # the form suggests the values typed before
 
 
 class GradeField(BaseField):
@@ -960,6 +958,30 @@ class Summary(Strict):
     side_by_side: SummarySessions | None = None
 
 
+class ChildForm(Strict):
+    """A child entity's rows inside a form (finger-strength sets): repeated, each new row
+    copying the previous row's `copy_previous` fields."""
+
+    entity: Key
+    repeat: bool = True
+    copy_previous: list[Key] = []
+
+
+class FormModel(Strict):
+    """A form of the Log page (06-ui, D-077): the fields of an entity, in a phase (pre, post),
+    or of some sections; and child rows."""
+
+    entity: Key
+    phase: Phase | None = None
+    sections: list[Key] | None = None
+    children: list[ChildForm] = []
+    # program modules (M5): accepted as they are until their issue adds the checks
+    repeat: bool = False
+    batch_over: str | None = None
+    keep_fields: list[Key] = []
+    due: str | None = None
+
+
 class Module(Strict):
     # Extra top-level keys are allowed only as named level lists (`reflect_levels`);
     # `cross_check` reports any other one as unknown.
@@ -977,7 +999,7 @@ class Module(Strict):
     templates: dict[Key, dict[Key, ModuleField]] = {}
     program: Unchecked | None = None  # M5
     reference: Unchecked | None = None  # M5
-    forms: Unchecked | None = None  # M3
+    forms: dict[Key, FormModel] | None = None
     views: dict[Key, list[Widget]] | None = None  # D-083
     aggregates: Unchecked | None = None  # M5
     recommendation: Recommendation | None = None  # M3 (D-076)

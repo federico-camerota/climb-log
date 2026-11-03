@@ -114,6 +114,60 @@ def cross_check(module: Module) -> list[Problem]:
 
     problems += summary_problems(module)
     problems += _views(module)
+    problems += _forms(module)
+    return problems
+
+
+def _forms(module: Module) -> list[Problem]:
+    """A form's entity, sections and child forms exist; a child form's entity is a child of the
+    form's, and the fields it copies are its own (06-ui Log)."""
+    problems: list[Problem] = []
+    for name, form in (module.forms or {}).items():
+        at: YamlPath = ("forms", name)
+        found = _entity_named(module, form.entity, (*at, "entity"))
+        if found:
+            problems += found
+            continue
+        entity = module.entities[form.entity]
+        sections = entity.sections or {}
+        for j, section in enumerate(form.sections or []):
+            if section not in sections:
+                known = ", ".join(sections) or "none"
+                problems.append(
+                    Problem(
+                        (*at, "sections", j),
+                        f"'{form.entity}' has no section '{section}' (sections: {known})",
+                    )
+                )
+        names = field_names(module, form.entity)
+        for j, kept in enumerate(form.keep_fields):
+            if kept not in names:
+                problems.append(
+                    Problem((*at, "keep_fields", j), f"'{form.entity}' has no field '{kept}'")
+                )
+        for j, child in enumerate(form.children):
+            c_at: YamlPath = (*at, "children", j)
+            found = _entity_named(module, child.entity, (*c_at, "entity"))
+            if found:
+                problems += found
+                continue
+            parent = module.entities[child.entity].parent
+            if parent is None or parent.entity != form.entity:
+                problems.append(
+                    Problem(
+                        (*c_at, "entity"),
+                        f"'{child.entity}' is not a child entity of '{form.entity}'",
+                    )
+                )
+            child_names = field_names(module, child.entity)
+            for k, copied in enumerate(child.copy_previous):
+                if copied not in child_names:
+                    problems.append(
+                        Problem(
+                            (*c_at, "copy_previous", k),
+                            f"'{child.entity}' has no field '{copied}'",
+                        )
+                    )
     return problems
 
 
