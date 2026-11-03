@@ -15,9 +15,16 @@ import {
   Text,
 } from "@mantine/core";
 
-import type { CorrelationPair, MatrixData, MetricInfo, PredictorsData } from "../api/client";
+import type {
+  CorrelationPair,
+  FilterInfo,
+  MatrixData,
+  MetricInfo,
+  PredictorsData,
+} from "../api/client";
 import { useCorrelation } from "../api/queries";
 import { Chart } from "../components/Chart";
+import { FilterPickers, RangePicker } from "../components/ScopeControls";
 import {
   correlationQuery,
   matrixOption,
@@ -25,16 +32,66 @@ import {
   strength,
   withCi,
   type CorrelationState,
+  type CorrelationTab,
   type Method,
   type PairGroup,
 } from "../lib/correlation";
-import { metricGroup, metricNames } from "../lib/explore";
+import { keptFilters, metricGroup, metricNames, type Scope } from "../lib/explore";
 
 interface Props {
   state: CorrelationState;
   metrics: MetricInfo[];
-  window: URLSearchParams; // the date range's start/end and the filters
+  filters: FilterInfo[]; // every choice field that can filter
+  today: string;
   update: (change: Partial<CorrelationState>) => void;
+}
+
+const entityOf = (id: string) => id.slice(0, id.lastIndexOf("."));
+
+/** A change of a tab's metrics, dropping its filters that no longer apply to them. */
+function withMetrics(
+  state: CorrelationState,
+  tab: CorrelationTab,
+  change: Partial<CorrelationState>,
+  ids: (string | null)[],
+): Partial<CorrelationState> {
+  const entities = new Set(ids.filter((id): id is string => !!id).map(entityOf));
+  const scope = state.scopes[tab];
+  return {
+    ...change,
+    scopes: { ...state.scopes, [tab]: { ...scope, filters: keptFilters(scope.filters, entities) } },
+  };
+}
+
+/** A tab's own range and filters: the filters of its metrics' entities. */
+function TabScope({
+  tab,
+  ids,
+  state,
+  filters,
+  update,
+}: {
+  tab: CorrelationTab;
+  ids: (string | null)[];
+  state: CorrelationState;
+  filters: FilterInfo[];
+  update: Props["update"];
+}) {
+  const entities = new Set(ids.filter((id): id is string => !!id).map(entityOf));
+  const scope = state.scopes[tab];
+  const onChange = (change: Partial<Scope>) => {
+    update({ scopes: { ...state.scopes, [tab]: { ...scope, ...change } } });
+  };
+  return (
+    <>
+      <RangePicker scope={scope} onChange={onChange} />
+      <FilterPickers
+        scope={scope}
+        filters={filters.filter((f) => entities.has(`${f.module}.${f.entity}`))}
+        onChange={onChange}
+      />
+    </>
+  );
 }
 
 /** The metrics of a picker, labels told apart where they repeat ("Mood · Rest day"). */
@@ -77,15 +134,16 @@ const POINTS: { value: PairGroup; label: string }[] = [
   { value: "month", label: "Month" },
 ];
 
-export function PairPanel({ state, metrics, window, update }: Props) {
+export function PairPanel({ state, metrics, filters, today, update }: Props) {
   const byId = new Map(metrics.map((m) => [m.id, m]));
-  const entityOf = (id: string | null) => (id ? id.slice(0, id.lastIndexOf(".")) : null);
   // one point per record needs X and Y of one entity and no lag: auto otherwise
-  const perRecord = entityOf(state.x) === entityOf(state.y) && state.lag === 0;
+  const perRecord =
+    (state.x ? entityOf(state.x) : null) === (state.y ? entityOf(state.y) : null) &&
+    state.lag === 0;
   const group = state.group === "none" && !perRecord ? "auto" : state.group;
   const query = useCorrelation<CorrelationPair>(
     "pair",
-    correlationQuery({ ...state, group }, window),
+    correlationQuery({ ...state, group }, today),
   );
   const data = query.data;
   const picked = [state.x, state.y]
@@ -101,7 +159,7 @@ export function PairPanel({ state, metrics, window, update }: Props) {
           data={pickerData(metrics)}
           value={state.x}
           onChange={(value) => {
-            update({ x: value });
+            update(withMetrics(state, "pair", { x: value }, [value, state.y]));
           }}
         />
         <Select
@@ -110,7 +168,7 @@ export function PairPanel({ state, metrics, window, update }: Props) {
           data={pickerData(metrics)}
           value={state.y}
           onChange={(value) => {
-            update({ y: value });
+            update(withMetrics(state, "pair", { y: value }, [state.x, value]));
           }}
         />
         <NumberInput
@@ -135,6 +193,13 @@ export function PairPanel({ state, metrics, window, update }: Props) {
           }}
         />
       </Group>
+      <TabScope
+        tab="pair"
+        ids={[state.x, state.y]}
+        state={state}
+        filters={filters}
+        update={update}
+      />
       {(!state.x || !state.y) && (
         <Text c="dimmed">Pick X and Y, e.g. sleep hours and feel score.</Text>
       )}
@@ -191,8 +256,8 @@ export function PairPanel({ state, metrics, window, update }: Props) {
   );
 }
 
-export function MatrixPanel({ state, metrics, window, update }: Props) {
-  const query = useCorrelation<MatrixData>("matrix", correlationQuery(state, window));
+export function MatrixPanel({ state, metrics, filters, today, update }: Props) {
+  const query = useCorrelation<MatrixData>("matrix", correlationQuery(state, today));
   const byId = new Map(metrics.map((m) => [m.id, m]));
   const data = query.data;
   const matrixNames = metricNames(
@@ -210,7 +275,7 @@ export function MatrixPanel({ state, metrics, window, update }: Props) {
           data={pickerData(metrics)}
           value={state.matrix}
           onChange={(value) => {
-            update({ matrix: value });
+            update(withMetrics(state, "matrix", { matrix: value }, value));
           }}
         />
         <MethodPicker
@@ -220,6 +285,7 @@ export function MatrixPanel({ state, metrics, window, update }: Props) {
           }}
         />
       </Group>
+      <TabScope tab="matrix" ids={state.matrix} state={state} filters={filters} update={update} />
       {query.isFetching && !data && <Loader />}
       {query.error && <Alert color="red">{query.error.message}</Alert>}
       {data && (
@@ -241,8 +307,8 @@ export function MatrixPanel({ state, metrics, window, update }: Props) {
   );
 }
 
-export function PredictorsPanel({ state, metrics, window, update }: Props) {
-  const query = useCorrelation<PredictorsData>("predictors", correlationQuery(state, window));
+export function PredictorsPanel({ state, metrics, filters, today, update }: Props) {
+  const query = useCorrelation<PredictorsData>("predictors", correlationQuery(state, today));
   const byId = new Map(metrics.map((m) => [m.id, m]));
   const data = query.data;
   const listed = metricNames(
@@ -259,7 +325,7 @@ export function PredictorsPanel({ state, metrics, window, update }: Props) {
           data={pickerData(metrics)}
           value={state.target}
           onChange={(value) => {
-            update({ target: value });
+            update(withMetrics(state, "predictors", { target: value }, [value]));
           }}
         />
         <MethodPicker
@@ -269,6 +335,13 @@ export function PredictorsPanel({ state, metrics, window, update }: Props) {
           }}
         />
       </Group>
+      <TabScope
+        tab="predictors"
+        ids={[state.target]}
+        state={state}
+        filters={filters}
+        update={update}
+      />
       {query.isFetching && !data && <Loader />}
       {query.error && <Alert color="red">{query.error.message}</Alert>}
       {data && (

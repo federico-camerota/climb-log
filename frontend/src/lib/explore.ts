@@ -12,8 +12,88 @@ export type GroupKey = "none" | "day" | "week" | "month";
 export type AggKey = "mean" | "min" | "max" | "sum" | "count" | "latest";
 export type ChartKind = "line" | "bars";
 
+export const RANGES: { value: RangeKey; label: string }[] = [
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
+  { value: "90d", label: "90 days" },
+  { value: "all", label: "All" },
+  { value: "custom", label: "Custom" },
+];
 export const RANGE_DAYS: Partial<Record<RangeKey, number>> = { "7d": 7, "30d": 30, "90d": 90 };
 export const MAX_UNITS = 2; // one y axis each
+
+/** A date range and filters: Over time's, and each correlation tab's own (under a prefix of
+ * its URL keys, e.g. "pair-range"). */
+export interface Scope {
+  range: RangeKey;
+  start: string | null; // custom range
+  end: string | null;
+  filters: Record<string, string[]>; // filter id → values kept
+}
+
+const RANGE_KEYS = ["7d", "30d", "90d", "all", "custom"] as const;
+
+/** A scope from the URL (prefix "" for Over time's keys). */
+export function readScope(params: URLSearchParams, prefix = ""): Scope {
+  const filters: Record<string, string[]> = {};
+  for (const item of params.getAll(`${prefix}filter`)) {
+    const at = item.indexOf("=");
+    if (at > 0) (filters[item.slice(0, at)] ??= []).push(item.slice(at + 1));
+  }
+  return {
+    range: oneOf(params.get(`${prefix}range`), RANGE_KEYS, "90d"),
+    start: params.get(`${prefix}start`),
+    end: params.get(`${prefix}end`),
+    filters,
+  };
+}
+
+/** Writes a scope into `params` under `prefix` (the default range left out). */
+export function writeScope(params: URLSearchParams, scope: Scope, prefix = ""): void {
+  for (const key of ["range", "start", "end", "filter"]) params.delete(`${prefix}${key}`);
+  if (scope.range !== "90d") params.set(`${prefix}range`, scope.range);
+  if (scope.range === "custom") {
+    if (scope.start) params.set(`${prefix}start`, scope.start);
+    if (scope.end) params.set(`${prefix}end`, scope.end);
+  }
+  for (const [id, values] of Object.entries(scope.filters))
+    for (const v of values) params.append(`${prefix}filter`, `${id}=${v}`);
+}
+
+/** A scope as query parameters for the day `today`: start, end and the filters (a 7-day range
+ * ends today and starts 6 days before). */
+export function scopeParams(scope: Scope, today: string): URLSearchParams {
+  const params = new URLSearchParams();
+  const days = RANGE_DAYS[scope.range];
+  if (days !== undefined) {
+    params.set(
+      "start",
+      dayjs(today)
+        .subtract(days - 1, "day")
+        .format("YYYY-MM-DD"),
+    );
+    params.set("end", today);
+  } else if (scope.range === "custom") {
+    if (scope.start) params.set("start", scope.start);
+    params.set("end", scope.end ?? today);
+  } else {
+    params.set("end", today);
+  }
+  for (const [id, values] of Object.entries(scope.filters))
+    for (const v of values) params.append("filter", `${id}=${v}`);
+  return params;
+}
+
+/** The filters that apply to some of these entities (`module.entity`): a filter applies to its
+ * own entity's metrics, so the others are dropped when the metrics change. */
+export function keptFilters(
+  filters: Record<string, string[]>,
+  entities: Set<string>,
+): Record<string, string[]> {
+  return Object.fromEntries(
+    Object.entries(filters).filter(([id]) => entities.has(id.slice(0, id.lastIndexOf(".")))),
+  );
+}
 
 export interface ExploreState {
   metrics: string[];
@@ -33,17 +113,13 @@ function oneOf<T extends string>(value: string | null, allowed: readonly T[], fa
 
 /** The page's state from its URL (unknown values fall back to the defaults). */
 export function readState(params: URLSearchParams): ExploreState {
-  const filters: Record<string, string[]> = {};
-  for (const item of params.getAll("filter")) {
-    const at = item.indexOf("=");
-    if (at > 0) (filters[item.slice(0, at)] ??= []).push(item.slice(at + 1));
-  }
+  const { range, start, end, filters } = readScope(params);
   const rolling = Number(params.get("rolling"));
   return {
     metrics: params.getAll("metric"),
-    range: oneOf(params.get("range"), ["7d", "30d", "90d", "all", "custom"] as const, "90d"),
-    start: params.get("start"),
-    end: params.get("end"),
+    range,
+    start,
+    end,
     group: oneOf(params.get("group"), ["none", "day", "week", "month"] as const, "day"),
     agg: oneOf(
       params.get("agg"),
@@ -60,11 +136,7 @@ export function readState(params: URLSearchParams): ExploreState {
 export function writeState(state: ExploreState): URLSearchParams {
   const params = new URLSearchParams();
   for (const m of state.metrics) params.append("metric", m);
-  if (state.range !== "90d") params.set("range", state.range);
-  if (state.range === "custom") {
-    if (state.start) params.set("start", state.start);
-    if (state.end) params.set("end", state.end);
-  }
+  writeScope(params, { ...state, filters: {} });
   if (state.group !== "day") params.set("group", state.group);
   if (state.agg !== "mean") params.set("agg", state.agg);
   if (state.rolling !== null) params.set("rolling", String(state.rolling));
@@ -79,21 +151,8 @@ export function metricQuery(state: ExploreState, today: string): string | null {
   if (state.metrics.length === 0) return null;
   const params = new URLSearchParams();
   for (const m of state.metrics) params.append("metric", m);
-  const days = RANGE_DAYS[state.range];
-  if (days !== undefined) {
-    params.set(
-      "start",
-      dayjs(today)
-        .subtract(days - 1, "day")
-        .format("YYYY-MM-DD"),
-    );
-    params.set("end", today);
-  } else if (state.range === "custom") {
-    if (state.start) params.set("start", state.start);
-    params.set("end", state.end ?? today);
-  } else {
-    params.set("end", today);
-  }
+  const scope = scopeParams({ ...state, filters: {} }, today);
+  for (const [key, value] of scope) params.set(key, value);
   params.set("group", state.group);
   params.set("agg", state.agg);
   if (state.rolling !== null) params.set("rolling", String(state.rolling));

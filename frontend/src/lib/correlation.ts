@@ -5,6 +5,7 @@ import type { EChartsCoreOption } from "echarts/core";
 
 import type { CorrelationPair, MatrixData } from "../api/client";
 import { decimal, PALETTE } from "./charts";
+import { readScope, scopeParams, writeScope, type Scope } from "./explore";
 
 export type Tab = "trends" | "pair" | "matrix" | "predictors";
 export type Method = "spearman" | "pearson";
@@ -12,6 +13,15 @@ export type Method = "spearman" | "pearson";
  * per day, week or month (each point the period's means; 05-analytics §3.2). */
 export type PairGroup = "auto" | "none" | "day" | "week" | "month";
 const PAIR_GROUPS: readonly PairGroup[] = ["auto", "none", "day", "week", "month"];
+
+export type CorrelationTab = "pair" | "matrix" | "predictors";
+/** Each correlation tab's own range and filters live under its prefix in the URL. */
+export const SCOPE_PREFIX: Record<CorrelationTab, string> = {
+  pair: "pair-",
+  matrix: "matrix-",
+  predictors: "good-",
+};
+const TABS = Object.keys(SCOPE_PREFIX) as CorrelationTab[];
 
 export interface CorrelationState {
   tab: Tab;
@@ -22,6 +32,7 @@ export interface CorrelationState {
   matrix: string[];
   target: string | null;
   method: Method;
+  scopes: Record<CorrelationTab, Scope>; // each tab's own range and filters
 }
 
 export function readCorrelation(params: URLSearchParams): CorrelationState {
@@ -36,6 +47,9 @@ export function readCorrelation(params: URLSearchParams): CorrelationState {
     matrix: params.getAll("mx"),
     target: params.get("target"),
     method: params.get("method") === "pearson" ? "pearson" : "spearman",
+    scopes: Object.fromEntries(
+      TABS.map((tab) => [tab, readScope(params, SCOPE_PREFIX[tab])]),
+    ) as Record<CorrelationTab, Scope>,
   };
 }
 
@@ -54,12 +68,13 @@ export function writeCorrelation(
   for (const m of state.matrix) next.append("mx", m);
   if (state.target) next.set("target", state.target);
   if (state.method !== "spearman") next.set("method", state.method);
+  for (const tab of TABS) writeScope(next, state.scopes[tab], SCOPE_PREFIX[tab]);
   return next;
 }
 
-/** The API query of a tab, over the trends' date range and filters (`window`: their start,
- * end and filter parameters; a filter applies to its own entity's metrics). */
-export function correlationQuery(state: CorrelationState, window: URLSearchParams): string | null {
+/** The API query of a tab, over the tab's own range and filters (`today` ends the 7, 30 and
+ * 90 days; a filter applies to its own entity's metrics). */
+export function correlationQuery(state: CorrelationState, today: string): string | null {
   const params = new URLSearchParams();
   if (state.tab === "pair") {
     if (!state.x || !state.y) return null;
@@ -78,11 +93,9 @@ export function correlationQuery(state: CorrelationState, window: URLSearchParam
   } else {
     return null;
   }
-  for (const key of ["start", "end"]) {
-    const value = window.get(key);
-    if (value) params.set(key, value);
+  for (const [key, value] of scopeParams(state.scopes[state.tab], today)) {
+    params.append(key, value);
   }
-  for (const f of window.getAll("filter")) params.append("filter", f);
   return params.toString();
 }
 

@@ -13,12 +13,13 @@ import {
 } from "./correlation";
 
 type Option = Record<string, unknown> & { series: Record<string, unknown>[] };
-const WINDOW = new URLSearchParams("start=2026-08-02&end=2026-10-30");
+const TODAY = "2026-10-30";
+const NO_SCOPE = { range: "90d", start: null, end: null, filters: {} };
 
 describe("the correlation tabs", () => {
-  it("keep their state in the URL next to the trends'", () => {
+  it("keep their state in the URL next to the trends', each tab its own range and filters", () => {
     const params = new URLSearchParams(
-      "metric=a.b.c&tab=pair&x=a.b.c&y=a.b.d&lag=1&points=week&method=pearson",
+      "metric=a.b.c&filter=a.b.t=Board&tab=pair&x=a.b.c&y=a.b.d&lag=1&points=week&method=pearson&pair-range=all&pair-filter=a.b.t=Climbing&good-range=custom&good-start=2026-10-01",
     );
     const state = readCorrelation(params);
     expect(state).toEqual({
@@ -30,39 +31,44 @@ describe("the correlation tabs", () => {
       matrix: [],
       target: null,
       method: "pearson",
+      scopes: {
+        // Over time's filter (`filter=`) is its own: no tab takes it
+        pair: { range: "all", start: null, end: null, filters: { "a.b.t": ["Climbing"] } },
+        matrix: NO_SCOPE,
+        predictors: { range: "custom", start: "2026-10-01", end: null, filters: {} },
+      },
     });
     const written = writeCorrelation(new URLSearchParams("metric=a.b.c"), {
       ...state,
       matrix: ["m1", "m2"],
     });
     expect(written.toString()).toBe(
-      "metric=a.b.c&tab=pair&x=a.b.c&y=a.b.d&lag=1&points=week&mx=m1&mx=m2&method=pearson",
+      "metric=a.b.c&tab=pair&x=a.b.c&y=a.b.d&lag=1&points=week&mx=m1&mx=m2&method=pearson&pair-range=all&pair-filter=a.b.t%3DClimbing&good-range=custom&good-start=2026-10-01",
     );
     expect(readCorrelation(new URLSearchParams("tab=nope&lag=99")).tab).toBe("trends");
     expect(readCorrelation(new URLSearchParams("lag=99")).lag).toBe(0);
     expect(readCorrelation(new URLSearchParams("points=year")).group).toBe("auto");
   });
 
-  it("build each tab's query over the trends' range", () => {
+  it("build each tab's query over its own range and filters", () => {
     const pair = readCorrelation(new URLSearchParams("tab=pair&x=a&y=b&lag=2"));
-    expect(correlationQuery(pair, WINDOW)).toBe("x=a&y=b&lag=2&start=2026-08-02&end=2026-10-30");
-    expect(correlationQuery({ ...pair, y: null }, WINDOW)).toBeNull();
-    const matrix = readCorrelation(new URLSearchParams("tab=matrix&mx=a&mx=b"));
-    expect(correlationQuery(matrix, new URLSearchParams())).toBe(
-      "metric=a&metric=b&method=spearman",
+    // 90 days by default, ending today
+    expect(correlationQuery(pair, TODAY)).toBe("x=a&y=b&lag=2&start=2026-08-02&end=2026-10-30");
+    expect(correlationQuery({ ...pair, y: null }, TODAY)).toBeNull();
+    const matrix = readCorrelation(new URLSearchParams("tab=matrix&mx=a&mx=b&matrix-range=all"));
+    expect(correlationQuery(matrix, TODAY)).toBe(
+      "metric=a&metric=b&method=spearman&end=2026-10-30",
     );
-    expect(correlationQuery({ ...matrix, matrix: ["a"] }, WINDOW)).toBeNull();
-    const ranked = readCorrelation(new URLSearchParams("tab=predictors&target=t"));
-    expect(correlationQuery(ranked, new URLSearchParams())).toBe("target=t&method=spearman");
-    // the trends' filters reach every tab; the pair's points when not "auto"
-    const filtered = new URLSearchParams("start=2026-08-02&filter=j.s.type=Climbing");
-    expect(correlationQuery({ ...pair, group: "week" }, filtered)).toBe(
-      "x=a&y=b&lag=2&group=week&start=2026-08-02&filter=j.s.type%3DClimbing",
+    expect(correlationQuery({ ...matrix, matrix: ["a"] }, TODAY)).toBeNull();
+    const ranked = readCorrelation(
+      new URLSearchParams("tab=predictors&target=t&good-filter=j.s.type=Climbing&pair-filter=x=y"),
     );
-    expect(correlationQuery(matrix, filtered)).toContain("filter=j.s.type%3DClimbing");
-    expect(correlationQuery(ranked, filtered)).toContain("filter=j.s.type%3DClimbing");
-    expect(correlationQuery({ ...ranked, target: null }, WINDOW)).toBeNull();
-    expect(correlationQuery(readCorrelation(new URLSearchParams()), WINDOW)).toBeNull();
+    expect(correlationQuery(ranked, TODAY)).toBe(
+      "target=t&method=spearman&start=2026-08-02&end=2026-10-30&filter=j.s.type%3DClimbing",
+    );
+    expect(correlationQuery({ ...pair, group: "week" }, TODAY)).toContain("group=week");
+    expect(correlationQuery({ ...ranked, target: null }, TODAY)).toBeNull();
+    expect(correlationQuery(readCorrelation(new URLSearchParams()), TODAY)).toBeNull();
   });
 
   it("say r with its interval in plain words", () => {

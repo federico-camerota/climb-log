@@ -137,7 +137,9 @@ describe("Explore", () => {
           sources: [],
         },
     });
-    renderApp(`${PAGE}&tab=pair&x=diary.session.sleep&y=diary.session.mood`);
+    renderApp(
+      `${PAGE}&tab=pair&x=diary.session.sleep&y=diary.session.mood&pair-range=custom&pair-start=2026-10-01&pair-end=2026-10-30`,
+    );
     expect(await screen.findByRole("img", { name: "Pair chart" })).toBeInTheDocument();
     expect(screen.getByText(/Only 6 point\(s\): under 10/)).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /Pearson/ })).toHaveTextContent(
@@ -182,7 +184,7 @@ describe("Explore", () => {
           sources: [],
         },
     });
-    renderApp(`${PAGE}&tab=predictors`);
+    renderApp(`${PAGE}&tab=predictors&good-range=custom&good-start=2026-10-01&good-end=2026-10-30`);
     expect(await screen.findByRole("row", { name: /Sleep hours/ })).toHaveTextContent(
       "Sleep hours0,40 (0,10 to 0,70)14a moderate positive association",
     );
@@ -228,7 +230,7 @@ describe("Explore", () => {
     vi.useRealTimers();
   });
 
-  it("applies the trends' filters to the correlation tabs, and says so", async () => {
+  it("gives each correlation tab its own range and filters", async () => {
     const calls = api({
       "/api/correlation/pair?x=diary.session.sleep&y=diary.session.mood&group=week&start=2026-10-01&end=2026-10-30&filter=diary.session.kind%3DClimbing":
         {
@@ -246,12 +248,15 @@ describe("Explore", () => {
           sources: [],
         },
     });
+    // Over time's own filter (Hangboard) doesn't reach the pair, which has its own (Climbing)
     renderApp(
-      `${PAGE}&filter=diary.session.kind=Climbing&tab=pair&x=diary.session.sleep&y=diary.session.mood&points=week`,
+      `${PAGE}&filter=diary.session.kind=Hangboard&tab=pair&x=diary.session.sleep&y=diary.session.mood&points=week&pair-range=custom&pair-start=2026-10-01&pair-end=2026-10-30&pair-filter=diary.session.kind=Climbing`,
     );
     expect(await screen.findByRole("img", { name: "Pair chart" })).toBeInTheDocument();
-    expect(screen.getByText(/only session type: Climbing/)).toBeInTheDocument();
-    expect(calls.some((c) => c.path.includes("filter=diary.session.kind%3DClimbing"))).toBe(true);
+    expect(screen.getAllByLabelText("Only session type").length).toBeGreaterThan(0);
+    expect(screen.getByRole("radio", { name: "Custom" })).toBeChecked();
+    const pairs = calls.filter((c) => c.path.startsWith("/api/correlation/pair"));
+    expect(pairs.every((c) => !c.path.includes("Hangboard"))).toBe(true);
     expect(screen.getByRole("row", { name: /Spearman/ })).toHaveTextContent(
       "could be none: the interval includes 0",
     );

@@ -8,20 +8,19 @@ import {
   NumberInput,
   SegmentedControl,
   Select,
-  SimpleGrid,
   Stack,
   Switch,
   Tabs,
   Text,
   Title,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
 import dayjs from "dayjs";
 import { useSearchParams } from "react-router";
 
 import type { MetricInfo } from "../api/client";
 import { useMetricQuery, useMetrics } from "../api/queries";
 import { Chart } from "../components/Chart";
+import { FilterPickers, RangePicker } from "../components/ScopeControls";
 import {
   readCorrelation,
   writeCorrelation,
@@ -39,17 +38,9 @@ import {
   type AggKey,
   type ExploreState,
   type GroupKey,
-  type RangeKey,
 } from "../lib/explore";
 import { MatrixPanel, PairPanel, PredictorsPanel } from "./ExploreCorrelation";
 
-const RANGES: { value: RangeKey; label: string }[] = [
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
-  { value: "90d", label: "90 days" },
-  { value: "all", label: "All" },
-  { value: "custom", label: "Custom" },
-];
 const GROUPS: { value: GroupKey; label: string }[] = [
   { value: "none", label: "Each record" },
   { value: "day", label: "Day" },
@@ -112,19 +103,8 @@ export function Explore() {
     groups.set(metricGroup(m), items);
   }
 
-  // the correlation tabs use the trends' date range, and a good session is a high feel score
-  // by default (D-096)
-  const window = new URLSearchParams(metricQuery({ ...state, metrics: ["any"] }, today) ?? "");
+  // a good session is a high feel score by default (D-096)
   const feel = metrics.find((m) => m.field === "feel_score");
-  // what the correlation tabs cover: the range, and each filter (it applies to its entity)
-  const filterLabels = new Map((catalogue.data?.filters ?? []).map((f) => [f.id, f.label]));
-  const scope = [
-    RANGES.find((r) => r.value === state.range)?.label ?? "",
-    ...Object.entries(state.filters).map(
-      ([id, values]) =>
-        `only ${(filterLabels.get(id) ?? id).toLowerCase()}: ${values.join(" or ")}`,
-    ),
-  ].join("; ");
   const withTarget = { ...correlation, target: correlation.target ?? feel?.id ?? null };
 
   return (
@@ -170,36 +150,7 @@ export function Explore() {
                         update({ metrics: value, filters: kept });
                       }}
                     />
-                    <Group align="end">
-                      <SegmentedControl
-                        aria-label="Range"
-                        data={RANGES}
-                        value={state.range}
-                        onChange={(value) => {
-                          update({ range: value });
-                        }}
-                      />
-                      {state.range === "custom" && (
-                        <>
-                          <DateInput
-                            label="From"
-                            valueFormat="DD/MM/YYYY"
-                            value={state.start}
-                            onChange={(value) => {
-                              update({ start: value });
-                            }}
-                          />
-                          <DateInput
-                            label="To"
-                            valueFormat="DD/MM/YYYY"
-                            value={state.end}
-                            onChange={(value) => {
-                              update({ end: value });
-                            }}
-                          />
-                        </>
-                      )}
-                    </Group>
+                    <RangePicker scope={state} onChange={update} />
                     <Group align="end">
                       <Select
                         label="Points"
@@ -258,28 +209,7 @@ export function Explore() {
                         }}
                       />
                     </Group>
-                    {filters.length > 0 && (
-                      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-                        {filters.map((f) => (
-                          <MultiSelect
-                            key={f.id}
-                            label={`Only ${f.label.toLowerCase()}`}
-                            placeholder="All"
-                            clearable
-                            data={f.choices}
-                            value={state.filters[f.id] ?? []}
-                            onChange={(value) => {
-                              const next = Object.fromEntries(
-                                Object.entries(state.filters).filter(([id]) => id !== f.id),
-                              );
-                              update({
-                                filters: value.length > 0 ? { ...next, [f.id]: value } : next,
-                              });
-                            }}
-                          />
-                        ))}
-                      </SimpleGrid>
-                    )}
+                    <FilterPickers scope={state} filters={filters} onChange={update} />
                   </Stack>
                 </Card>
               )}
@@ -315,17 +245,13 @@ export function Explore() {
             ];
             return (
               <Tabs.Panel key={tab} value={tab} pt="md">
-                <Stack>
-                  <Text size="sm" c="dimmed">
-                    Over the range and filters picked in Over time ({scope}).
-                  </Text>
-                  <Panel
-                    state={withTarget}
-                    metrics={metrics}
-                    window={window}
-                    update={updateCorrelation}
-                  />
-                </Stack>
+                <Panel
+                  state={withTarget}
+                  metrics={metrics}
+                  filters={catalogue.data?.filters ?? []}
+                  today={today}
+                  update={updateCorrelation}
+                />
               </Tabs.Panel>
             );
           })}

@@ -117,12 +117,12 @@ its `since:` are left out (03 §2.2), as in the formulas and the dashboard.
   line, Spearman and Pearson r with 95% CIs, n, Y read 0–31 days later; under `min_n` greyed
   with a warning), **Matrix** (2–12 metrics, Spearman or Pearson, per day, cells under
   `min_n` empty) and **What goes with a good session** (feel score by default, any score
-  picked; each pre-session metric ranked by |r|, the too-few ones last), all over the range
-  picked for the trends. "Associations, not causes" on every tab; `[analytics] min_n` in the
-  app config (default 10). "Predicts" became "goes with": no causal words. After the live
+  picked; each pre-session metric ranked by |r|, the too-few ones last), each over its own date
+  range. "Associations, not causes" on every tab; `[analytics] min_n` in the app config
+  (default 10). "Predicts" became "goes with": no causal words. After the live
   test: the pair's points can be per record, day, week or month (each a period's means);
-  Over time's filters apply to all three tabs (each to its own entity's metrics) and the tabs
-  say which; when the 95% interval includes 0 the words add "could be none"; repeated
+  each tab has its own date range and filters (a filter for each choice field of its metrics'
+  entities, kept in the URL under the tab's prefix: `pair-`, `matrix-`, `good-`); when the 95% interval includes 0 the words add "could be none"; repeated
   labels are told apart as on Over time.
 
 ### 3.3 Fear of Falling
