@@ -116,6 +116,7 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
 - Grades: hardest grade over time (French and gym on separate axes, D-017/D-047), grade
   pyramid by period, indoor vs outdoor, by venue. → done (D-094, #101).
 - Explore page: pick metrics, range, grouping and filters; shown as a line or bars.
+  → done (D-095, #102).
 - Correlation: a pair (scatter, regression line, Pearson and Spearman r, 95% CI, n, an
   optional lag, greyed out under the minimum n), a matrix (Spearman, cells hidden under the
   minimum n), and "what predicts a good session?" (pre-session metrics only).
@@ -146,7 +147,9 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
 - **More analyses** from `05-analytics.md`, left out of M4 to keep it the size of M3 (D-086):
   recovery patterns (§3.1), venue/partner view, wins timeline, reflection themes with Italian
   stemming (§3.6), finger-strength charts (§3.5), search across all modules (§2); and the
-  regularised regression of §3.2 once n ≥ ~40; the body silhouette for "today" (§3.1).
+  regularised regression of §3.2 once n ≥ ~40; the body silhouette for "today" (§3.1); the
+  Explore page's box-by and heatmap chart types (`06-ui.md`; it draws lines and bars, and
+  correlation's scatter and matrix).
 - **Training load in the recommendation** (`05-analytics.md` §4 item 3): an acute:chronic
   ratio above the upper zone suggests MODERATE, as a soft signal next to the readiness rule;
   the ratio itself is on the journal's `load` dashboard (D-092).

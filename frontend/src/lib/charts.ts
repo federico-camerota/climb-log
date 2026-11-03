@@ -27,6 +27,13 @@ const STATUS_HEX: Record<string, string> = {
 };
 
 /** "7,5": numbers as the rest of the app shows them (decimal comma, one decimal at most). */
+// Legend icons for lines drawn without dots. A line series' own legend icon always has a dot
+// (ECharts draws a circle when its symbol is "none"), so these entries get a drawn icon: a
+// thick bar (a rolling mean) or dashes (a trend line). A path icon is stretched to the legend
+// box, so the invisible moves at the top and bottom keep the bar thin.
+export const THICK_LINE_ICON = "path://M0,0M0,5H24V9H0ZM0,14";
+export const DASHED_LINE_ICON = "path://M0,0M0,6H6V8H0ZM9,6H15V8H9ZM18,6H24V8H18ZM0,14";
+
 export function decimal(value: number | null | undefined): string {
   if (value === null || value === undefined) return "–";
   const rounded = Math.round(value * 10) / 10;
@@ -144,7 +151,7 @@ export function scatterOption(data: ScatterData): EChartsCoreOption {
         [from, intercept + slope * from],
         [to, intercept + slope * to],
       ],
-      showSymbol: false,
+      symbol: "none", // a dashed line, in the legend too (DASHED_LINE_ICON)
       lineStyle: { color: "#868e96", type: "dashed" },
     });
   }
@@ -154,7 +161,16 @@ export function scatterOption(data: ScatterData): EChartsCoreOption {
       formatter: (p: { value: [number, number, string?] }) =>
         `${p.value[2] ?? ""}<br/>${data.x_label}: ${decimal(p.value[0])}<br/>${data.y_label}: ${decimal(p.value[1])}`,
     },
-    legend: groups.length > 1 ? { top: 0 } : undefined,
+    legend:
+      groups.length > 1
+        ? {
+            top: 0,
+            data: [
+              ...series.filter((s) => s.type === "scatter").map((s) => s.name),
+              ...(data.trend ? [{ name: "Trend", icon: DASHED_LINE_ICON }] : []),
+            ],
+          }
+        : undefined,
     grid: { left: 56, right: 24, top: groups.length > 1 ? 48 : 24, bottom: 48 },
     xAxis: { type: "value", scale: true, name: data.x_label, nameLocation: "middle", nameGap: 28 },
     yAxis: { type: "value", scale: true, name: data.y_label },

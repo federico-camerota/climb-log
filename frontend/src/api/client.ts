@@ -32,6 +32,10 @@ export type TrainingLoadData = Schemas["TrainingLoadData"];
 export type PrePostData = Schemas["PrePostData"];
 export type BodyHeatmapData = Schemas["BodyHeatmapData"];
 export type GradesData = Schemas["GradesData"];
+export type MetricCatalogue = Schemas["MetricCatalogue"];
+export type MetricInfo = Schemas["MetricInfo"];
+export type FilterInfo = Schemas["FilterInfo"];
+export type QueryResult = Schemas["QueryResult"];
 export type Today = Schemas["Today"];
 export type ModuleDay = Schemas["ModuleDay"];
 export type DueForm = Schemas["DueForm"];
@@ -225,4 +229,13 @@ export function getRecommendation(date: string): Promise<Recommendation> {
 
 export function getToday(date: string): Promise<Today> {
   return getJson<Today>(`/api/today?date=${encodeURIComponent(date)}`);
+}
+
+export function getMetrics(): Promise<MetricCatalogue> {
+  return getJson<MetricCatalogue>("/api/metrics");
+}
+
+/** A metric query (D-090): `query` is the URL's query string, built by `lib/explore.ts`. */
+export function queryMetrics(query: string): Promise<QueryResult> {
+  return getJson<QueryResult>(`/api/metrics/query?${query}`);
 }

@@ -30,8 +30,9 @@ GET /api/metrics/query?metric=journal.session.wb_score&metric=shoulder.checkin.p
 ```
 
 The answer: `points` (start, end, label: `2026-10-30`, `2026-W44`, `2026-10`; a record's key
-with `group=none`) and per metric its `values`, the `n` behind each value and the `rolling`
-mean. `group=none` is one point per record (metrics of one entity); day points are the days
+with `group=none`) and per metric its `values`, the `n` behind each value, the `rolling`
+mean and its status `bands` when a dashboard line draws it with bands (the class scores'
+LOW/WATCH/GOOD, from the settings; D-095). `group=none` is one point per record (metrics of one entity); day points are the days
 with a record, week (from Monday) and month points run without gaps. Cross-module joins are
 **by calendar day** (D-088); `lag=k` reads every metric after the first k days later ("pain
 next morning" joined to the previous day's session). A filter applies to its entity's metrics.

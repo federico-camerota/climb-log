@@ -3,6 +3,7 @@ import type { RouteObject } from "react-router";
 
 import { Shell } from "./layout/Shell";
 import { Dashboards } from "./pages/Dashboards";
+import { Explore } from "./pages/Explore";
 import { Log } from "./pages/Log";
 import { NotFound } from "./pages/NotFound";
 import { Records } from "./pages/Records";
@@ -19,6 +20,7 @@ export const routes: RouteObject[] = [
       { path: "log/:module?/:form?", element: <Log /> },
       { path: "records/:module?/:entity?", element: <Records /> },
       { path: "dashboards/:module?", element: <Dashboards /> },
+      { path: "explore", element: <Explore /> },
       { path: "settings", element: <Settings /> },
       { path: "*", element: <NotFound /> },
     ],

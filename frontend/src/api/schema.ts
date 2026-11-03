@@ -1348,6 +1348,8 @@ export interface components {
         };
         /** SeriesData */
         climblog__api__metrics__SeriesData: {
+            /** Bands */
+            bands?: components["schemas"]["BandData"][] | null;
             /** Metric */
             metric: string;
             /** N */

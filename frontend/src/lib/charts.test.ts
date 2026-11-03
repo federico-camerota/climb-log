@@ -18,6 +18,7 @@ import {
   boxLabel,
   boxOption,
   changeTone,
+  DASHED_LINE_ICON,
   decimal,
   gradesOption,
   loadOption,
@@ -150,6 +151,12 @@ describe("the chart options", () => {
     expect(option.series[2]?.data).toEqual([
       [6, 5],
       [8, 9],
+    ]);
+    expect(option.series[2]?.symbol).toBe("none");
+    expect((option.legend as { data: unknown[] }).data).toEqual([
+      "Indoor",
+      "Outdoor",
+      { name: "Trend", icon: DASHED_LINE_ICON }, // dashes, not a line with a dot
     ]);
     const tooltip = option.tooltip as {
       formatter: (p: { value: [number, number, string] }) => string;
