@@ -55,7 +55,8 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
   the columns a person would naturally type, usually the **date** (plus an optional
   `session #` for the rare second session on the same day). Entities with several records
   per day and no natural key (e.g. individual falls) get an `id` column that **may be left
-  blank** by hand; the app fills it on the next sync.
+  blank** by hand; the app fills it on the next sync. Generated ids come with the falls and
+  check-ins (M5): until then the writer refuses entities with them.
 - Hand-optional system columns at the right: `updated_at`, `deleted` (soft delete).
   Left blank by hand; the app fills them. A row with anything in `deleted` is not loaded.
 - **Writing records** (`storage/write.py`, D-049):
@@ -133,8 +134,6 @@ Sheets without the app, so every tab must be comfortable to fill by hand.
     so a formula changed by hand is put back ("rewrote 2 changed cells of 'auto:score'"); a
     column whose every formula differs gets "new formula" (the YAML or the compiler changed
     it). Formulas of columns the module doesn't know are kept.
-- An optional `README` tab (generated) explains each tab and its scales, mirroring the
-  current "Start Here".
 
 ### Journal entity shape (D-006)
 **One tab per section**, as in the current workbook: `Session`, `Wellbeing`, `Physical`,

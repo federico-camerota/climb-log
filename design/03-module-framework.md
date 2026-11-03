@@ -107,22 +107,23 @@ entities:
 ### 2.1 Field types
 | type | Spreadsheet cell | Form control | Notes |
 |---|---|---|---|
-| `date`, `datetime`, `time` | ISO date / datetime | date picker | typed by hand: ISO or day-first (`24/10/2026`), never month-first (04 §3b) |
-| `number` | number | numeric input | `min`, `max`, `step`, `unit` |
-| `integer` | number | stepper | |
-| `scale` | number | 1–10 (or other) segmented slider | references `scales:`; carries `direction` |
-| `choice` | text | select / chips | `choices` or an ordinal `scale` (one of the two), `allow_other`, `choice_map` (legacy value → choice); read ignoring case and surrounding spaces |
-| `multichoice` | `a; b; c` text | chips | |
-| `bool` | `Yes`/`No` | toggle | accepts Y/N, TRUE/FALSE, Sì/Si, 1/0 on read, any case |
-| `text` | text | input / textarea | `multiline`, searchable by default |
-| `grade` | text | grade picker | `systems: [french, gym]`; the system is auto-detected among them (D-017) and parsed to a numeric index (D-047): French `6a` = 30, one step per letter or `+`; gym = the number; a slash grade `6a/6a+` sits halfway. `uiaa`, `yds`, `font`, `v` are not supported yet (load error) |
-| `duration` | minutes (number) | h:mm input | |
-| `ref` | id/key text | lookup select | references a reference-table key (e.g. ladder rung `A3`) |
-| `percent` | number 0–100 | slider | |
+| `date`, `datetime`, `time` | ISO date / datetime | date picker (`date`), time input (`time`), text (`datetime`) | typed by hand: ISO or day-first (`24/10/2026`), never month-first (04 §3b) |
+| `number` | number | text with a decimal keyboard (D-077) | `min`, `max`, `step`, `unit` |
+| `integer` | number | text with a decimal keyboard | |
+| `scale` | number | dropdown, blank first, best value marked (D-078) | references `scales:`; carries `direction` |
+| `choice` | text | select | `choices` or an ordinal `scale` (one of the two), `allow_other`, `choice_map` (old value → choice); read ignoring case and surrounding spaces |
+| `multichoice` | `a; b; c` text | text (`a; b; c`) | |
+| `bool` | `Yes`/`No` | Yes / No select | accepts Y/N, TRUE/FALSE, Sì/Si, 1/0 on read, any case |
+| `text` | text | input / textarea | `multiline`; Records' search covers every text field |
+| `grade` | text | text (e.g. `6b+`), parsed on save | `systems: [french, gym]`; the system is auto-detected among them (D-017) and parsed to a numeric index (D-047): French `6a` = 30, one step per letter or `+`; gym = the number; a slash grade `6a/6a+` sits halfway. `uiaa`, `yds`, `font`, `v` are not supported yet (load error) |
+| `duration` | minutes (number) | text: minutes or h:mm (D-077) | |
+| `ref` | id/key text | lookup select (M5) | references a reference-table key (e.g. ladder rung `A3`) |
+| `percent` | number 0–100 | text with a decimal keyboard | |
 
 Common field options: `label`, `help`, `required`, `default`, `phase` (`pre`, `post`,
 `next_day`, `any`; drives the Today flow), `section` (form grouping), `retired: true`,
-`renamed_from: old_key`, `hidden_in_form`, `searchable`, `optional: true` (a field you may
+`renamed_from: old_key`, `suggest_from_history` (a text field's form suggests the values
+typed before, e.g. venues), `optional: true` (a field you may
 leave blank: its form still counts as done on Today, D-080; not with `required`).
 `default` is what a blank cell means. `default: next` on an integer key field (set numbers)
 makes a blank cell the row's position among the rows with the same other key parts, in sheet
@@ -285,7 +286,8 @@ column** in the sheet:
   **Plugins are app-only** unless they provide an override.
 - The **app never reads** formula columns as data. It computes everything itself from the
   raw inputs, and uses the formula results only for a **drift check**: a mismatch (e.g. a
-  formula overwritten by hand) is reported as a data issue and repaired on the next schema sync.
+  formula overwritten by hand) is reported by `climblog check` and repaired on the next schema
+  sync (`--apply`); the app itself doesn't report it (decided after the M1–M4 audit).
   `climblog check` reports two kinds (`storage/drift.py`, D-054): a **changed formula** (the
   cell's formula is not the compiled one, or is gone in a row with data; `sync`, as
   `--apply` puts it back), compared as spreadsheets rewrite formulas on save (LibreOffice drops
@@ -622,8 +624,8 @@ analysis explorer (see `05-analytics.md`). No view config is needed for that.
 | Add a field | add a line under `fields:` | appends a column to the tab (header + validation); old rows blank |
 | Remove a field | set `retired: true` | hides it from forms/views; **column and data kept**; still visible in history and exports |
 | Rename a field | new key + `renamed_from: old` | renames the header in the sheet; data preserved |
-| Change choices | edit `choices` | old values still valid on read and shown as "legacy" values; optional value mapping `choice_map:` |
-| Change scale range | new scale + new field (recommended) | avoids mixing incomparable values; an explicit `rescale:` transform is possible |
+| Change choices | edit `choices` | map old values with `choice_map:` (D-046); an old value without a mapping is a data issue on read, shown where it is |
+| Change scale range | new scale + new field | avoids mixing incomparable values |
 | Change a threshold | edit in Settings UI (writes `_settings`) | instant recompute |
 | Change a formula | edit `derived:` | recomputed for all history in the app; formula columns regenerated in the sheet on sync |
 | New program | new YAML file, then `climblog check MODULE --apply` (local) or `climblog module create FILE --google` | creates the workbook/tabs locally or in Google |
@@ -636,12 +638,12 @@ doesn't know, a setting without a `_settings` row), `error` ones need a person (
 another module, `_meta` newer than the YAML, unreadable header rows, both the old and the new
 column of a rename). It exits with 1 unless only `info` is left. Retired fields need no column;
 formula columns are checked like the others, and drifted formulas are reported (D-054). It
-will also run on startup (#25).
+runs on demand (the app doesn't run it on startup: decided after the M1–M4 audit).
 `climblog check --apply` syncs each module, then checks again: it creates the workbook if the
 configured file doesn't exist, missing tabs and columns, `_settings` rows (with the defaults)
 and `_meta`, applies renames, and rewrites the dropdowns. A module with an `error` difference
-is not synced. Sync applies only **additive** changes. It never deletes columns or data.
-Destructive operations (dropping a column) are a separate explicit command. For a local
+is not synced. Sync applies only **additive** changes. It never deletes columns or data; to
+drop a column, retire the field and delete the column by hand in the sheet if you want to. For a local
 module, `--apply` is how a new local module gets its workbook (the table above).
 
 The `version` of the module and the schema it was synced with are stored in `_meta`, so
