@@ -213,10 +213,16 @@ export function exploreOption(
     ];
   });
   // a line's status bands (the class scores' LOW/WATCH/GOOD), when its axis has one set of them
+  // (every line on that axis has the same bands: a rest-day mood gets no score's bands)
   const banded = result.series.filter((s) => s.bands);
-  const sameBands = new Set(banded.map((s) => JSON.stringify(s.bands))).size === 1;
   const first = banded[0];
   const bandAxis = first ? units.indexOf(unitOf(byId.get(first.metric) as MetricInfo)) : -1;
+  const onAxis = result.series.filter((s) => {
+    const m = byId.get(s.metric);
+    return m !== undefined && units.indexOf(unitOf(m)) === bandAxis;
+  });
+  const sameBands =
+    onAxis.every((s) => s.bands) && new Set(onAxis.map((s) => JSON.stringify(s.bands))).size === 1;
   const bandSeries =
     chart === "line" && first?.bands && sameBands && bandAxis >= 0
       ? [

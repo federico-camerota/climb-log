@@ -220,5 +220,15 @@ describe("the Explore page's state", () => {
     expect((option.yAxis as Record<string, unknown>[])[0]).toMatchObject({ min: 1, max: 10 });
     const bars = exploreOption(result, [MOOD], "bars") as Option; // bands only behind a line
     expect(bars.series.map((s) => s.id)).toEqual([MOOD.id]);
+    // a line without those bands on the same axis (rest-day mood): no bands for either
+    const mixed = exploreOption(
+      {
+        ...result,
+        series: [...result.series, { metric: REST_MOOD.id, values: [8], n: [1], rolling: null }],
+      },
+      [MOOD, REST_MOOD],
+      "line",
+    ) as Option;
+    expect(mixed.series.map((s) => s.id)).toEqual([MOOD.id, REST_MOOD.id]);
   });
 });
