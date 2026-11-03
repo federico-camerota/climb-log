@@ -132,7 +132,7 @@ first, the correlation tools last, D-086). Statistics in plain Python with scipy
 The M1–M4 audit against the design docs (2026-11-04) found features promised for M1–M4 that
 were never built; these come first (the rest went to M6 or the backlog, or out of the docs):
 - **Finger-strength sets in the app**: the Log form's repeated set rows, each new set copying
-  the previous one's protocol and load (`copy_previous`; 06-ui Log).
+  the previous one's protocol and load (`copy_previous`; 06-ui Log). → done (D-101, #124).
 - **The legacy Log Search's filters** on Records: date range, weekday, status class and value,
   derived values searched too, matches highlighted (00 §1, 05 §2, §3.6).
 - **Weakest class** in the app, as on the legacy Summary – Recent (00 §1).

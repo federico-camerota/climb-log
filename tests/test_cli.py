@@ -109,7 +109,7 @@ def test_check_lists_differences_and_fails(config: Path) -> None:
     result = runner.invoke(cli.app, ["check", "finger_strength"])
     assert result.exit_code == 1
     assert result.output.splitlines()[1:] == [
-        "  sync: _meta: synced with v2, the YAML is v3",
+        "  sync: _meta: synced with v2, the YAML is v4",
         "  sync: Curl sets: the tab is missing",
     ]
 

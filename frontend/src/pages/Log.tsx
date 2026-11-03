@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { Group, SegmentedControl, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Group, SegmentedControl, Select, Stack, Text, TextInput, Title } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import dayjs from "dayjs";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router";
@@ -55,14 +55,7 @@ function LogForm({ module }: { module: ModuleInfo }) {
       }}
     />
   );
-  if (entity === undefined || form.children !== undefined) {
-    return (
-      <Stack>
-        {picker}
-        <Text c="dimmed">Forms with repeated rows (sets) come later.</Text>
-      </Stack>
-    );
-  }
+  if (entity === undefined) return <Stack>{picker}</Stack>;
 
   const [dateField = "date", ...others] = keyOf(entity);
   const date = params.get(dateField) ?? dayjs().format("YYYY-MM-DD");
@@ -71,6 +64,13 @@ function LogForm({ module }: { module: ModuleInfo }) {
     const fallback = entity.fields[name]?.default;
     recordKey[name] = params.get(name) ?? asText(fallback);
   }
+  // a choice key part decides the record (and its child rows): the form waits for it
+  const unpicked = others
+    .filter((name) => entity.fields[name]?.choices !== undefined && recordKey[name] === "")
+    .map((name) => {
+      const field = entity.fields[name];
+      return field === undefined ? name : fieldLabel(name, field);
+    });
   const setKey = (name: string, value: string) => {
     const next = new URLSearchParams(params);
     next.set(name, value);
@@ -91,6 +91,23 @@ function LogForm({ module }: { module: ModuleInfo }) {
         />
         {others.map((name) => {
           const field = entity.fields[name];
+          if (field?.choices !== undefined) {
+            // a key part that is a choice (a finger session's type): picked from its choices
+            return (
+              <Select
+                key={name}
+                label={fieldLabel(name, field)}
+                data={field.choices}
+                value={recordKey[name] || null}
+                placeholder="Pick one"
+                allowDeselect={false}
+                onChange={(value) => {
+                  if (value !== null) setKey(name, value);
+                }}
+                w={200}
+              />
+            );
+          }
           return field === undefined ? null : (
             <TextInput
               key={name}
@@ -104,14 +121,18 @@ function LogForm({ module }: { module: ModuleInfo }) {
           );
         })}
       </Group>
-      <RecordForm
-        key={`${formName}:${JSON.stringify(recordKey)}`}
-        module={module}
-        formName={formName}
-        form={form}
-        entity={entity}
-        recordKey={recordKey}
-      />
+      {unpicked.length > 0 ? (
+        <Text c="dimmed">Pick the {unpicked.join(" and ").toLowerCase()} first.</Text>
+      ) : (
+        <RecordForm
+          key={`${formName}:${JSON.stringify(recordKey)}`}
+          module={module}
+          formName={formName}
+          form={form}
+          entity={entity}
+          recordKey={recordKey}
+        />
+      )}
     </Stack>
   );
 }

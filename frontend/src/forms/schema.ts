@@ -43,13 +43,28 @@ export interface EntityDef {
   date_field?: string;
   fields: Record<string, FieldDef>;
   sections?: Record<string, SectionDef>;
+  parent?: ParentDef; // a child entity: many rows per parent row (sets of a session)
+}
+
+export interface ParentDef {
+  entity: string;
+  key: string[]; // the parent key fields repeated in the child's rows (the date)
+  fixed?: Record<string, string>; // the rest, implied by the child's tab (session type)
+}
+
+/** A child entity's rows in a form: repeated, each new row copying the previous row's
+ * `copy_previous` fields (finger-strength sets, 06-ui Log). */
+export interface ChildFormDef {
+  entity: string;
+  repeat?: boolean;
+  copy_previous?: string[];
 }
 
 export interface FormDef {
   entity: string;
   phase?: string;
   sections?: string[];
-  children?: unknown[]; // repeated child rows (finger-strength sets): not rendered yet
+  children?: ChildFormDef[];
 }
 
 interface Schema {

@@ -7,7 +7,7 @@
 
 module: finger_strength
 name: Finger strength
-version: 3
+version: 4
 kind: journal
 description: Max hangs and finger curls (single-handed block). Readiness before, sets with loads, notes.
 status_levels: [GOOD, WATCH, LOW]
@@ -17,6 +17,7 @@ settings:
   watch_max: {type: number, default: 6}
 
 scales:
+  s10:      {min: 1, max: 10, direction: higher_better}
   s10_down: {min: 1, max: 10, direction: lower_better}
   rpe:      {min: 1, max: 10, direction: neutral}
 
@@ -29,16 +30,26 @@ entities:
     # are two sessions, each with its own readiness, because they may happen at different
     # times and you may feel different.
     key: [date, session_type]
+    sections:   # form groups only (one tab): the sets come between before and after (D-101)
+      info:    {label: Session details, phase: pre}
+      wb_pre:  {label: Wellbeing · before, phase: pre}
+      ph_pre:  {label: Soreness · before, phase: pre}
+      wb_post: {label: Wellbeing · after, phase: post}
     fields:
       date:          {type: date, required: true}
       session_type:  {type: choice, choices: [Max hangs, Finger curls], required: true}
-      start_time:    {type: time, label: Start time (optional)}
+      start_time:    {type: time, label: Start time (optional), optional: true, section: info}   # not missing on Today
       # before: same 1–10 ↓ soreness scale as the climbing journal → directly comparable
-      pre_fingers:   {type: scale, scale: s10_down, tags: [soreness], phase: pre}
-      pre_forearms:  {type: scale, scale: s10_down, tags: [soreness], phase: pre}
-      pre_shoulders: {type: scale, scale: s10_down, tags: [soreness], phase: pre}
-      session_rpe:   {type: scale, scale: rpe, phase: post, label: Session effort}
-      notes:         {type: text, multiline: true, phase: post}
+      pre_fingers:   {type: scale, scale: s10_down, tags: [soreness], phase: pre, section: ph_pre}
+      pre_forearms:  {type: scale, scale: s10_down, tags: [soreness], phase: pre, section: ph_pre}
+      pre_shoulders: {type: scale, scale: s10_down, tags: [soreness], phase: pre, section: ph_pre}
+      session_rpe:   {type: scale, scale: rpe, phase: post, label: Session effort, section: wb_post}
+      notes:         {type: text, multiline: true, phase: post, section: wb_post}
+      # wellbeing, a lighter set than the journal's (same names and scales: comparable)
+      wb_mood_pre:     {type: scale, scale: s10, section: wb_pre, since: 2026-11-03}
+      wb_energy_pre:   {type: scale, scale: s10, section: wb_pre, since: 2026-11-03}
+      wb_fatigue_post: {type: scale, scale: s10_down, section: wb_post, since: 2026-11-03}
+      wb_mood_post:    {type: scale, scale: s10, section: wb_post, since: 2026-11-03}
       # body weight deliberately not logged for now (Q18). Can be added later as one field with
       # `since:`, which would enable % body weight metrics from that date on.
     derived:
