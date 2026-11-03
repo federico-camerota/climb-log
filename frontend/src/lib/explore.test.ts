@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { MetricInfo, QueryResult } from "../api/client";
+import { THICK_LINE_ICON } from "./charts";
 import {
   exploreOption,
   fits,
@@ -151,6 +152,12 @@ describe("the Explore page's state", () => {
     ]);
     // the rolling mean is a thick line without dots, in the legend too; the values have dots
     expect(option.series.map((s) => s.symbol)).toEqual([undefined, "none", undefined]);
+    // ECharts gives a line series' legend icon a dot even without symbols: a drawn bar instead
+    expect((option.legend as { data: unknown[] }).data).toEqual([
+      "Sleep hours",
+      { name: "Sleep hours (rolling mean)", icon: THICK_LINE_ICON },
+      "Mood",
+    ]);
     const tooltip = option.tooltip as {
       formatter: (
         p: { dataIndex: number; seriesId: string; seriesName: string; value: number | null }[],

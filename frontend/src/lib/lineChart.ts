@@ -6,6 +6,7 @@ import dayjs from "dayjs";
 import type { EChartsCoreOption } from "echarts/core";
 
 import type { LineData } from "../api/client";
+import { THICK_LINE_ICON } from "./charts";
 
 export type Range = "last" | "3m" | "12m" | "all";
 
@@ -75,7 +76,7 @@ export function lineOption(
         name: `${series.label} (mean of ${String(data.rolling ?? "")})`,
         data: series.rolling,
         connectNulls: true,
-        symbol: "none", // a plain thick line, in the legend too
+        symbol: "none", // a plain thick line, in the legend too (THICK_LINE_ICON)
         itemStyle: { color: colour },
         lineStyle: { color: colour, width: 3 },
       },
@@ -107,7 +108,12 @@ export function lineOption(
   const start = firstShown(data, range, today);
   return {
     tooltip: { trigger: "axis" },
-    legend: { data: lines.map((l) => l.name), top: 0 },
+    legend: {
+      data: lines.map((l) =>
+        l.name.includes("(mean of") ? { name: l.name, icon: THICK_LINE_ICON } : l.name,
+      ),
+      top: 0,
+    },
     grid: { left: 40, right: 24, top: 48, bottom: 64 },
     xAxis: { type: "category", data: labels, boundaryGap: false },
     yAxis: scores ? { type: "value", min: 0, max: 10 } : { type: "value", scale: true },

@@ -82,7 +82,10 @@ export function Explore() {
     entities.has(`${f.module}.${f.entity}`),
   );
   // the React compiler memoizes this (D-070's lint): no useMemo by hand
-  const option = result.data ? exploreOption(result.data, metrics, state.chart, names) : null;
+  // the chart names the picked metrics apart from each other only ("Sleep hours", not
+  // "Sleep hours · Wellbeing · before" when no other sleep hours is picked)
+  const shown = metricNames(picked);
+  const option = result.data ? exploreOption(result.data, metrics, state.chart, shown) : null;
 
   const groups = new Map<string, { value: string; label: string; disabled: boolean }[]>();
   for (const m of metrics) {
@@ -244,7 +247,7 @@ export function Explore() {
                 {result.data.series
                   .map((s) => {
                     const n = s.n.reduce((a, b) => a + b, 0);
-                    return `${names.get(s.metric) ?? s.metric}: n = ${String(n)}`;
+                    return `${shown.get(s.metric) ?? s.metric}: n = ${String(n)}`;
                   })
                   .join(" · ")}
               </Text>

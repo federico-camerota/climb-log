@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { LineData } from "../api/client";
+import { THICK_LINE_ICON } from "./charts";
 import { firstShown, lineOption, pointLabel } from "./lineChart";
 
 function line(dates: string[], values: (number | null)[], last = 12): LineData {
@@ -53,13 +54,18 @@ describe("the line chart", () => {
     expect([plain.yAxis.min, plain.yAxis.max]).toEqual([0, 10]); // scores
     const rolling = lineOption(data, "all", true, "2026-10-31") as {
       series: { name: string; symbol?: string }[];
+      legend: { data: unknown[] };
     };
     expect(rolling.series.map((s) => s.name)).toEqual([
       "bands",
       "Wellbeing",
       "Wellbeing (mean of 4)",
     ]);
-    expect(rolling.series[2]?.symbol).toBe("none"); // a plain line, in the legend too
+    expect(rolling.series[2]?.symbol).toBe("none");
+    expect(rolling.legend.data[1]).toEqual({
+      name: "Wellbeing (mean of 4)",
+      icon: THICK_LINE_ICON,
+    });
   });
 
   it("fits the axis to values that aren't scores", () => {

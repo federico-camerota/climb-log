@@ -5,7 +5,7 @@ import dayjs from "dayjs";
 import type { EChartsCoreOption } from "echarts/core";
 
 import type { MetricInfo, QueryResult } from "../api/client";
-import { decimal, PALETTE } from "./charts";
+import { decimal, PALETTE, THICK_LINE_ICON } from "./charts";
 
 export type RangeKey = "7d" | "30d" | "90d" | "all" | "custom";
 export type GroupKey = "none" | "day" | "week" | "month";
@@ -206,7 +206,7 @@ export function exploreOption(
         yAxisIndex: axis,
         data: series.rolling,
         connectNulls: true,
-        symbol: "none", // a plain thick line, in the legend too
+        symbol: "none", // a plain thick line, in the legend too (THICK_LINE_ICON)
         itemStyle: { color: colour },
         lineStyle: { width: 3 },
       },
@@ -265,7 +265,12 @@ export function exploreOption(
         return [labels[i] ?? "", ...rows].join("<br/>");
       },
     },
-    legend: { top: 0, data: lines.map((l) => l.name) },
+    legend: {
+      top: 0,
+      data: lines.map((l) =>
+        l.id.endsWith(" rolling") ? { name: l.name, icon: THICK_LINE_ICON } : l.name,
+      ),
+    },
     grid: { left: 56, right: units.length > 1 ? 56 : 24, top: 48, bottom: 64 },
     xAxis: { type: "category", data: labels, boundaryGap: chart === "bars" },
     yAxis: units.map((unit, i) => {
