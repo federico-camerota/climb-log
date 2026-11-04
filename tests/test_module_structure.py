@@ -107,9 +107,9 @@ def test_journal_draft_matches_the_legacy_tabs() -> None:
         "Session Feel",
         "Wins & Reflect",
     ]
-    assert sum(1 for f in session.fields if f.startswith("ph_pre_")) == 7
+    assert sum(1 for f in session.fields if f.startswith("ph_pre_")) == 13  # 7 + 6 (D-106)
     assert tabs["Physical"][:3] == ["date", "session_no", "ph_pre_fingers"]
-    assert sum(1 for f in journal.entities["rest_day"].fields if f.startswith("body_")) == 7
+    assert sum(1 for f in journal.entities["rest_day"].fields if f.startswith("body_")) == 13
 
 
 def test_reference_templates_wait_for_reference_tables() -> None:

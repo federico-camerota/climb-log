@@ -6,10 +6,14 @@ Google Sheets, must give what the app computes, on fictional workbooks generated
 LibreOffice is found through `CLIMBLOG_SOFFICE` (a command, e.g. `snap run libreoffice`) or
 `soffice` on the PATH, and used only if it can open and recalculate an .xlsx; otherwise the
 parity tests are skipped. A snap LibreOffice can't see /tmp: set `CLIMBLOG_SOFFICE_TMP` to a
-folder in your home (the repo's git-ignored `build/` works).
+folder in your home (the repo's git-ignored `build/` works). One LibreOffice runs at a time:
+pytest-xdist workers (`make test`, D-104) wait for each other, since several instances started
+together time out.
 """
 
+import contextlib
 import datetime as dt
+import fcntl
 import functools
 import os
 import random
@@ -17,7 +21,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -83,6 +87,25 @@ def recalculate(command: list[str], path: Path) -> dict[str, list[tuple[Any, ...
     path = path.resolve()  # LibreOffice needs an absolute profile URL
     out = path.parent / "recalculated"
     profile = path.parent / "profile"  # a fresh profile: no dialogs, no locks with a running one
+    with _one_at_a_time():
+        _convert(command, profile, out, path)
+    book = openpyxl.load_workbook(out / path.name, data_only=True)
+    return {s.title: list(s.iter_rows(values_only=True)) for s in book.worksheets}
+
+
+@contextlib.contextmanager
+def _one_at_a_time() -> Iterator[None]:
+    """A lock shared by the pytest-xdist workers (a file in the LibreOffice work folder)."""
+    lock = Path(work_dir() or tempfile.gettempdir()) / "climblog-soffice.lock"
+    with lock.open("w") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def _convert(command: list[str], profile: Path, out: Path, path: Path) -> None:
     subprocess.run(
         [
             *command,
@@ -99,8 +122,6 @@ def recalculate(command: list[str], path: Path) -> dict[str, list[tuple[Any, ...
         capture_output=True,
         timeout=180,
     )
-    book = openpyxl.load_workbook(out / path.name, data_only=True)
-    return {s.title: list(s.iter_rows(values_only=True)) for s in book.worksheets}
 
 
 # ---- Fictional data ----

@@ -19,6 +19,9 @@ from climblog.modules.compute import compute_module
 JOURNAL = Path(__file__).parent.parent / "modules" / "journal.yaml"
 PARTS = ["fingers", "forearms", "elbows", "shoulders", "neck_traps", "wrists", "skin"]
 LEGACY_PARTS = ["fingers", "forearms", "shoulders", "wrists", "skin"]  # before 2026-10-20
+# back, core and legs, from 2026-11-06 (#128, D-106)
+LOWER_PARTS = ["upper_back", "lower_back", "core", "hips_glutes", "knees_ankles", "legs"]
+FROM_NOV = dt.date(2026, 11, 9)  # a Monday, after they started
 DAY = dt.date(2026, 10, 22)  # a Thursday, after elbows and neck/traps started (since:)
 
 
@@ -153,6 +156,35 @@ def test_new_body_parts_count_from_their_start(journal: Module) -> None:
     old["ph_pre_elbows"] = 9  # typed before elbows were tracked: left out (since:)
     result = computed(journal, [old])["session"][0]
     assert (result["ph_readiness"], result["ph_status"]) == (8.0, "GOOD")
+
+
+def test_back_core_and_legs_count_like_the_others_from_2026_11_06(journal: Module) -> None:
+    # before their start: the seven parts only (the session above, DAY, needs no more)
+    every = dict.fromkeys(PARTS + LOWER_PARTS, 2)
+    nov = {"date": FROM_NOV, **soreness("pre", every | {"legs": 8})}
+    result = computed(journal, [nov])["session"][0]
+    assert result["ph_readiness"] == 8.5  # 11 - (12 * 2 + 8) / 13 = 11 - 2.46
+    assert result["ph_status"] == "LOW"  # sore legs alone: 8 ≥ 11 - LowMax (owner, D-106)
+    # rest days too
+    body = {f"body_{part}": 2 for part in PARTS + LOWER_PARTS} | {"body_lower_back": 6}
+    rest = computed(journal, [], [rest_day(date=FROM_NOV, **body)])["rest_day"][0]
+    assert (rest["body_readiness"], rest["body_status"]) == (8.7, "WATCH")
+
+
+def test_the_log_check_asks_for_back_core_and_legs_from_their_start(journal: Module) -> None:
+    full = (
+        wellbeing((7, 8, 9), (3, 6, 7))
+        | soreness("pre", dict.fromkeys(PARTS + LOWER_PARTS, 2))
+        | soreness("post", dict.fromkeys(PARTS + LOWER_PARTS, 3))
+        | mental()
+        | {"feel_enjoyment": 9, "feel_satisfaction": 6, "rf_change_priority": 4}
+    )
+    assert computed(journal, [{"date": FROM_NOV, **full}])["session"][0]["log_check"] == "Complete"
+    without_legs = {k: v for k, v in full.items() if k != "ph_post_legs"}
+    found = computed(journal, [{"date": FROM_NOV, **without_legs}])["session"][0]
+    assert found["log_check"] == "Missing: Physical"
+    before = {k: v for k, v in full.items() if not any(k.endswith(p) for p in LOWER_PARTS)}
+    assert session(journal, **before)["log_check"] == "Complete"  # DAY: before their start
 
 
 # ---- Mental ----

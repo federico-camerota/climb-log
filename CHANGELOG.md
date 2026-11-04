@@ -7,6 +7,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- Soreness of the upper back, lower back, core / abs, hips / glutes, knees / ankles and legs,
+  before and after sessions and on rest days, counted in Physical readiness and status and in
+  the log check like the other parts (module v3, from 2026-11-06: run `climblog check journal
+  --apply` to add the columns) (#128, D-106).
 - The journal logs the hardest send of a session next to the hardest grade tried, how it was
   climbed (onsight, flash, redpoint / send, top rope / repeat), and whether each grade is sport
   or bouldering; boulders can be graded in Font (`6B+`). The Progress dashboard shows the

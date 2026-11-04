@@ -80,8 +80,14 @@ def test_pairs_give_means_before_after_and_change_with_n() -> None:
         "Neck / traps",
         "Wrists",
         "Skin",
+        "Upper back",
+        "Lower back",
+        "Core / abs",
+        "Hips / glutes",
+        "Knees / ankles",
+        "Legs (other)",
     ]
-    skin = deltas["pairs"][-1]
+    skin = deltas["pairs"][8]
     assert skin["all"] == {"n": 0, "pre": None, "post": None, "change": None}
 
 

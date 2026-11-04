@@ -157,7 +157,7 @@ meanwhile. One PR each, in this order:
   stay blank) (#128). They **count like the others** (owner): in Physical readiness (the mean), Physical
   status (the max), the log check (every part before and after), the rest day's body readiness,
   the body heatmap and the before/after pairs. An additive sync on the live journal (`climblog
-  check journal --apply`, run by the owner).
+  check journal --apply`, run by the owner). → done (D-106).
 - **Protein log** (#129): a new small module, one row per meal or snack with its grams, the day's total
   derived (a day record with meal rows as children, or meal rows summed per day: settled in its
   plan), a daily target in g/day as a setting (body weight isn't logged, D-025), on Today and in

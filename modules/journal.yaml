@@ -5,7 +5,7 @@
 
 module: journal
 name: Climbing journal
-version: 2   # 2: hardest send, disciplines, Font grades (#117)
+version: 3   # 2: hardest send, disciplines, Font grades (#117); 3: back, core and legs (#128)
 kind: journal
 description: Pre/post session state, session feel, reflections and rest days.
 
@@ -36,6 +36,13 @@ templates:                                # reusable field groups (expanded at l
     neck_traps: {type: scale, scale: s10_down, tags: [soreness], label: Neck / traps, since: 2026-10-20}   # new (Q9)
     wrists:     {type: scale, scale: s10_down, tags: [soreness]}
     skin:       {type: scale, scale: s10_down, tags: [soreness]}
+    # back, core and legs (#128, D-106): counted like the others (readiness, status, log check)
+    upper_back:   {type: scale, scale: s10_down, tags: [soreness], label: Upper back, since: 2026-11-06}
+    lower_back:   {type: scale, scale: s10_down, tags: [soreness], label: Lower back, since: 2026-11-06}
+    core:         {type: scale, scale: s10_down, tags: [soreness], label: Core / abs, since: 2026-11-06}
+    hips_glutes:  {type: scale, scale: s10_down, tags: [soreness], label: Hips / glutes, since: 2026-11-06}
+    knees_ankles: {type: scale, scale: s10_down, tags: [soreness], label: Knees / ankles, since: 2026-11-06}
+    legs:         {type: scale, scale: s10_down, tags: [soreness], label: Legs (other), since: 2026-11-06}
 
 entities:
   session:
@@ -289,7 +296,9 @@ summary:
                  wb_recovery_feel, wb_score, wb_status]
       - label: Physical (before climbing)
         fields: [ph_pre_fingers, ph_pre_forearms, ph_pre_elbows, ph_pre_shoulders,
-                 ph_pre_neck_traps, ph_pre_wrists, ph_pre_skin, ph_readiness, ph_status]
+                 ph_pre_neck_traps, ph_pre_wrists, ph_pre_skin, ph_pre_upper_back,
+                 ph_pre_lower_back, ph_pre_core, ph_pre_hips_glutes, ph_pre_knees_ankles,
+                 ph_pre_legs, ph_readiness, ph_status]
       - label: Mental
         fields: [mn_life_stress, mn_confidence, mn_anxiety, mn_focus, mn_fall_commitment,
                  mn_fear_response, mn_route_confidence, mn_approach, mn_score, mn_status]
@@ -349,7 +358,9 @@ views:
                    wb_recovery_feel, wb_score, wb_status]
         - label: Physical (before climbing)
           fields: [ph_pre_fingers, ph_pre_forearms, ph_pre_elbows, ph_pre_shoulders,
-                   ph_pre_neck_traps, ph_pre_wrists, ph_pre_skin, ph_readiness, ph_status]
+                   ph_pre_neck_traps, ph_pre_wrists, ph_pre_skin, ph_pre_upper_back,
+                   ph_pre_lower_back, ph_pre_core, ph_pre_hips_glutes, ph_pre_knees_ankles,
+                   ph_pre_legs, ph_readiness, ph_status]
         - label: Mental
           fields: [mn_life_stress, mn_confidence, mn_anxiety, mn_focus, mn_fall_commitment,
                    mn_fear_response, mn_route_confidence, mn_approach, mn_score, mn_status]
