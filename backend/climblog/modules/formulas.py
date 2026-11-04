@@ -435,7 +435,9 @@ class _Entity:
         assert self._columns is not None
         cols = self._columns[tab]
         date = _ref(tab, cols, self.key_code.date_field, tab)
-        code = self.key_code.formula(lambda f: _ref(tab, cols, f, tab))
+        code = self.key_code.formula(
+            lambda f: _ref(tab, cols, f, tab), lambda f: _span(tab, cols, f)
+        )
         return f'IF({date}="","",INT({date})*10{code})'
 
 
@@ -443,8 +445,10 @@ class _KeyCode:
     """How a record's key becomes `auto:_key`: day x 10 + the code of the second part.
 
     A child's key is its parent's (the parent key columns it repeats, and `fixed`), so children
-    are counted with one criterion (D-031). The second part is an integer (blank = its default)
-    or a closed choice (its position, 1-based, as in the mock-ups).
+    are counted with one criterion (D-031). The second part is an integer (blank = its default;
+    with `default: next`, the row's position among the rows above with the same date and not
+    deleted, as the app reads it, D-050, D-107) or a closed choice (its position, 1-based, as in
+    the mock-ups).
     """
 
     def __init__(self, module: Module, e_name: str) -> None:
@@ -455,6 +459,7 @@ class _KeyCode:
         self.part: str | None = None
         self.choices: list[str] = []
         self.default: Value = None
+        self.next = False  # `default: next`: a blank number is the row's position that day
         key = entity.key or []
         owner, parts = entity, key
         if entity.parent is not None:
@@ -478,6 +483,7 @@ class _KeyCode:
             field = entity.fields.get(second, field)
         if isinstance(field, NumberField) and field.type == "integer":
             self.default = field.default if isinstance(field.default, int) else None
+            self.next = field.default == "next" and self.fixed is None
             if self.fixed is not None and not isinstance(self.fixed, int):
                 self.reason = "the fixed key part is not a whole number"
         elif isinstance(field, ChoiceField) and not field.allow_other:
@@ -492,8 +498,9 @@ class _KeyCode:
         else:
             self.reason = "the second key part is not a whole number or a closed choice"
 
-    def formula(self, ref: Callable[[str], str]) -> str:
-        """`+code` to add after `INT(date)*10`, or "" for a date-only key."""
+    def formula(self, ref: Callable[[str], str], span: Callable[[str], str] | None = None) -> str:
+        """`+code` to add after `INT(date)*10`, or "" for a date-only key. `span(f)` is the
+        column of `f` from the first data row down to this one (for `default: next`)."""
         if self.fixed is not None:
             code = self.choices.index(str(self.fixed)) + 1 if self.choices else self.fixed
             return f"+{code}"
@@ -503,6 +510,10 @@ class _KeyCode:
         if self.choices:
             codes = ",".join(f'"{c}"' for c in self.choices)
             return f"+IFERROR(MATCH({cell},{{{codes}}},0),0)"
+        if self.next and span is not None:
+            date = ref(self.date_field)
+            above = f'COUNTIFS({span(self.date_field)},{date},{span(DELETED)},"")'
+            return f'+IF({cell}="",{above},{cell})'
         default = self.default if self.default is not None else 0
         return f'+IF({cell}="",{default},{cell})'
 
@@ -1162,6 +1173,12 @@ def _ref(tab: str, columns: Mapping[str, int], key: str, current: str) -> str:
     col = _letter(columns, key, tab)
     prefix = "" if tab == current else f"{_sheet(tab)}!"
     return f"{prefix}{col}{_ROW}"
+
+
+def _span(tab: str, columns: Mapping[str, int], key: str) -> str:
+    """A column from the first data row (3, below the two header rows) down to this row."""
+    col = _letter(columns, key, tab)
+    return f"${col}$3:{col}{_ROW}"
 
 
 def _letter(columns: Mapping[str, int], key: str, tab: str) -> str:
