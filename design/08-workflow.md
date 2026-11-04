@@ -78,6 +78,9 @@ The repo is **public**, and training/health notes are personal data (D-034).
 - Local development runs against **copies** of the real journals (or fictional ones), never the
   live Google Sheets, until a milestone explicitly says otherwise.
 - Logs and error messages never print note contents.
+- **Personal logs**: my Google Sheets named `[Personal] …`, and any copy of them, are never
+  opened, read, written or moved by Claude without my consent for that action. This holds for
+  every route (app, CLI, scripts, Google connectors, API), and the rule is in `CLAUDE.md`.
 
 ## 6. Working sessions with Claude
 - **One task per session**: start by reading `CLAUDE.md`, `design/README.md`,
