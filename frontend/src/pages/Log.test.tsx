@@ -81,6 +81,47 @@ describe("Log", () => {
     });
   });
 
+  it("adds a meal with its number left to the backend, then shows the one saved", async () => {
+    const meals = {
+      ...DIARY,
+      id: "food",
+      name: "Protein log",
+      module_schema: {
+        entities: {
+          meal: {
+            key: ["date", "meal_no"],
+            fields: {
+              date: { type: "date", required: true },
+              meal_no: { type: "integer", default: "next", label: "Entry # (blank = next)" },
+              protein_g: { type: "number", label: "Protein" },
+            },
+          },
+        },
+        forms: { meal: { entity: "meal", repeat: true } },
+      },
+    };
+    const saved = { date: "2026-10-30", meal_no: 3, protein_g: 25 };
+    const calls = stubApi({
+      "/api/health": HEALTH,
+      "/api/modules": { modules: [meals], problems: [] },
+      "POST /api/modules/food/meal": written(saved),
+      "/api/modules/food/meal/record?date=2026-10-30&meal_no=3": written(saved),
+    });
+    const { router } = renderApp("/log/food/meal?date=2026-10-30");
+    const number = await screen.findByRole("textbox", { name: "Entry # (blank = next)" });
+    expect(number).toHaveValue(""); // not "next": blank is the next number
+    await userEvent.type(screen.getByRole("textbox", { name: "Protein" }), "25");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    // nothing read before (a new record: no lookup by a blank number), and no number sent
+    const reads = calls.filter((c) => c.method === "GET" && c.path.includes("/record?"));
+    expect(reads.every((c) => c.path.endsWith("meal_no=3"))).toBe(true);
+    expect(calls.find((c) => c.method === "POST")?.body).toEqual({
+      values: { date: "2026-10-30", protein_g: "25" },
+    });
+    expect(router.state.location.search).toBe("?date=2026-10-30&meal_no=3");
+  });
+
   it("starts scales blank, with the best value first", async () => {
     api();
     renderApp("/log/diary/post_session?date=2026-10-30");

@@ -117,7 +117,7 @@ def compute_view(
         elif isinstance(widget, MonthlyWidget):
             result.append(_monthly(widget, records, day))
         elif isinstance(widget, BarsWidget):
-            result.append(_bars(module, widget, tables, records, day))
+            result.append(_bars(module, widget, tables, records, day, settings))
         elif isinstance(widget, WeekbarsWidget):
             result.append(_weekbars(module, widget, records, day))
         elif isinstance(widget, StackedWidget):
@@ -570,7 +570,12 @@ def _query(module: Module, tables: Tables, day: dt.date, metrics: Sequence[str],
 
 
 def _bars(
-    module: Module, widget: BarsWidget, tables: Tables, records: Records, day: dt.date
+    module: Module,
+    widget: BarsWidget,
+    tables: Tables,
+    records: Records,
+    day: dt.date,
+    settings: Mapping[str, Value],
 ) -> dict[str, Any]:
     entity, name = _split(widget.metric)
     data: dict[str, Any] = {
@@ -579,6 +584,7 @@ def _bars(
         "metric": _labeller(module, entity, {})(name),
         "agg": widget.agg,
         "last": widget.last,
+        "goal": None if widget.goal is None else _threshold(widget.goal, settings),
     }
     if widget.by is None:
         result = _query(module, tables, day, [widget.metric], group=widget.group, agg=widget.agg)

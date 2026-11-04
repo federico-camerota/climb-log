@@ -139,6 +139,28 @@ describe("Today", () => {
     expect(router.state.location.search).toBe(`?date=${DAY}&session_no=1`);
   });
 
+  it("offers another record of a repeated form, without a status", async () => {
+    api(
+      day([
+        {
+          form: "meal",
+          label: "Meal",
+          key: { date: DAY, meal_no: 1 },
+          status: "done",
+          missing: [],
+        },
+        { form: "meal", label: "Meal", key: { date: DAY }, status: "another", missing: [] },
+      ]),
+    );
+    const { router } = renderApp(`/?date=${DAY}`);
+    const add = await screen.findByRole("link", { name: "Add another" });
+    expect(screen.getAllByText("done")).toHaveLength(1);
+    expect(screen.queryByText("another")).not.toBeInTheDocument();
+    await userEvent.click(add);
+    expect(router.state.location.pathname).toBe("/log/journal/meal");
+    expect(router.state.location.search).toBe(`?date=${DAY}`);
+  });
+
   it("says when a module can't be read", async () => {
     api({ date: DAY, modules: [], problems: ["journal: workbook not found"] });
     renderApp(`/?date=${DAY}`);

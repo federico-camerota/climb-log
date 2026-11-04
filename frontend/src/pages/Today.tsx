@@ -182,7 +182,15 @@ function DueItem({ module, item, date }: { module: string; item: DueForm; date: 
     if (value !== null) search.set(name, asText(value));
   }
   const number = item.key.session_no;
-  const action = { done: "Open", partial: "Complete", missing: "Fill in" }[item.status] ?? "Open";
+  // another numbered key part (a meal's): every record of the day shows its number (D-107)
+  const entry = Object.entries(item.key).find(
+    ([name, value]) => name !== "session_no" && typeof value === "number",
+  )?.[1];
+  const another = item.status === "another"; // a repeated form's next record (D-107)
+  const action =
+    { done: "Open", partial: "Complete", missing: "Fill in", another: "Add another" }[
+      item.status
+    ] ?? "Open";
   return (
     <Group justify="space-between" wrap="nowrap" align="start">
       <Stack gap={2}>
@@ -190,10 +198,13 @@ function DueItem({ module, item, date }: { module: string; item: DueForm; date: 
           <Text>
             {item.label}
             {typeof number === "number" && number > 1 ? ` · session ${String(number)}` : ""}
+            {typeof entry === "number" ? ` · ${String(entry)}` : ""}
           </Text>
-          <Badge variant="light" color={STATUS_COLOURS[item.status] ?? "gray"}>
-            {item.status}
-          </Badge>
+          {!another && (
+            <Badge variant="light" color={STATUS_COLOURS[item.status] ?? "gray"}>
+              {item.status}
+            </Badge>
+          )}
         </Group>
         {item.status === "partial" && item.missing.length > 0 && (
           <Text size="sm" c="dimmed">

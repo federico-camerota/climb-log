@@ -358,6 +358,8 @@ export interface components {
             agg: string;
             /** Categories */
             categories: string[];
+            /** Goal */
+            goal: number | null;
             /** Label */
             label: string | null;
             /** Last */

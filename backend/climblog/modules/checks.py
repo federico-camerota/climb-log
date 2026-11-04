@@ -680,6 +680,17 @@ def _views(module: Module) -> list[Problem]:
                         metrics.append(((*at, "extra", j, "mean"), extra.mean))
             elif isinstance(widget, BarsWidget | BoxByWidget):
                 numbers.append(((*at, "metric"), widget.metric))
+                goal = widget.goal if isinstance(widget, BarsWidget) else None
+                if isinstance(goal, str) and (
+                    not goal.startswith("settings.")
+                    or goal.removeprefix("settings.") not in module.settings
+                ):
+                    problems.append(
+                        Problem(
+                            (*at, "goal"),
+                            f"'{goal}' is not a number or a setting (settings.<name>)",
+                        )
+                    )
                 if widget.by is not None:
                     metrics.append(((*at, "by"), widget.by))
                     problems += _same_entity(widget.by, widget.metric, (*at, "by"))

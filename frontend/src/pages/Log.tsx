@@ -61,8 +61,9 @@ function LogForm({ module }: { module: ModuleInfo }) {
   const date = params.get(dateField) ?? dayjs().format("YYYY-MM-DD");
   const recordKey: Record<string, string> = { [dateField]: date };
   for (const name of others) {
+    // `default: next` (a meal's number): blank, the next number when saved (D-050, D-107)
     const fallback = entity.fields[name]?.default;
-    recordKey[name] = params.get(name) ?? asText(fallback);
+    recordKey[name] = params.get(name) ?? (fallback === "next" ? "" : asText(fallback));
   }
   // a choice key part decides the record (and its child rows): the form waits for it
   const unpicked = others
@@ -113,6 +114,7 @@ function LogForm({ module }: { module: ModuleInfo }) {
               key={name}
               label={fieldLabel(name, field)}
               value={recordKey[name]}
+              placeholder={field.default === "next" ? "next" : undefined}
               onChange={(event) => {
                 setKey(name, event.currentTarget.value);
               }}
@@ -131,6 +133,11 @@ function LogForm({ module }: { module: ModuleInfo }) {
           form={form}
           entity={entity}
           recordKey={recordKey}
+          onCreated={(key) => {
+            const next = new URLSearchParams(params);
+            for (const [name, value] of Object.entries(key)) next.set(name, asText(value));
+            setParams(next, { replace: true });
+          }}
         />
       )}
     </Stack>

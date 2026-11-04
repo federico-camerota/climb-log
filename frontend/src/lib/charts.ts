@@ -53,6 +53,7 @@ function zoom(count: number, shown: number): Record<string, unknown> {
 
 export function barsOption(data: BarsData): EChartsCoreOption {
   const periods = data.categories.some((c) => /^\d{4}-/.test(c));
+  const goal = data.goal;
   return {
     tooltip: {
       trigger: "axis",
@@ -64,9 +65,29 @@ export function barsOption(data: BarsData): EChartsCoreOption {
     },
     grid: { left: 48, right: 24, top: 24, bottom: periods ? 64 : 32 },
     xAxis: { type: "category", data: data.categories },
-    yAxis: { type: "value" }, // bars start at zero: a cut axis exaggerates differences
+    // bars start at zero: a cut axis exaggerates differences; the goal stays in view
+    yAxis: {
+      type: "value",
+      max: goal === null ? undefined : (v: { max: number }) => Math.max(v.max, goal),
+    },
     series: [
-      { type: "bar", name: data.metric, data: data.values, itemStyle: { color: PALETTE[0] } },
+      {
+        type: "bar",
+        name: data.metric,
+        data: data.values,
+        itemStyle: { color: PALETTE[0] },
+        // a target across the bars (D-107), e.g. protein per day
+        markLine:
+          goal === null
+            ? undefined
+            : {
+                symbol: "none",
+                silent: true,
+                lineStyle: { type: "dashed", color: "#868e96" },
+                label: { formatter: `Target ${decimal(goal)}`, position: "insideEndTop" },
+                data: [{ yAxis: goal }],
+              },
+      },
     ],
     ...(periods ? zoom(data.categories.length, data.last) : {}),
   };

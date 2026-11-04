@@ -164,6 +164,7 @@ const VIEW = {
       values: [300, null],
       n: [3, 0],
       last: 12,
+      goal: null,
     },
     {
       widget: "weekbars",

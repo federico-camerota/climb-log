@@ -24,7 +24,7 @@ class DueForm(BaseModel):
     form: str
     label: str  # "Pre session"
     key: dict[str, Any]  # the record's key (the date alone for a new record)
-    status: str  # done / partial / missing
+    status: str  # done / partial / missing, or another: one more record of a repeated form
     missing: list[str]  # sections (or fields) still to fill
     log_check: Any = None  # the record's own check, when the entity has one
 

@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=module.schema.json
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Protein log (#129, D-107): grams of protein per meal or snack, typed after each meal (on the
+# phone in its Google Sheet, or in the app), the day's total against a daily target.
+# New tracker, no legacy workbook. One row per meal: nothing else to type first on the phone.
+
+module: protein
+name: Protein log
+version: 1
+kind: journal
+description: Protein per meal or snack, the day's total against a daily target.
+
+settings:
+  target_g: {type: number, default: 140, label: Daily target (g)}   # g/day: body weight isn't logged (D-025)
+
+entities:
+  meal:
+    label: Meal
+    tab: Meals
+    date_field: date
+    key: [date, meal_no]                 # blank number = the next one that day (D-050)
+    fields:
+      date:    {type: date, required: true}
+      meal_no: {type: integer, min: 1, default: next, label: "Entry # (blank = next)"}
+      meal:    {type: choice, choices: [Breakfast, Lunch, Dinner, Snack], required: true}
+      protein_g: {type: number, min: 0, max: 300, step: 1, unit: g, required: true, label: Protein}
+      what:    {type: text, optional: true, suggest_from_history: true, label: What (optional)}
+
+forms:
+  # repeat: Today keeps offering a new meal after the day's first ones (D-107)
+  meal: {entity: meal, repeat: true}
+
+# The day in the app (Today's card) and on the phone (the Summary tab): today's total, what is
+# left, and the last 7 days. window(days=0) is the day itself, days=6 the 7 days up to it.
+recommendation:
+  label: Protein today
+  values:
+    today_g: "sum(window(meal.protein_g, days=0, until=date))"
+    week_g:  "sum(window(meal.protein_g, days=6, until=date))"
+  rules:
+    - if: "today_g >= settings.target_g"
+      message: Daily target reached.
+    - if: "today_g > 0"
+      message: Below the daily target so far.
+    - message: Nothing logged today yet.
+  reasons:
+    today_g: Today (g)
+    left_g: Still to go (g)
+    target: Daily target (g)
+    week_avg_g: Last 7 days, per day (g)
+
+summary:
+  title: Protein — today and the last 7 days
+  values:
+    left_g: "max(0, settings.target_g - today_g)"
+    target: "settings.target_g"
+    week_avg_g: "round(week_g / 7, 0)"   # days without a meal logged count as 0 g
+  rows:
+    - {label: Today (g), value: today_g}
+    - {label: Daily target (g), value: target}
+    - {label: Still to go (g), value: left_g}
+    - {label: "Last 7 days, per day (g)", value: week_avg_g}
+    - {label: Today, value: text}
+  side_by_side:
+    entity: meal
+    last: 6
+    groups:
+      - {label: Latest meals, fields: [date, meal, protein_g, what]}
+
+views:
+  overview:
+    - widget: bars
+      label: Protein per day
+      metric: meal.protein_g
+      agg: sum
+      group: day
+      last: 14
+      goal: settings.target_g
+    - widget: bars
+      label: Protein per week
+      metric: meal.protein_g
+      agg: sum
+      group: week
+      last: 12

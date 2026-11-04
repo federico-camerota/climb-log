@@ -228,14 +228,27 @@ def _records(module: Module, rng: random.Random, count: int) -> dict[str, list[d
 
 
 def _unique(module: Module, name: str, records: list[dict[str, Value]]) -> list[dict[str, Value]]:
-    """Records with distinct keys (the app would report a duplicate and skip it)."""
+    """Records with distinct keys (the app would report a duplicate and skip it). A blank
+    `default: next` part is the record's position among those with the same other parts, as the
+    app reads it (D-050), counted over the rows kept, as in the sheet."""
     entity = module.entities[name]
     key = entity.key or []
     seen, unique = set(), []
+    counts: dict[tuple[Value, ...], int] = {}
     for record in records:
-        k = tuple(_read_as(entity.fields[p], record.get(p)) for p in key)
+        others = tuple(
+            record.get(p) for p in key if getattr(entity.fields[p], "default", None) != "next"
+        )
+        position = counts.get(others, 0) + 1
+        k = tuple(
+            position
+            if record.get(p) is None and getattr(entity.fields[p], "default", None) == "next"
+            else _read_as(entity.fields[p], record.get(p))
+            for p in key
+        )
         if k not in seen:
             seen.add(k)
+            counts[others] = position
             unique.append(record)
     return unique
 

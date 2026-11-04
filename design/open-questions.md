@@ -6,7 +6,6 @@ To be resolved before or during the milestone shown. Answers are moved into `dec
 | # | Question | Needed by | My default if unanswered |
 |---|---|---|---|
 | Q23 | Training plan: the list of session types, and whether a planned session can name a program session (shoulder A/B, fear rungs) | M5 training plan issue | the journal's session types plus the program sessions; free text description |
-| Q24 | Protein log: meal labels, the daily target, and its location (Google, for the phone, or local) | protein log PR | Breakfast / Lunch / Dinner / Snack, 120 g/day as a placeholder setting, Google |
 | Q25 | Where the training plan lives (Google or local) | M5 training plan issue | Google, read on the phone |
 
 ## Resolved
@@ -34,3 +33,4 @@ To be resolved before or during the milestone shown. Answers are moved into `dec
 | Q20 | Rate readiness separately for hangs and curls on the same day | D-032 |
 | Q21 | GPL-3.0 (or later) | D-036 |
 | Q22 | Keep the summary as is | D-037 |
+| Q24 | Breakfast / Lunch / Dinner / Snack, 140 g/day, Google Sheets | D-107 |

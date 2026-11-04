@@ -40,7 +40,7 @@ type Option = Record<string, unknown> & {
   dataZoom?: Record<string, unknown>[];
 };
 
-function bars(categories: string[], last = 12): BarsData {
+function bars(categories: string[], last = 12, goal: number | null = null): BarsData {
   return {
     widget: "bars",
     label: null,
@@ -50,6 +50,7 @@ function bars(categories: string[], last = 12): BarsData {
     values: categories.map((_, i) => i * 10),
     n: categories.map(() => 1),
     last,
+    goal,
   };
 }
 
@@ -68,6 +69,16 @@ describe("the chart options", () => {
     );
     // bars per value of a field: no zoom
     expect((barsOption(bars(["Climbing", "Hangboard"], 1)) as Option).dataZoom).toBeUndefined();
+    expect(option.series[0]?.markLine).toBeUndefined(); // no goal, no line
+  });
+
+  it("draws a goal across the bars and keeps it in view", () => {
+    const option = barsOption(bars(["2026-11-01", "2026-11-02"], 14, 140)) as Option;
+    const line = option.series[0]?.markLine as { data: { yAxis: number }[]; label: object };
+    expect(line.data).toEqual([{ yAxis: 140 }]);
+    expect(line.label).toMatchObject({ formatter: "Target 140" });
+    const max = (option.yAxis as { max: (v: { max: number }) => number }).max;
+    expect([max({ max: 10 }), max({ max: 200 })]).toEqual([140, 200]);
   });
 
   it("stacks weekbars and keeps the status colours", () => {

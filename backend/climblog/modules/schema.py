@@ -734,6 +734,7 @@ class BarsWidget(_Widget):
     group: Period = "week"
     by: str | None = None  # `entity.field` of the metric's entity: one bar per value
     last: int = Field(12, ge=1)
+    goal: float | str | None = None  # a number or `settings.x`: a line across the bars (D-107)
 
 
 class WeekbarsWidget(_Widget):
@@ -977,8 +978,8 @@ class FormModel(Strict):
     phase: Phase | None = None
     sections: list[Key] | None = None
     children: list[ChildForm] = []
+    repeat: bool = False  # many records a day (meals): Today offers one more after them (D-107)
     # program modules (M5): accepted as they are until their issue adds the checks
-    repeat: bool = False
     batch_over: str | None = None
     keep_fields: list[Key] = []
     due: str | None = None

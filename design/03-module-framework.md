@@ -548,6 +548,7 @@ Drawn with #98 (D-091), computed with the metric layer (D-090) where they group 
   group: week                # day | week (default) | month
   by: session.session_type   # instead of periods: one bar per value (choices' order)
   last: 12                   # periods shown at first; a slider shows more
+  goal: settings.target_g    # optional, a number or a setting: a dashed line across (D-107)
 - widget: weekbars           # records per week counted by value, stacked
   metric: session.overall_status
   agg: count_by_value        # or count | sum | mean of a numeric metric,
@@ -673,8 +674,8 @@ problem (unknown scale, key field that does not exist), e.g.
   autocompletion and inline errors in VS Code (YAML extension).
 - Blocks of later milestones (`program`, `reference`, `aggregates`, `rules`) are accepted as
   they are until their issue adds the checks; `forms` (D-100: entity, sections, phase, child
-  forms and their `copy_previous`; M5's `batch_over`, `keep_fields`, `due` accepted as they
-  are), `views` (D-083, D-091) and `recommendation` (D-076) are checked.
+  forms and their `copy_previous`; `repeat: true`, D-107: many records a day, Today offers one
+  more after them; M5's `batch_over`, `keep_fields`, `due` accepted as they are), `views` (D-083, D-091) and `recommendation` (D-076) are checked.
   Templates, split and child entities are checked (§2.1b), and so are derived fields (§2.2),
   except the deferred ones.
 
