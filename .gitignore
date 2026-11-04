@@ -55,3 +55,6 @@ test-results/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Claude Code settings on this machine only
+/.claude/settings.local.json

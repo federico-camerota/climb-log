@@ -31,6 +31,12 @@ config-driven module YAMLs. Status and plan: `design/README.md`, `design/07-road
   Never copy real spreadsheets into `tests/` or `design/`.
 - Develop against copies or fictional workbooks, never the live Google Sheets unless the task says so.
 - Never log note contents.
+- **The owner's personal logs are off limits without consent.** These are the Google Sheets whose
+  name starts with `[Personal]`, plus any workbook, backup or snapshot of them. Never open, read,
+  list, copy, write, rename, move or delete them by any route without the owner's consent for
+  that specific action. Routes include the app, `climblog` commands, scripts, Google connectors
+  and the Drive or Sheets API. Consent covers the one action asked for, not later ones. Live
+  tests use only throwaway sheets that the tests create.
 
 ## Conventions
 - Code, comments, docs and UI text in **English**. User notes may be in Italian: keep UTF-8,
