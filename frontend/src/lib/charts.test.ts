@@ -335,24 +335,32 @@ describe("the chart options", () => {
     const data: GradesData = {
       widget: "grades",
       label: null,
+      grade_label: "Hardest grade tried",
       series: [
         {
           system: "french",
           venue: null,
+          discipline: null,
           label: "French",
-          points: [{ date: "2026-10-01", index: 32, grade: "6b", setting: null, venue: null }],
+          points: [
+            { date: "2026-10-01", index: 32, grade: "6b", setting: null, venue: null, style: null },
+          ],
         },
         {
           system: "gym",
           venue: "Nord",
+          discipline: null,
           label: "Gym · Nord",
-          points: [{ date: "2026-10-02", index: 5, grade: "5", setting: null, venue: "Nord" }],
+          points: [
+            { date: "2026-10-02", index: 5, grade: "5", setting: null, venue: "Nord", style: null },
+          ],
         },
       ],
       french_ticks: [
         { index: 32, label: "6b" },
         { index: 33, label: "6b+" },
       ],
+      font_ticks: [],
       pyramid: {
         periods: ["2026-09", "2026-10"],
         rows: [
@@ -391,5 +399,39 @@ describe("the chart options", () => {
     const pyramid = pyramidOption(data, 0, 1) as Option;
     expect(pyramid.series[0]?.data).toEqual([0, 2]);
     expect((pyramid.yAxis as { data: string[] }).data).toEqual(["6a", "6b"]);
+
+    // a Font series: its own axis, labelled 6A, …, a third one on the right; the send type in
+    // the tooltip
+    const font = {
+      system: "font" as const,
+      venue: null,
+      discipline: "Bouldering",
+      label: "Bouldering · Font",
+      points: [
+        { date: "2026-10-03", index: 33, grade: "6B+", setting: null, venue: null, style: "Flash" },
+      ],
+    };
+    const three = gradesOption({
+      ...data,
+      series: [...data.series, font],
+      font_ticks: [{ index: 33, label: "6B+" }],
+    }) as Option;
+    const threeAxes = three.yAxis as {
+      name: string;
+      position: string;
+      offset: number;
+      axisLabel?: { formatter: (v: number) => string };
+    }[];
+    expect(threeAxes.map((a) => [a.name, a.position, a.offset])).toEqual([
+      ["French", "left", 0],
+      ["Font", "right", 0],
+      ["Gym", "right", 56],
+    ]);
+    expect(threeAxes[1]?.axisLabel?.formatter(33)).toBe("6B+");
+    expect(three.series.map((s) => s.yAxisIndex)).toEqual([0, 2, 1]);
+    const tooltip = (three.tooltip as { formatter: (p: object) => string }).formatter;
+    expect(
+      tooltip({ seriesName: "Bouldering · Font", value: ["2026-10-03", 33, "6B+", "Flash"] }),
+    ).toBe("03/10 · Bouldering · Font: 6B+ (Flash)");
   });
 });

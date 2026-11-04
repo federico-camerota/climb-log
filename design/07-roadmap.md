@@ -151,7 +151,7 @@ meanwhile. One PR each, in this order:
 - **Hardest send, send type and discipline** (#117): a second grade per session next to the
   hardest grade tried, how it was climbed, and sport climbing vs bouldering, so the grade
   charts show sends and each discipline on its own; the open questions of #117 are settled in
-  its plan.
+  its plan. → done (D-105).
 - **More body parts** in the journal's `soreness` template: lower back, upper back, core / abs,
   hips / glutes, knees / ankles, legs (the rest of the legs), each with `since:` (old sessions
   stay blank) (#128). They **count like the others** (owner): in Physical readiness (the mean), Physical

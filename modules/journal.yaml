@@ -5,7 +5,7 @@
 
 module: journal
 name: Climbing journal
-version: 1
+version: 2   # 2: hardest send, disciplines, Font grades (#117)
 kind: journal
 description: Pre/post session state, session feel, reflections and rest days.
 
@@ -63,8 +63,14 @@ entities:
       session_type: {type: choice, choices: [Climbing, Hangboard, Strength, Endurance / ARC, Active rest], section: info}
       partners:     {type: text, section: info, suggest_from_history: true}
       duration_min: {type: duration, section: info, phase: post}
-      hardest_grade: {type: grade, systems: [french, gym], section: info, phase: post, label: Hardest grade tried}
-        # french: "6b+", "7a"; gym: plain numbers ("5", "6"), stored as typed, no conversion to French (D-017); charted on separate axes
+      hardest_grade: {type: grade, systems: [french, font, gym], section: info, phase: post, label: Hardest grade tried}
+        # french: "6b+", "7a"; font: "6B+" (upper case, D-105); gym: plain numbers ("5", "6"), stored as typed, never converted (D-017); charted on separate axes
+      # the hardest send and the discipline of each grade (#117, D-105); optional: a session
+      # without climbing (hangboard, strength) or without a send is still complete
+      tried_discipline: {type: choice, choices: [Sport, Bouldering], section: info, phase: post, label: "Tried: sport or bouldering", optional: true, since: 2026-11-06, visible_if: "notnull(hardest_grade)"}
+      hardest_send:     {type: grade, systems: [french, font, gym], section: info, phase: post, label: Hardest send, optional: true, since: 2026-11-06}
+      send_discipline:  {type: choice, choices: [Sport, Bouldering], section: info, phase: post, label: "Send: sport or bouldering", optional: true, since: 2026-11-06, visible_if: "notnull(hardest_send)"}
+      send_type:        {type: choice, choices: [Onsight, Flash, Redpoint / send, Top rope / repeat], section: info, phase: post, label: How it was climbed, optional: true, since: 2026-11-06, visible_if: "notnull(hardest_send)"}
       notes:        {type: text, multiline: true, section: info, phase: post}
       # wellbeing
       wb_sleep_hours:   {type: number, min: 0, max: 14, step: 0.5, unit: h, section: wb_pre}
@@ -422,11 +428,22 @@ views:
         - {label: After sessions, fields: session.ph_post_}
         - {label: Rest days, fields: rest_day.body_}
       weeks: 12
-    # Grades (D-094): the hardest grade *tried* per session (not sends); French and gym on
-    # separate axes, never converted (D-017), gym grades one series per venue.
+    # Grades (D-094, D-105): the hardest grade tried and the hardest send per session, split by
+    # discipline; French, Font and gym on separate axes, never converted (D-017), gym grades one
+    # series per venue.
     - widget: grades
       label: Hardest grade tried
       grade: session.hardest_grade
+      discipline: session.tried_discipline
+      venue: session.venue
+      setting: session.setting
+      group: month
+      last: 6
+    - widget: grades
+      label: Hardest send
+      grade: session.hardest_send
+      discipline: session.send_discipline
+      style: session.send_type
       venue: session.venue
       setting: session.setting
       group: month

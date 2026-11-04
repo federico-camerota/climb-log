@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DIARY } from "../test/api";
-import { entityOf, fieldLabel, formGroups, formsOf, keyOf, scaleOf } from "./schema";
+import { entityOf, fieldLabel, formGroups, formsOf, gradeHint, keyOf, scaleOf } from "./schema";
 import { problem, scaleColour, scaleSteps, toApi, toInput, unchanged } from "./values";
 
 const session = entityOf(DIARY, "session");
@@ -100,5 +100,14 @@ describe("values", () => {
     expect(scaleSteps({ ...up, direction: "lower_better" })).toEqual([1, 2, 3, 4, 5]);
     expect(scaleSteps({ ...up, direction: "neutral" })).toEqual([1, 2, 3, 4, 5]);
     expect(scaleSteps({ min: 0, max: 2 })).toEqual([0, 1, 2]); // no direction: as neutral
+  });
+});
+
+describe("gradeHint", () => {
+  it("gives an example of each grade system the field allows", () => {
+    expect(gradeHint(["french", "font", "gym"])).toBe("e.g. 6b+, 6B+ or 5");
+    expect(gradeHint(["french", "gym"])).toBe("e.g. 6b+ or 5");
+    expect(gradeHint(["font"])).toBe("e.g. 6B+");
+    expect(gradeHint()).toBe("e.g. 6b+");
   });
 });

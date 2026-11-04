@@ -105,6 +105,12 @@ its `since:` are left out (03 §2.2), as in the formulas and the dashboard.
   (French one series, gym one series per venue, on their own axes), sessions by hardest grade
   tried per month, and by setting and venue (sessions, hardest, median; gym grades always per
   venue). Values typed in the sheet that aren't grades are counted on the card.
+  Done (D-105, #117): the **hardest send** per session next to the hardest grade tried, with
+  how it was climbed (onsight, flash, redpoint / send, top rope / repeat), and the discipline
+  (sport or bouldering) of each of the two; boulders in **Font** grades (`6B+`) or gym numbers.
+  Two cards, "Hardest grade tried" and "Hardest send": every series split by discipline (a grade
+  logged before the discipline field has a series of its own), French, Font and gym each on
+  their own axis, the send type in the tooltip; the pyramid and the tables per discipline too.
 - **Venue/partner view**: sessions and average feel by venue/partner.
 - **Wins timeline**: banked wins by size, filterable, for a motivation feed.
 - **Reflection themes**: frequency of words/keywords in "what felt off" / "what to change"

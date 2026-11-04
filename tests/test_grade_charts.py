@@ -93,12 +93,13 @@ def test_by_setting_and_venue() -> None:
         session(5, "6", "[ESEMPIO] Palestra Nord", "Indoor"),
         session(6, "22", "[ESEMPIO] Palestra Sud", "Indoor"),  # another gym, another scale
     )
-    french = {"system": "french", "venue": None}
+    french = {"system": "french", "venue": None, "discipline": None}
     assert found["by_setting"] == [
         {"setting": "Outdoor", **french, "sessions": 3, "hardest": "6c", "median": "6b"},
         # gym grades per venue: one gym's 22 never meets another's 5 (D-094)
         {
             "setting": "Indoor",
+            "discipline": None,
             "system": "gym",
             "venue": "[ESEMPIO] Palestra Nord",
             "sessions": 2,
@@ -107,6 +108,7 @@ def test_by_setting_and_venue() -> None:
         },
         {
             "setting": "Indoor",
+            "discipline": None,
             "system": "gym",
             "venue": "[ESEMPIO] Palestra Sud",
             "sessions": 1,
@@ -197,3 +199,71 @@ def test_a_value_typed_in_the_sheet_that_isnt_a_grade_is_counted(tmp_path: Path)
     grades = next(w for w in body["widgets"] if w["widget"] == "grades")
     assert grades["unparsed"] == 1
     assert [p["grade"] for p in grades["series"][0]["points"]] == ["6b"]
+
+
+SENDS = [w for w in (JOURNAL.views or {})["progress"] if w.widget == "grades"][1]
+
+
+def climbed(n: int, **values: Value) -> dict[str, Value]:
+    return {**session(n, None), **values}
+
+
+def test_series_are_split_by_discipline_and_font_has_its_own() -> None:
+    found = charts(
+        climbed(1, hardest_grade="6b+"),  # before the discipline field: a series of its own
+        climbed(2, hardest_grade="7a", tried_discipline="Sport"),
+        climbed(3, hardest_grade="6B+", tried_discipline="Bouldering"),
+        climbed(4, hardest_grade="6C", tried_discipline="Bouldering"),
+        climbed(5, hardest_grade="5", tried_discipline="Bouldering", venue="[ESEMPIO] Blocco"),
+    )
+    assert [s["label"] for s in found["series"]] == [
+        "French",
+        "Sport · French",
+        "Bouldering · Font",
+        "Bouldering · Gym · [ESEMPIO] Blocco",
+    ]
+    font = found["series"][2]
+    assert (font["system"], font["discipline"]) == ("font", "Bouldering")
+    assert [p["grade"] for p in font["points"]] == ["6B+", "6C"]
+    assert [t["label"] for t in found["font_ticks"]] == ["6B+", "6C"]
+    assert [t["label"] for t in found["french_ticks"]][:2] == ["6b+", "6c"]
+    assert [r["label"] for r in found["pyramid"]["rows"]] == [s["label"] for s in found["series"]]
+    assert [(r["discipline"], r["system"]) for r in found["by_venue"]] == [
+        (None, "french"),
+        ("Sport", "french"),
+        ("Bouldering", "font"),
+        ("Bouldering", "gym"),
+    ]
+    assert found["grade_label"] == "Hardest grade tried"
+
+
+def test_the_hardest_send_with_how_it_was_climbed() -> None:
+    [found] = compute_view(
+        JOURNAL,
+        [SENDS],
+        {
+            "session": [
+                climbed(1, hardest_grade="7a", hardest_send="6c+", send_discipline="Sport",
+                        send_type="Redpoint / send"),
+                climbed(2, hardest_grade="6C", hardest_send="6B", send_discipline="Bouldering",
+                        send_type="Flash"),
+                climbed(3, hardest_grade="6a"),  # tried, nothing sent: not in the sends
+            ]
+        },
+        {},
+        dt.date(2026, 11, 30),
+    )  # fmt: skip
+    assert found["grade_label"] == "Hardest send"
+    sends = [(s["label"], [(p["grade"], p["style"]) for p in s["points"]]) for s in found["series"]]
+    assert sends == [
+        ("Sport · French", [("6c+", "Redpoint / send")]),
+        ("Bouldering · Font", [("6B", "Flash")]),
+    ]
+
+
+def test_the_discipline_must_be_of_the_grade_entity(problems: Problems) -> None:
+    text = (ROOT / "modules" / "journal.yaml").read_text(encoding="utf-8")
+    bad = text.replace(
+        "      discipline: session.tried_discipline\n", "      discipline: rest_day.rest_type\n"
+    )
+    assert any("discipline" in p for p in problems(bad)), problems(bad)

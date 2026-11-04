@@ -869,14 +869,16 @@ class BodyHeatmapWidget(_Widget):
 
 
 class GradesWidget(_Widget):
-    """A grade field over time (French and gym on separate axes, never converted, D-017), gym
-    grades one series per venue (each gym grades its own way); sessions by grade per period
-    (a pyramid); and by setting and venue."""
+    """A grade field over time (French, Font and gym on separate axes, never converted, D-017),
+    gym grades one series per venue (each gym grades its own way), split by discipline when
+    given (D-105); sessions by grade per period (a pyramid); and by setting and venue."""
 
     widget: Literal["grades"]
     grade: str  # `entity.field`, a grade field
     venue: str | None = None  # `entity.field`: gym grades split by its value
     setting: str | None = None  # `entity.field`, e.g. indoor / outdoor
+    discipline: str | None = None  # `entity.field`: every series split by it (sport, boulder)
+    style: str | None = None  # `entity.field`, e.g. the send type, shown with each grade
     group: Literal["week", "month"] = "month"  # the pyramid's periods
     last: int = Field(6, ge=1)  # periods shown at first
 

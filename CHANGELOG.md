@@ -7,6 +7,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- The journal logs the hardest send of a session next to the hardest grade tried, how it was
+  climbed (onsight, flash, redpoint / send, top rope / repeat), and whether each grade is sport
+  or bouldering; boulders can be graded in Font (`6B+`). The Progress dashboard shows the
+  hardest send next to the hardest grade tried, each split by discipline (module v2, from
+  2026-11-06: run `climblog check journal --apply` to add the columns) (#117, D-105).
 - Forms show a field with `visible_if` only while its condition holds, and a hidden field isn't
   saved or counted as missing on Today; text fields with `suggest_from_history` (the journal's
   venue and partners) suggest the values typed before (#122, D-100).
