@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Developer shortcuts. Python commands run through `uv run`, which keeps .venv in sync with uv.lock;
 # frontend commands run through pnpm in frontend/.
-.PHONY: help install dev build test fixtures api-types lint fmt
+.PHONY: help install dev build test fixtures demo api-types lint fmt
 
 PNPM := pnpm --dir frontend
 
@@ -25,6 +25,9 @@ test:  ## run the Python and frontend tests (pytest on every core: pytest-xdist,
 
 fixtures:  ## write the fictional journal workbooks to tests/fixtures/ (git-ignored), to open them
 	uv run python tests/fictional_journal.py tests/fixtures
+
+demo:  ## write the fictional demo set (all modules + config) to build/demo/, to serve on :8100
+	uv run python scripts/demo.py build/demo
 
 API_TYPES := frontend/src/api/schema.ts
 

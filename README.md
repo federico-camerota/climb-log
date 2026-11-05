@@ -20,7 +20,7 @@ on the phone. The program modules (shoulder, fear of falling) come next: see the
 
 ## Screenshots
 
-On a fictional journal (`scripts/demo_journal.py`; every value is invented):
+On a fictional journal (`scripts/demo.py`; every value is invented):
 
 | Today | Dashboard |
 |---|---|
@@ -28,11 +28,19 @@ On a fictional journal (`scripts/demo_journal.py`; every value is invented):
 | **Training load** | **Explore** |
 | [![Training load: weekly load, the acute:chronic ratio with zones, monotony and strain](docs/screenshots/load.png)](docs/screenshots/load.png) | [![Explore: sleep hours against feel score, with Spearman and Pearson r, 95% intervals and n](docs/screenshots/explore.png)](docs/screenshots/explore.png) |
 
-To make them again: `make build`, then
-`uv run python scripts/demo_journal.py build/demo/journal.xlsx` and
-`uv run python scripts/screenshots.py CONFIG docs/screenshots`, with an app config pointing the
-journal module to that workbook (written by hand, see the script's docstring; Firefox is
+To make them again: `make build demo`, then
+`uv run python scripts/screenshots.py build/demo/config.toml docs/screenshots` (Firefox is
 needed).
+
+## Try it on fictional data
+
+`make build demo` writes a fictional demo set to `build/demo/`: a climbing journal (26 weeks of
+sessions and rest days, with grades, sends and soreness), a protein log and a finger strength
+journal with its sets, plus an app config for them. Serve it with
+`uv run climblog serve --config build/demo/config.toml --port 8100`. The data runs to
+2026-12-18, so the fields added on 2026-11-06 have a few weeks of values: open the pages with
+`?date=2026-12-18` (e.g. `http://127.0.0.1:8100/?date=2026-12-18`) to see the end of it.
+Backups and snapshots stay in `build/demo/`; delete the folder to start again.
 
 ## Quick start
 
