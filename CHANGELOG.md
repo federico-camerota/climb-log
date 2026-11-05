@@ -7,6 +7,10 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- `make demo` writes a fictional demo set to `build/demo/` for live demos: the climbing journal
+  (now with sends, disciplines, Font grades and the new body parts), the protein log and the
+  finger strength journal with its sets, plus an app config to serve them on their own
+  (`scripts/demo.py`, replacing `scripts/demo_journal.py`; D-108).
 - A protein log module (`modules/protein.yaml`): grams of protein per meal or snack, the day's
   total against a daily target (140 g by default) on Today and in the sheet's Summary tab, and
   protein per day with the target and per week on its dashboard. Today offers "Add another"
