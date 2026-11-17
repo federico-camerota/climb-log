@@ -29,7 +29,7 @@ from climblog.modules.schema import (
 
 # What a row can show besides the values: the recommendation's headline and text.
 ADVICE = ("headline", "text")
-RESERVED_TABS = ("_settings", "_meta")
+RESERVED_TABS = ("_settings", "_meta", "Runs")
 
 
 @dataclass(frozen=True)
@@ -62,7 +62,9 @@ def _summary(module: Module) -> tuple[SummaryPlan | None, list[Problem]]:
     base: YamlPath = ("summary",)
     problems: list[Problem] = []
     tabs = {tab.casefold() for e in module.entities.values() for tab in e.tab_fields()}
-    if found.tab.casefold() in tabs or found.tab in RESERVED_TABS:
+    if found.tab.casefold() in tabs or found.tab.casefold() in {
+        t.casefold() for t in RESERVED_TABS
+    }:
         problems.append(Problem((*base, "tab"), f"'{found.tab}' is already a tab of the module"))
     advice, _ = _recommendation(module)
     env = recommendation_env(module)

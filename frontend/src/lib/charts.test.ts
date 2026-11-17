@@ -93,6 +93,7 @@ describe("the chart options", () => {
         { label: "Other", values: [0, 1] },
       ],
       shown: 12,
+      grouped: false,
     };
     const option = weekbarsOption(data) as Option;
     expect(option.series.map((s) => [s.name, s.stack, s.itemStyle])).toEqual([
@@ -102,6 +103,26 @@ describe("the chart options", () => {
     const single = weekbarsOption({ ...data, stacks: [{ label: "", values: [3, 4] }] }) as Option;
     expect(single.series[0]?.name).toBe("Total");
     expect(single.legend).toBeUndefined();
+  });
+
+  it("puts the runs of a program side by side", () => {
+    const option = weekbarsOption({
+      widget: "weekbars",
+      label: null,
+      agg: "sum",
+      weeks: ["W1", "W2"],
+      starts: [],
+      stacks: [
+        { label: "Run 1", values: [30, 20] },
+        { label: "Run 2", values: [40, null] },
+      ],
+      shown: 12,
+      grouped: true,
+    }) as Option;
+    expect(option.series.map((s) => [s.name, s.stack])).toEqual([
+      ["Run 1", undefined],
+      ["Run 2", undefined],
+    ]);
   });
 
   it("stacks several metrics", () => {

@@ -615,7 +615,7 @@ def _weekbars(
     module: Module, widget: WeekbarsWidget, records: Records, day: dt.date
 ) -> dict[str, Any]:
     if widget.group == "program_week":
-        return _planned(widget, "program weeks come with the program modules (M5)")
+        return _program_weekbars(module, widget, records)
     entity, name = _split(widget.metric)
     found = records(entity)
     if not found.days:
@@ -653,6 +653,53 @@ def _weekbars(
             for stack in order
         ],
         "shown": widget.weeks,
+    }
+
+
+def _program_weekbars(module: Module, widget: WeekbarsWidget, records: Records) -> dict[str, Any]:
+    """By program week (D-109): W1… up to the program's last week (or the latest reached), one
+    bar per run in each week, side by side; records without a run are left out. `count` counts
+    the records with a value, `sum` and `mean` add up or average it."""
+    assert module.program is not None  # checked at load
+    entity, name = _split(widget.metric)
+    found: dict[int, dict[int, list[float]]] = {}  # run → week → values
+    reached: dict[int, int] = {}  # run → its latest week with a record
+    for row in records(entity).rows:
+        run, week = row.get("run"), row.get("week")
+        if not isinstance(run, int) or not isinstance(week, int) or week < 1:
+            continue
+        reached[run] = max(week, reached.get(run, 0))
+        found.setdefault(run, {})
+        if widget.agg == "count":
+            if row.get(name) in (None, ""):
+                continue
+            value = 1.0
+        else:
+            number = _number(row.get(name))
+            if number is None:
+                continue
+            value = number
+        found.setdefault(run, {}).setdefault(week, []).append(value)
+    last = max([module.program.weeks, *reached.values()])
+    agg = "sum" if widget.agg == "count" else widget.agg
+    return {
+        "widget": "weekbars",
+        "label": widget.label,
+        "agg": widget.agg,
+        "weeks": [f"W{w}" for w in range(1, last + 1)],
+        "starts": [],
+        "stacks": [
+            {
+                "label": f"Run {run}",
+                "values": [
+                    _week_value(agg, found[run].get(w, [])) if w <= reached[run] else None
+                    for w in range(1, last + 1)
+                ],  # no bar after the run's latest record (a run going on, or cut short)
+            }
+            for run in sorted(found)
+        ],
+        "shown": last,
+        "grouped": True,
     }
 
 

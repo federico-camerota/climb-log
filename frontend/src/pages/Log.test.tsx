@@ -374,4 +374,59 @@ describe("Log, module options in forms (#122)", () => {
     const options = within(list).getAllByRole("option", { hidden: true });
     expect(options.map((o) => o.textContent)).toEqual(["[ESEMPIO] Palestra", "[ESEMPIO] Falesia"]);
   });
+
+  it("says which run and week a program record's date falls in", async () => {
+    const program = {
+      id: "prog",
+      name: "Program",
+      version: 1,
+      kind: "program",
+      problems: [],
+      module_schema: {
+        entities: {
+          checkin: {
+            label: "Check-in",
+            key: ["date"],
+            fields: { date: { type: "date" }, pain: { type: "integer" } },
+          },
+        },
+        forms: { checkin: { entity: "checkin" } },
+      },
+    };
+    const runs = (current: object | null) => ({
+      module: "prog",
+      weeks: 12,
+      runs: [{ number: 1, start_week: "2026-W37", start: "2026-09-07", end: "2026-11-29" }],
+      current,
+      next_week: "2026-W47",
+      issues: [],
+      as_of: null,
+      offline: false,
+    });
+    stubApi({
+      "/api/health": HEALTH,
+      "/api/modules": { modules: [program], problems: [] },
+      "/api/modules/prog/checkin": {
+        module: "prog",
+        entity: "checkin",
+        records: [],
+        issues: [],
+        as_of: null,
+        offline: false,
+      },
+      "/api/modules/prog/runs?date=2026-11-17": runs({
+        run: 1,
+        week: 11,
+        phase: "Block 3",
+        light_week: false,
+      }),
+      "/api/modules/prog/runs?date=2026-09-01": runs(null),
+    });
+    renderApp("/log/prog/checkin?date=2026-11-17");
+    expect(await screen.findByText("Run 1, week 11 · Block 3")).toBeInTheDocument();
+    renderApp("/log/prog/checkin?date=2026-09-01");
+    expect(
+      await screen.findByText("Before the first run (2026-W37): no run or week"),
+    ).toBeInTheDocument();
+  });
 });

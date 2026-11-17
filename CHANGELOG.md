@@ -7,6 +7,14 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- Program modules (`kind: program`) get a checked `program:` block (weeks, phases, light weeks,
+  checkpoints) and **runs**: each run starts on an ISO week typed in the workbook's new Runs tab
+  (`2026-W42`, validated), or started from Settings ("Start a new run…"). Every record gets its
+  `run` and program `week` (formula columns in the sheet, values in the app), and expressions can
+  use `program.run`, `program.week`, `program.phase` and `program.is_light_week`, the same in the
+  sheet's formulas. `weekbars` by `program_week` shows the runs side by side, and the metric layer
+  groups by run and program week. On the Log page a line under the date says which run, week and
+  phase it falls in. Records before the first run and bad Runs rows are data issues (#130, D-109).
 - `make demo` writes a fictional demo set to `build/demo/` for live demos: the climbing journal
   (now with sends, disciplines, Font grades and the new body parts), the protein log and the
   finger strength journal with its sets, plus an app config to serve them on their own

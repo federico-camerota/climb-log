@@ -15,6 +15,7 @@ from climblog.expr import Value, evaluate
 from climblog.modules.checks import RecommendationPlan
 from climblog.modules.compute import Table, Timeline
 from climblog.modules.derived import compute
+from climblog.modules.program import NO_RUNS, Runs
 from climblog.modules.schema import Module
 
 
@@ -47,10 +48,11 @@ def recommend(
     tables: Mapping[str, Table],
     settings: Mapping[str, Value],
     day: dt.date,
+    runs: Runs = NO_RUNS,
 ) -> Advice:
     """The recommendation for `day`. `tables[entity]` holds each row's stored and derived
-    values."""
-    related = _Records(module, tables)
+    values; `runs` a program module's runs (`program.week` is the week of `day`)."""
+    related = _Records(module, tables, runs)
     values = compute(plan.values, {"date": day}, settings, related)
     scope = {"date": day, **values}
     reasons = [Reason(name, label, values.get(name)) for name, label in plan.reasons]
@@ -60,18 +62,19 @@ def recommend(
     return Advice(plan.label, None, None, reasons, values)
 
 
-def records_of(module: Module, tables: Mapping[str, Table]) -> "_Records":
+def records_of(module: Module, tables: Mapping[str, Table], runs: Runs = NO_RUNS) -> "_Records":
     """The records a value of the day reads (`last`, `window`), for the summary too (D-085)."""
-    return _Records(module, tables)
+    return _Records(module, tables, runs)
 
 
 class _Records:
     """The records a recommendation reads: no record of its own, so no prev, parent or
     children; `last` and `window` over every entity's rows."""
 
-    def __init__(self, module: Module, tables: Mapping[str, Table]) -> None:
+    def __init__(self, module: Module, tables: Mapping[str, Table], runs: Runs = NO_RUNS) -> None:
         self.module = module
         self.tables = tables
+        self.runs = runs
         self.timelines: dict[str, Timeline] = {}
 
     def prev(self, name: str, n: int) -> Value:
@@ -90,6 +93,11 @@ class _Records:
 
     def window(self, entity: str, name: str, start: dt.date, end: dt.date) -> list[Value]:
         return self._timeline(entity).window(name, start, end)
+
+    def program(self, name: str, day: dt.date | None) -> Value:
+        if self.module.program is None:
+            return None
+        return self.runs.value(self.module.program, name, day)
 
     def _timeline(self, entity: str) -> Timeline:
         if entity not in self.timelines:

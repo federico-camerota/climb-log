@@ -6,7 +6,7 @@
   program stays local.
 - **One tab per entity / reference table**, plus two system tabs:
   - `_meta`: key/value: `module`, `module_version`, `schema_synced_at`, `app_version`.
-  - `_settings`: key/value: module settings (thresholds, start date). Editing here by hand
+  - `_settings`: key/value: module settings (thresholds, targets). Editing here by hand
     works too. A missing, blank or unreadable value means the YAML default (an unreadable one
     is also a data issue).
   - Both have `key` and `value` headers in row 1 (any column order, other columns ignored)
@@ -15,6 +15,14 @@
     written whole by schema sync (labels and formulas, nothing to type), row 2 with keys as
     on a data tab; the drift check compares its formulas, `check --apply` writes them again.
     The app reads nothing from it.
+  - A program module (`kind: program`) also gets a **Runs** tab (D-109), laid out as a data
+    tab: `run` (a whole number), `start_week` (text `2026-W42`, checked by a custom
+    validation rule that works in Excel, LibreOffice and Google: four digits, `-W`, a week
+    1–53), an `auto:start` formula column with the run's Monday, then `updated_at` and
+    `deleted`. One row per run, typed by hand or added by the app. On read, a row with a bad
+    number or week (`2027-W53`: 2027 has 52) is a data issue and left out, and so is a second
+    run starting in the same week (the formulas take the first); a deleted row counts for
+    neither. Every dated tab gets `auto:run` and `auto:week` columns.
 **Hand entry is a first-class path** (D-003, D-013): I sometimes log directly in Google
 Sheets without the app, so every tab must be comfortable to fill by hand.
 

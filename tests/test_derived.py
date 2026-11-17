@@ -73,7 +73,7 @@ entities:
       score:
         require: "all_present(mood, energy)"
         expr: "round(mean(mood, energy), 1)"
-      gap: "program.week * 7"
+      gap: "reference.plan.weeks * 7"
       gap_weeks: "gap / 7"
       verdict: {plugin: test.verdict}
 """

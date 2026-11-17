@@ -164,6 +164,14 @@ class ParentRef(Node):
 
 
 @dataclass(frozen=True)
+class ProgramRef(Node):
+    """`program.name`: the run, week, phase or light week of the record's date (D-109)."""
+
+    name: str  # run | week | phase | is_light_week
+    date_field: str
+
+
+@dataclass(frozen=True)
 class Children(Node):
     """`children(entity)` (one item per row) or `children(entity).field` (its values)."""
 

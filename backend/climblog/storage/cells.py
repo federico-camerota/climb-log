@@ -78,7 +78,8 @@ class DataIssue:
     # What kind of problem, so the app can offer a fix (D-082): `value` a cell that can't be
     # read, `required` an empty required cell, `left_out` a row that is no record (no key, a
     # duplicate key), `orphan` a section row without its main row, `orphan_child` a child row
-    # without its parent, `column` / `tab` missing, `setting` a bad setting.
+    # without its parent, `column` / `tab` missing, `setting` a bad setting, `run` a program
+    # record without a run (D-109).
     kind: str = dc_field(default="value", compare=False)
     value: RawCell = dc_field(default=None, compare=False)  # a `value` issue's cell, as typed
 

@@ -14,6 +14,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from climblog.expr import Value
+from climblog.modules.program import NO_RUNS, RUNS_TAB, Run, Runs, parse_week
 from climblog.modules.schema import (
     NEXT,
     BaseField,
@@ -56,15 +57,94 @@ class ModuleData:
     settings: dict[str, Value]
     entities: dict[str, EntityData]
     issues: list[DataIssue]
+    runs: Runs = NO_RUNS  # a program module's runs (D-109)
 
 
 def load_data(module: Module, repo: Repository) -> ModuleData:
-    """Settings and stored records of every entity (template-expanded module)."""
+    """Settings and stored records of every entity (template-expanded module), and the runs
+    of a program module."""
     issues: list[DataIssue] = []
     settings = _settings(module, repo, issues)
+    runs = read_runs(repo, issues) if module.program is not None else NO_RUNS
     entities = {name: _Loader(module, name, repo, issues).load() for name in module.entities}
     _report_orphan_children(module, entities, issues)
-    return ModuleData(settings, entities, issues)
+    if module.program is not None:
+        _report_before_runs(module, entities, runs, issues)
+    return ModuleData(settings, entities, issues, runs)
+
+
+def read_runs(repo: Repository, issues: list[DataIssue]) -> Runs:
+    """The Runs tab (D-109): one run per row with a run number and a start week; a row that
+    isn't one is reported and left out, and so is a second run starting the same week (the
+    sheet's formulas take the first)."""
+    try:
+        table = repo.read_table(RUNS_TAB)
+    except TableNotFound:
+        return NO_RUNS  # schema sync creates it
+    runs: list[Run] = []
+    starts: dict[dt.date, int] = {}
+    numbers: dict[int, int] = {}
+    for row in table.rows:
+        cells = row.cells
+        if not _blank(cells.get(DELETED)):
+            continue
+        number, week = cells.get("run"), cells.get("start_week")
+        if _blank(number) and _blank(week):
+            continue
+        if isinstance(number, float) and number.is_integer():
+            number = int(number)
+        if not isinstance(number, int) or isinstance(number, bool) or number < 1:
+            issues.append(_run_issue(row, "run", "a run needs its number (1, 2, …)", number))
+            continue
+        try:
+            start = parse_week(str(week).strip()) if not _blank(week) else None
+        except ValueError as error:
+            issues.append(_run_issue(row, "start_week", str(error), week))
+            continue
+        if start is None:
+            issues.append(_run_issue(row, "start_week", "a run needs its start week", week))
+            continue
+        if start in starts:
+            message = f"run {starts[start]} already starts that week; this row is left out"
+            issues.append(DataIssue(RUNS_TAB, row.number, "start_week", message, "left_out"))
+            continue
+        if number in numbers:
+            message = f"run {number} is also in row {numbers[number]}"
+            issues.append(DataIssue(RUNS_TAB, row.number, "run", message))
+        starts[start], numbers[number] = number, row.number
+        runs.append(Run(number, str(week).strip(), start))
+    ordered = sorted(runs, key=lambda r: r.start)
+    if [r.number for r in ordered] != sorted(r.number for r in ordered):
+        issues.append(
+            DataIssue(RUNS_TAB, None, "run", "the runs are not numbered in the order they start")
+        )
+    return Runs(runs)
+
+
+def _run_issue(row: SheetRow, field: str, message: str, value: RawCell) -> DataIssue:
+    return DataIssue(RUNS_TAB, row.number, field, message, "value", value)
+
+
+def _report_before_runs(
+    module: Module, entities: Mapping[str, EntityData], runs: Runs, issues: list[DataIssue]
+) -> None:
+    """Records with no run: dated before the first run started (or no run at all)."""
+    if not runs.runs:
+        if any(data.records for data in entities.values()):
+            message = "no run has started: type the first one's start week here (2026-W42)"
+            issues.append(DataIssue(RUNS_TAB, None, None, message, "run"))
+        return
+    first = runs.runs[0].start_week
+    for name, data in entities.items():
+        entity = module.entities[name]
+        if entity.parent is not None:
+            continue  # its parent is reported
+        tab = entity.main_tab
+        for record, place in zip(data.records, data.places, strict=True):
+            day = record.get(entity.date_field)
+            if isinstance(day, dt.date) and runs.at(day) is None:
+                message = f"dated before the first run ({first}): no run or week"
+                issues.append(DataIssue(tab, place.get(tab), entity.date_field, message, "run"))
 
 
 def read_settings(module: Module, repo: Repository) -> dict[str, Value]:

@@ -31,6 +31,7 @@ from climblog.expr.nodes import (
     Node,
     ParentRef,
     Prev,
+    ProgramRef,
     Setting,
     Unary,
     Value,
@@ -71,6 +72,10 @@ class Related(Protocol):
         """`name` in every record of `entity` dated from `start` to `end`, in date order."""
         ...
 
+    def program(self, name: str, day: dt.date | None) -> Value:
+        """`program.<name>` (run, week, phase, is_light_week) of a day; blank without a run."""
+        ...
+
 
 class _Alone:
     """A record on its own: no previous record, no parent, no children."""
@@ -91,6 +96,9 @@ class _Alone:
 
     def window(self, entity: str, name: str, start: dt.date, end: dt.date) -> list[Value]:
         return []
+
+    def program(self, name: str, day: dt.date | None) -> Value:
+        return None
 
 
 ALONE: Related = _Alone()
@@ -152,6 +160,9 @@ class _Evaluator:
                 return self.related.prev(name, n)
             case ParentRef(name=name):
                 return self.related.parent(name)
+            case ProgramRef(name=name, date_field=date_field):
+                day = self.values.get(date_field)
+                return self.related.program(name, day if isinstance(day, dt.date) else None)
             case Children(entity=entity, field=None):
                 return [True for _ in self.related.children(entity)]  # one item per row
             case Children(entity=entity, field=str() as name):

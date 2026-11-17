@@ -33,6 +33,7 @@ from climblog.expr import Value
 from climblog.modules import Module
 from climblog.modules.compute import compute_module
 from climblog.modules.formulas import formula_columns
+from climblog.modules.program import RUNS_TAB
 from climblog.modules.schema import (
     BaseField,
     BoolField,
@@ -133,12 +134,24 @@ class Generated:
     rows: dict[str, list[dict[str, Value]]]  # entity → stored values per record
 
 
+# A program's runs (D-109), as typed in its Runs tab: the fictional records start on Tue
+# 1 Sep 2026 (2026-W36), so some come before run 1 and run 1 goes past its last week before
+# run 2 starts; the deleted row in between is left out by both.
+PARITY_RUNS: list[dict[str, Any]] = [
+    {"run": 1, "start_week": "2026-W37"},
+    {"run": 3, "start_week": "2026-W38", "deleted": "x"},
+    {"run": 2, "start_week": "2026-W43"},
+]
+
+
 def generate(module: Module, folder: Path, seed: int, records: int = 40) -> Generated:
     """A workbook made by schema sync (formula columns and buffer included), then random
-    fictional rows typed into it, as by hand."""
+    fictional rows typed into it, as by hand (and a program's runs)."""
     path = folder / "parity.xlsx"
     sync_module(module, XlsxBackend(path))
     rows, typed = typed_rows(module, seed, records)
+    if module.program is not None:
+        typed[RUNS_TAB] = PARITY_RUNS
     book = openpyxl.load_workbook(path)
     for tab, tab_rows in typed.items():
         sheet = book[tab]
@@ -156,6 +169,8 @@ def generate_google(module: Module, repo: Repository, seed: int, records: int = 
     """The same on a Google Sheet: made by schema sync, the rows typed in through the backend."""
     sync_module(module, repo)
     _, typed = typed_rows(module, seed, records)
+    if module.program is not None:
+        typed[RUNS_TAB] = PARITY_RUNS
     repo.apply(
         [
             Append(tab, {k: v for k, v in values.items() if v is not None})
@@ -330,7 +345,7 @@ def compare(
     value differs from what the app computes from `repo`."""
     data = load_data(module, repo)
     tables = {name: e.records for name, e in data.entities.items()}
-    derived = compute_module(module, tables, data.settings)
+    derived = compute_module(module, tables, data.settings, data.runs)
     placed, _ = formula_columns(module)
     found = []
     for name, entity_data in data.entities.items():

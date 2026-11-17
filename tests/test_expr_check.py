@@ -109,7 +109,7 @@ def test_fields_combines_selectors() -> None:
         ("settings", "write settings.<name>", 0),
         ("settings.low", "unknown setting 'low' (did you mean 'low_max'?)", 0),
         ("settings.zzz", "unknown setting 'zzz' (known: low_max, start)", 0),
-        ("program.week", "`x.y` is only valid as settings.<name>, parent.<name> or", 0),
+        ("program.week", "program.<name> is only valid in a module with a program:", 0),
         ("meen(mood)", "unknown function 'meen' (did you mean 'mean'?)", 0),
         ("__import__('os')", "unknown function '__import__'", 0),
         ("session_type == 'Max hang'", "'Max hang' is not a choice of 'session_type'", 16),

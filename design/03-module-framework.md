@@ -185,8 +185,8 @@ an allow-list; no `eval`; code in `climblog/expr/`, D-043):
 - arithmetic `+ - * /` and unary `-`; comparisons `== != < <= > >=` (one per comparison:
   write `a < b and b < c`); `and/or/not`; `x if cond else y`; numbers, `'text'`, `True`/`False`
 - field references (`pain_during`), `settings.x`; other records: `prev(x, n)`, `parent.x`,
-  `children(e)` / `children(e).x`, `last(e.x, before=d)` (§2.3); `program.week`,
-  `program.phase` (M5)
+  `children(e)` / `children(e).x`, `last(e.x, before=d)` (§2.3); in a program module
+  `program.run`, `program.week`, `program.phase`, `program.is_light_week` (§2.4, D-109)
 - functions: `mean(...)`, `min(...)`, `max(...)`, `sum(...)`, `count(...)` (aggregates; the
   first four take `missing_as=`), `round(x, n)` (halves away from zero, like the sheets),
   `concat(...)`, `flip(x)` (maps a scale value to its "higher is better" orientation:
@@ -237,7 +237,7 @@ wellbeing_pre_status:
   Comparing a status with a label that is not in its list is an error (`overall_status == 'LOWW'`).
 - An entry can read other derived values; they are computed first (the order follows what
   each entry reads, not the YAML order). A cycle is an error.
-- **Deferred until their issue**: entries using `program.` or `reference.` (M5), `plugin:`
+- **Deferred until their issue**: entries using `reference.` (M5), `plugin:`
   entries, `per_reference_group`, and `fields(...)`
   in an entity with fields from a reference table (`template_from_reference`, M5). They are
   accepted but neither checked nor computed, and so is every entry that reads one of them.
@@ -428,13 +428,35 @@ column** in the sheet:
   (two consecutive falls on the same rung with BERP ≥ 3, fear ≤ 5, soft catch).
 
 ### 2.4 Program block
-Enables `program.week`, `program.phase`, `program.is_light_week` on
-every record, week-based widgets, and **prescriptions** via a reference table keyed by
-item × week. A program **starts on an ISO week** of the year (`2026-W42`, D-103), not a date:
-week 1 runs from that week's Monday, and `program.week` counts whole weeks from there (the
-same in the sheet's formulas). The program can be restarted (a new start week = a new *run*).
-Every record stores `run` so you can compare run 1 and run 2 of the same program. (The draft
-YAMLs in `design/modules/` still show `start_date`; the program-block issue changes them.)
+```yaml
+kind: program
+program:
+  weeks: 12
+  phases:                          # optional; week ranges inside 1..weeks, not overlapping
+    - {name: "Block 1 · Calm and control", weeks: [1, 4], note: "RPE 5-6"}
+    - {name: "Block 2 · Build strength", weeks: [5, 8]}
+  light_weeks: [4, 8, 12]          # optional
+  checkpoints: {W0: 0, W8: 8}      # optional: named weeks for before/after views (0: before week 1)
+```
+A module has a `program:` block if and only if it is `kind: program` (D-109). The block has
+no start: a program is run, and restarted, by **runs**, kept in the workbook's **Runs tab**
+(one row per run: `run` number and `start_week`, typed as text `2026-W42`; a formula column
+shows the Monday). A run **starts on an ISO week** (D-103): week 1 runs from that week's
+Monday. A record belongs to the latest run that started on or before its date, and its week
+counts whole weeks from that Monday; after the program's last week it counts on (13, 14…)
+with no phase. A record dated before the first run has no run and no week (a data issue).
+A new run is a new row, typed in the sheet or added from the app (Settings, "Start a new
+run": the next number, a start after the latest run's).
+
+Every dated entity of a program module gets two derived values first, **`run`** and
+**`week`** (`program.run`, `program.week`): `auto:` columns in the sheet and values in the
+app, so run 1 and run 2 of the same program can be compared (D-012). An entity can't have
+fields of those names. In expressions, `program.run` and `program.week` are numbers,
+`program.phase` the phase's name (blank between phases and after the last week) and
+`program.is_light_week` yes/no, all from the record's date; the sheet's formulas compute the
+same from the Runs tab (MAXIFS on the start Mondays; checked on LibreOffice). Week-based
+widgets group by program week (`weekbars` with `group: program_week`, §2.7), and
+**prescriptions** come via a reference table keyed by item × week (§2.5).
 
 ### 2.5 Reference tables
 ```yaml
@@ -554,6 +576,8 @@ Drawn with #98 (D-091), computed with the metric layer (D-090) where they group 
   agg: count_by_value        # or count | sum | mean of a numeric metric,
   split_by: session.setting  #   stacked by a field (not with count_by_value)
   weeks: 12
+  group: week                # or program_week (a program module, D-109): W1, W2… with one
+                             #   bar per run side by side; count, sum or mean, no split_by
 - widget: stacked            # several metrics per period, stacked (any entities, by day)
   series: [{metric: session.session_load, label: Climbing}]
   agg: sum
@@ -614,7 +638,7 @@ Grades (#101, D-094):
 ```
 
 Still shown as "not drawn yet": `status_strip`, `radar`, `delta_table`, `ladder`,
-`program_grid`, `before_after` (M5 or later); `weekbars` by `program_week` (M5); a line split by
+`program_grid`, `before_after` (M5 or later); a line split by
 another entity's fields and `box_by` time-of-day `bins` (backlog, 05 §3.5).
 
 What a chart plots (a `bars`, `box_by` or `stacked` metric, `scatter` x and y, a `line`'s series
@@ -672,8 +696,8 @@ problem (unknown scale, key field that does not exist), e.g.
 - `climblog module schema` prints the JSON Schema. It is committed as `modules/module.schema.json`
   (a test keeps it current); a first line `# yaml-language-server: $schema=<path to it>` gives
   autocompletion and inline errors in VS Code (YAML extension).
-- Blocks of later milestones (`program`, `reference`, `aggregates`, `rules`) are accepted as
-  they are until their issue adds the checks; `forms` (D-100: entity, sections, phase, child
+- Blocks of later milestones (`reference`, `aggregates`, `rules`) are accepted as
+  they are until their issue adds the checks; `program` is checked (D-109); `forms` (D-100: entity, sections, phase, child
   forms and their `copy_previous`; `repeat: true`, D-107: many records a day, Today offers one
   more after them; M5's `batch_over`, `keep_fields`, `due` accepted as they are), `views` (D-083, D-091) and `recommendation` (D-076) are checked.
   Templates, split and child entities are checked (§2.1b), and so are derived fields (§2.2),

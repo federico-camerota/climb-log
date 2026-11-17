@@ -13,6 +13,7 @@ import {
   getRecommendation,
   getRecord,
   getRecords,
+  getRuns,
   getToday,
   getView,
   hiddenFields,
@@ -38,6 +39,15 @@ export function useHealth() {
 
 export function useModules() {
   return useQuery({ queryKey: ["modules"], queryFn: getModules });
+}
+
+/** A program's runs, and the run and week of `date` (default today). */
+export function useRuns(module: string, date?: string, enabled = true) {
+  return useQuery({
+    queryKey: ["runs", module, date ?? "today"],
+    queryFn: () => getRuns(module, date),
+    enabled,
+  });
 }
 
 export function useRecords(module: string, entity: string, enabled = true) {

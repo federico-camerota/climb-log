@@ -128,7 +128,7 @@ def _value_drift(
 ) -> list[Drift]:
     data = load_data(module, repo)
     tables = {name: e.records for name, e in data.entities.items()}
-    derived = compute_module(module, tables, data.settings)
+    derived = compute_module(module, tables, data.settings, data.runs)
     shown = {(tab, row.number): row.cells for tab, table in values.items() for row in table.rows}
     found = []
     for name, entity in data.entities.items():

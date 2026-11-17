@@ -60,7 +60,7 @@ from climblog.modules.schema import (
 # Columns the app adds to every tab (04-storage.md §1).
 RESERVED_FIELDS = frozenset({"updated_at", "deleted"})
 # Tabs the app manages itself (04-storage.md §1); compared case-insensitively, like Excel does.
-RESERVED_TABS = frozenset({"_meta", "_settings", "summary", "readme"})
+RESERVED_TABS = frozenset({"_meta", "_settings", "summary", "readme", "runs"})
 _TAB_FORBIDDEN_CHARS = set("[]:*?/\\")
 _TAB_MAX_LENGTH = 31  # Excel's limit
 # The value an expression sees for each field or setting type; the others are text.
@@ -115,6 +115,37 @@ def cross_check(module: Module) -> list[Problem]:
     problems += summary_problems(module)
     problems += _views(module)
     problems += _forms(module)
+    problems += _program(module)
+    return problems
+
+
+def _program(module: Module) -> list[Problem]:
+    """A program module has a `program:` block, and only it; `run` and `week` are its."""
+    from climblog.modules.program import AUTO_COLUMNS  # it imports the schema
+
+    if "runs" in module.entities:  # `/api/modules/{module}/runs` is the runs (D-109)
+        return [Problem(("entities", "runs"), "'runs' is a reserved name: rename the entity")]
+    if module.kind == "program" and module.program is None:
+        return [Problem(("program",), "a program module needs a program: block (its weeks)")]
+    if module.kind != "program" and module.program is not None:
+        return [Problem(("program",), "only a module with kind: program has a program: block")]
+    problems: list[Problem] = []
+    if module.program is not None:
+        for e_name, entity in module.entities.items():
+            for key in AUTO_COLUMNS:
+                if key in entity.fields:
+                    problems.append(
+                        Problem(
+                            ("entities", e_name, "fields", key),
+                            f"'{key}' is the program's own column (program.{key}): rename it",
+                        )
+                    )
+    for view, widgets in (module.views or {}).items():
+        for i, widget in enumerate(widgets):
+            if getattr(widget, "group", None) == "program_week" and module.program is None:
+                problems.append(
+                    Problem(("views", view, i, "group"), "program_week needs a program: block")
+                )
     return problems
 
 
@@ -298,7 +329,12 @@ def expression_env(module: Module, fields: Mapping[str, Any], date_field: str) -
             ),
         )
     settings = {key: _VALUE_TYPES[s.type] for key, s in module.settings.items()}
-    return Env(names, settings, date_field)
+    return Env(names, settings, date_field, program=_phases(module))
+
+
+def _phases(module: Module) -> tuple[str, ...] | None:
+    """The phase names of a program module, for `program.<name>`; None without a program."""
+    return None if module.program is None else tuple(p.name for p in module.program.phases)
 
 
 def derived_env(module: Module, e_name: str) -> Env:
@@ -538,7 +574,9 @@ def recommendation_env(module: Module) -> Env:
         plan, _ = _derived_plan(module, name, derived_env(module, name))  # reported for it
         entities[name] = {**stored, **plan.names}
     settings = {key: _VALUE_TYPES[s.type] for key, s in module.settings.items()}
-    return Env({"date": NameInfo("date")}, settings, "date", entities=entities)
+    return Env(
+        {"date": NameInfo("date")}, settings, "date", entities=entities, program=_phases(module)
+    )
 
 
 def recommendation_plan(module: Module) -> RecommendationPlan | None:

@@ -18,6 +18,8 @@ from pydantic import BaseModel
 
 from climblog.catalog import Catalog, EntityRecords, Entry, served
 from climblog.expr import Value
+from climblog.modules.program import Runs as ProgramRuns
+from climblog.modules.program import week_text
 from climblog.modules.schema import BaseField
 from climblog.storage import (
     DataIssue,
@@ -89,6 +91,128 @@ def list_modules(request: Request) -> ModuleList:
     )
 
 
+class FieldProblem(BaseModel):
+    field: str
+    message: str
+
+
+class WriteProblem(BaseModel):
+    message: str  # the first problem's, when there are several
+    field: str | None = None  # the (first) field at fault, when there is one
+    problems: list[FieldProblem] = []  # every field at fault, e.g. two bad values (D-079)
+
+
+_WRITE_ERRORS: dict[int | str, dict[str, Any]] = {
+    status: {"model": WriteProblem, "description": text}
+    for status, text in [
+        (404, "No such module, entity or record"),
+        (409, "The key is taken, the record changed since it was read, or the module doesn't load"),
+        (422, "An unknown field or a bad value"),
+        (423, "The workbook is open in Excel or LibreOffice"),
+        (503, "The workbook can't be reached: offline, read-only"),
+    ]
+}
+
+
+# ---- Program runs (D-109) ----
+
+
+class RunInfo(BaseModel):
+    number: int
+    start_week: str  # 2026-W42, as typed in the Runs tab
+    start: dt.date  # the Monday of week 1
+    end: dt.date  # the Sunday of the program's last week
+
+
+class Position(BaseModel):
+    run: int
+    week: int
+    phase: str | None  # none after the last week or between phases
+    light_week: bool
+
+
+class RunList(BaseModel):
+    module: str
+    weeks: int  # the program's length
+    runs: list[RunInfo]  # by start
+    current: Position | None  # the day's run and week; none before the first run
+    next_week: str  # the week a new run would start by default: the day's
+    issues: list[Issue]  # the Runs tab's
+    as_of: dt.datetime | None
+    offline: bool
+
+
+class NewRun(BaseModel):
+    start_week: str  # 2026-W46
+
+
+@router.get("/modules/{module}/runs", responses={404: {"description": "Not a program module"}})
+def list_runs(request: Request, module: str, date: dt.date | None = None) -> RunList:
+    """A program module's runs (its Runs tab) and the run and week of `date` (default today)."""
+    current = catalog(request)
+    entry = _program_entry(current, module)
+    try:
+        runs, issues = current.runs(entry)
+    except StorageError as error:
+        raise HTTPException(503, str(error)) from None
+    return _run_list(entry, runs, issues, date or dt.date.today())
+
+
+@router.post("/modules/{module}/runs", status_code=201, responses=_WRITE_ERRORS)
+def start_run(request: Request, module: str, body: NewRun) -> RunList:
+    """Start a new run: the next run number, from the Monday of `start_week`, which must come
+    after the latest run's start. The Runs tab gets the row, as if typed in the sheet."""
+    current = catalog(request)
+    entry = _program_entry(current, module)
+    with entry.lock, _write_errors():
+        _writer(entry).start_run(body.start_week)
+    try:
+        runs, issues = current.runs(entry)
+    except StorageError as error:
+        raise _problem(503, error) from None
+    return _run_list(entry, runs, issues, dt.date.today())
+
+
+def _program_entry(current: Catalog, module: str) -> Entry:
+    entry = current.entries.get(module)
+    if entry is None:
+        raise HTTPException(404, f"no module '{module}' in the app config")
+    if entry.module is None:
+        raise HTTPException(
+            409, {"message": f"module '{module}' doesn't load", "problems": entry.problems}
+        )
+    if entry.module.program is None:
+        raise HTTPException(404, f"module '{module}' is not a program: it has no runs")
+    return entry
+
+
+def _run_list(entry: Entry, runs: ProgramRuns, issues: list[DataIssue], day: dt.date) -> RunList:
+    assert entry.module is not None and entry.module.program is not None and entry.repo
+    program = entry.module.program
+    length = dt.timedelta(weeks=program.weeks, days=-1)
+    found = runs.at(day)
+    return RunList(
+        module=entry.name,
+        weeks=program.weeks,
+        runs=[
+            RunInfo(number=r.number, start_week=r.start_week, start=r.start, end=r.start + length)
+            for r in runs.runs
+        ],
+        current=None
+        if found is None
+        else Position(
+            run=found.run,
+            week=found.week,
+            phase=program.phase(found.week),
+            light_week=program.is_light_week(found.week),
+        ),
+        next_week=week_text(day),
+        issues=[_issue(i) for i in issues],
+        as_of=entry.repo.as_of,
+        offline=entry.repo.offline,
+    )
+
+
 @router.get("/modules/{module}/{entity}")
 def list_records(request: Request, module: str, entity: str) -> Records:
     current = catalog(request)
@@ -125,28 +249,6 @@ class Written(BaseModel):
     record: Record  # as read back from the workbook
     as_of: dt.datetime | None
 
-
-class FieldProblem(BaseModel):
-    field: str
-    message: str
-
-
-class WriteProblem(BaseModel):
-    message: str  # the first problem's, when there are several
-    field: str | None = None  # the (first) field at fault, when there is one
-    problems: list[FieldProblem] = []  # every field at fault, e.g. two bad values (D-079)
-
-
-_WRITE_ERRORS: dict[int | str, dict[str, Any]] = {
-    status: {"model": WriteProblem, "description": text}
-    for status, text in [
-        (404, "No such module, entity or record"),
-        (409, "The key is taken, the record changed since it was read, or the module doesn't load"),
-        (422, "An unknown field or a bad value"),
-        (423, "The workbook is open in Excel or LibreOffice"),
-        (503, "The workbook can't be reached: offline, read-only"),
-    ]
-}
 
 # The record's key goes in the query string, one parameter per key field (D-075):
 # `/api/modules/journal/session/record?date=2026-10-30&session_no=2`.

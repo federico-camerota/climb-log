@@ -9,14 +9,12 @@ version: 1
 kind: program
 
 settings:
-  start_date: {type: date, default: 2026-10-12}
   advance_berp_min: {type: integer, default: 3}
   advance_fear_max: {type: integer, default: 5}
   stepback_fear_min: {type: integer, default: 8}
   stepback_berp_max: {type: integer, default: 1}
 
-program:
-  start_date: {setting: start_date}
+program:                           # runs start in the Runs tab: run 1 = 2026-W42 (D-109)
   weeks: 12
   phases:
     - {name: "Phase 1 · Foundations", weeks: [1, 4]}

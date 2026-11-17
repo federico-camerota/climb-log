@@ -159,7 +159,7 @@ def test_reference_template_columns_are_not_unknown(load: LoadYaml, tmp_path: Pa
         module: test_check
         name: Test check
         version: 2
-        kind: program
+        kind: journal
         entities:
           quiz:
             label: Quiz

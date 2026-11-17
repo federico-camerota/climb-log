@@ -22,6 +22,7 @@ from climblog.modules import Module, ModuleError
 from climblog.modules.checks import recommendation_plan
 from climblog.modules.compute import compute_module
 from climblog.modules.forms import Day, due, hidden
+from climblog.modules.program import NO_RUNS, Runs
 from climblog.modules.recommend import Advice, Reason, recommend
 from climblog.modules.schema import TrainingLoadWidget
 from climblog.modules.summary import summarize, summary_plan
@@ -30,6 +31,7 @@ from climblog.storage import (
     DataIssue,
     StorageError,
     load_data,
+    read_runs,
     read_settings,
 )
 from climblog.storage.cells import VALUE_ISSUES
@@ -101,7 +103,7 @@ class Catalog:
         module = entry.module
         data = load_data(module, entry.repo.pinned())  # one look at the source
         tables = {name: e.records for name, e in data.entities.items()}
-        derived = compute_module(module, tables, data.settings)
+        derived = compute_module(module, tables, data.settings, data.runs)
         tabs = set(module.entities[entity].tab_fields())
         found = data.entities[entity]
         return EntityRecords(
@@ -122,7 +124,8 @@ class Catalog:
         if plan is None:
             return None
         full, settings = self.full_tables(entry)
-        advice = recommend(module, plan, full, settings, day)
+        runs, _ = self.runs(entry)
+        advice = recommend(module, plan, full, settings, day, runs)
         if summary_plan(module) is None:
             return advice
         # a reason may be a summary value (the weakest area): read with the summary's
@@ -188,6 +191,14 @@ class Catalog:
         settings = read_settings(entry.module, entry.repo.pinned())
         return hidden(entry.module, entity, values, settings)
 
+    def runs(self, entry: Entry) -> tuple[Runs, list[DataIssue]]:
+        """A program module's runs and the Runs tab's data issues (D-109); none otherwise."""
+        assert entry.module is not None and entry.repo is not None
+        if entry.module.program is None:
+            return NO_RUNS, []
+        issues: list[DataIssue] = []
+        return read_runs(entry.repo.pinned(), issues), issues
+
     def full_tables(
         self, entry: Entry
     ) -> tuple[dict[str, list[dict[str, Value]]], dict[str, Value]]:
@@ -197,7 +208,7 @@ class Catalog:
         module = entry.module
         data = load_data(module, entry.repo.pinned())
         tables = {name: e.records for name, e in data.entities.items()}
-        derived = compute_module(module, tables, data.settings)
+        derived = compute_module(module, tables, data.settings, data.runs)
         full = {
             name: [{**row, **values} for row, values in zip(rows, derived[name], strict=True)]
             for name, rows in tables.items()

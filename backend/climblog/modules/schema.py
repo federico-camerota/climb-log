@@ -114,6 +114,63 @@ class Setting(Strict):
         return self
 
 
+# ---- Program (03-module-framework.md §2.4, D-109) ----
+
+
+class ProgramPhase(Strict):
+    name: str
+    weeks: tuple[int, int]  # first and last week, inclusive
+    note: str | None = None
+
+    @model_validator(mode="after")
+    def _order(self) -> Self:
+        first, last = self.weeks
+        if first < 1 or last < first:
+            raise ValueError(f"weeks [{first}, {last}] must be 1 or more, the first ≤ the last")
+        return self
+
+
+class Program(Strict):
+    """Weeks, phases and light weeks of a program. Its runs start in the workbook's Runs tab
+    (an ISO week each, D-109), so the YAML has no start."""
+
+    weeks: int = Field(ge=1)
+    phases: list[ProgramPhase] = []
+    light_weeks: list[int] = []
+    # Named weeks for before/after comparisons (`W8: 8`; 0 is before week 1); used from M5's
+    # dashboards (#140), accepted and range-checked here.
+    checkpoints: dict[str, int] = {}
+
+    @model_validator(mode="after")
+    def _inside(self) -> Self:
+        taken: set[int] = set()
+        for phase in self.phases:
+            first, last = phase.weeks
+            if last > self.weeks:
+                raise ValueError(f"phase {phase.name!r} ends after week {self.weeks}")
+            span = set(range(first, last + 1))
+            if span & taken:
+                raise ValueError(f"phase {phase.name!r} overlaps another phase")
+            taken |= span
+        outside = [w for w in self.light_weeks if not 1 <= w <= self.weeks]
+        if outside:
+            raise ValueError(f"light weeks {outside} are outside weeks 1 to {self.weeks}")
+        late = [name for name, w in self.checkpoints.items() if not 0 <= w <= self.weeks]
+        if late:
+            raise ValueError(f"checkpoints {late} are outside weeks 0 to {self.weeks}")
+        return self
+
+    def phase(self, week: int | None) -> str | None:
+        """The phase of a program week; none before week 1, after the last week or between
+        phases."""
+        if week is None:
+            return None
+        return next((p.name for p in self.phases if p.weeks[0] <= week <= p.weeks[1]), None)
+
+    def is_light_week(self, week: int | None) -> bool:
+        return week is not None and week in self.light_weeks
+
+
 # ---- Fields (03-module-framework.md §2.1) ----
 
 # `default: next` on an integer key field: a blank cell is the row's position among the rows
@@ -746,13 +803,17 @@ class WeekbarsWidget(_Widget):
     metric: str  # `entity.field`
     agg: Literal["count_by_value", "count", "sum", "mean"] = "count_by_value"
     split_by: str | None = None  # `entity.field` of the metric's entity (not with count_by_value)
-    group: Literal["week", "program_week"] = "week"  # program weeks come with M5
+    group: Literal["week", "program_week"] = "week"  # program_week: runs side by side (D-109)
     weeks: int = Field(12, ge=1)  # shown at first
 
     @model_validator(mode="after")
     def _split(self) -> Self:
         if self.split_by is not None and self.agg == "count_by_value":
             raise ValueError("count_by_value already stacks by the metric's values; drop split_by")
+        if self.group == "program_week" and (self.split_by or self.agg == "count_by_value"):
+            raise ValueError(
+                "by program week the bars are the runs: use count, sum or mean, without split_by"
+            )
         return self
 
 
@@ -1000,7 +1061,7 @@ class Module(Strict):
     scales: dict[Key, Scale] = {}
     entities: dict[Key, Entity] = Field(min_length=1)
     templates: dict[Key, dict[Key, ModuleField]] = {}
-    program: Unchecked | None = None  # M5
+    program: Program | None = None  # kind: program only (D-109)
     reference: Unchecked | None = None  # M5
     forms: dict[Key, FormModel] | None = None
     views: dict[Key, list[Widget]] | None = None  # D-083
