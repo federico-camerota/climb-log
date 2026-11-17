@@ -15,6 +15,7 @@ from ruamel.yaml.comments import CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError, YAMLError
 
 from climblog.modules.checks import cross_check, expand_templates
+from climblog.modules.program import with_program_columns
 from climblog.modules.schema import Module, Problem
 
 # Friendlier wording for the most common pydantic errors.
@@ -49,7 +50,7 @@ def load_module(file: Path) -> Module:
         raise ModuleError(file, [Problem((), "a module file must be a mapping (key: value)", 1, 1)])
 
     try:
-        module = Module.model_validate(_plain(doc))
+        module = with_program_columns(Module.model_validate(_plain(doc)))
     except ValidationError as error:
         problems = [_from_pydantic(doc, e) for e in error.errors()]
     else:

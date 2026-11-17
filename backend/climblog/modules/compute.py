@@ -16,6 +16,7 @@ from typing import Any
 from climblog.expr import Value
 from climblog.modules.checks import derived_plan
 from climblog.modules.derived import DerivedPlan, compute
+from climblog.modules.program import NO_RUNS, Runs
 from climblog.modules.schema import Entity, Module
 
 Row = Mapping[str, Value]
@@ -23,12 +24,16 @@ Table = Sequence[Row]
 
 
 def compute_module(
-    module: Module, tables: Mapping[str, Table], settings: Mapping[str, Value]
+    module: Module,
+    tables: Mapping[str, Table],
+    settings: Mapping[str, Value],
+    runs: Runs = NO_RUNS,
 ) -> dict[str, list[dict[str, Value]]]:
     """The derived values of every row of every entity, in the rows' order.
 
     `tables[entity]` holds the stored values of its rows (a missing entity has none);
-    `settings` holds every setting of the module. Deferred entries are left out.
+    `settings` holds every setting of the module; `runs` the runs of a program module (D-109).
+    Deferred entries are left out.
     """
     order = sorted(module.entities, key=lambda name: module.entities[name].parent is None)
     full: dict[str, list[dict[str, Value]]] = {}  # stored and derived values of each row
@@ -36,7 +41,7 @@ def compute_module(
     for name in order:  # children first
         entity = module.entities[name]
         rows = tables.get(name, ())
-        table = _Table(module, name, entity, rows, tables, full)
+        table = _Table(module, name, entity, rows, tables, full, runs)
         plan = derived_plan(module, name)
         derived = table.run(plan, settings)
         full[name] = [{**row, **values} for row, values in zip(rows, derived, strict=True)]
@@ -88,8 +93,10 @@ class _Table:
         rows: Table,
         tables: Mapping[str, Table],
         full: Mapping[str, list[dict[str, Value]]],
+        runs: Runs = NO_RUNS,
     ) -> None:
         self.module = module
+        self.runs = runs
         self.entity = entity
         self.rows = rows
         self.tables = tables
@@ -144,6 +151,11 @@ class _Table:
 
     def window(self, entity: str, name: str, start: dt.date, end: dt.date) -> list[Value]:
         return self.timeline(entity).window(name, start, end)
+
+    def program(self, name: str, day: dt.date | None) -> Value:
+        if self.module.program is None:
+            return None
+        return self.runs.value(self.module.program, name, day)
 
     def timeline(self, entity: str) -> "Timeline":
         if entity not in self.timelines:

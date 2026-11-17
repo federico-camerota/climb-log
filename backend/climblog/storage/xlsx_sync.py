@@ -24,7 +24,7 @@ from openpyxl.worksheet.cell_range import CellRange, MultiCellRange
 from openpyxl.worksheet.datavalidation import DataValidation, DataValidationList
 from openpyxl.worksheet.worksheet import Worksheet
 
-from climblog.modules.formulas import XLSX
+from climblog.modules.formulas import XLSX, week_rule_formula
 from climblog.storage.base import AUTO, FIRST_DATA_ROW, StorageError
 from climblog.storage.cells import RawCell
 from climblog.storage.grid import formula_rows_end
@@ -38,6 +38,7 @@ from climblog.storage.layout import (
     ListRule,
     RangeRule,
     TabLayout,
+    WeekRule,
     WorkbookLayout,
 )
 
@@ -161,7 +162,7 @@ def _rewrite_rules(sheet: Worksheet, tab: TabLayout) -> None:
 
     for i, spec in sorted(columns.items()):
         cells = f"{get_column_letter(i)}{FIRST_DATA_ROW}:{get_column_letter(i)}{LAST_ROW}"
-        validation = _validation(spec)
+        validation = _validation(spec, f"{get_column_letter(i)}{FIRST_DATA_ROW}")
         if validation is not None:
             validation.add(cells)
             sheet.add_data_validation(validation)
@@ -191,7 +192,8 @@ def _rewrite_rules(sheet: Worksheet, tab: TabLayout) -> None:
             )
 
 
-def _validation(spec: ColumnSpec) -> DataValidation | None:
+def _validation(spec: ColumnSpec, first: str) -> DataValidation | None:
+    """The column's rule; `first` is its first data cell, which a custom formula is written for."""
     rule = spec.validation
     match rule:
         case ListRule():
@@ -226,6 +228,8 @@ def _validation(spec: ColumnSpec) -> DataValidation | None:
             validation = DataValidation(
                 "time", operator="between", formula1="0", formula2="0.999988"
             )
+        case WeekRule():
+            validation = DataValidation("custom", formula1=week_rule_formula(first))
         case _:
             return None
     validation.allow_blank = True

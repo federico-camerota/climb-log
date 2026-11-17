@@ -42,6 +42,8 @@ export type PredictorsData = Schemas["PredictorsData"];
 export type Today = Schemas["Today"];
 export type ModuleDay = Schemas["ModuleDay"];
 export type DueForm = Schemas["DueForm"];
+export type RunList = Schemas["RunList"];
+export type RunInfo = Schemas["RunInfo"];
 
 /** A record's stored values (or its key's), by field name, as the API reads and writes them. */
 export type Values = Record<string, unknown>;
@@ -176,6 +178,18 @@ export async function getRecord(
 
 export function addRecord(module: string, entity: string, values: Values): Promise<Written> {
   return send<Written>("POST", entityPath(module, entity), { values });
+}
+
+/** A program module's runs and the run and week of today (D-109). */
+export function getRuns(module: string): Promise<RunList> {
+  return getJson<RunList>(`/api/modules/${encodeURIComponent(module)}/runs`);
+}
+
+/** Start a new run of a program on an ISO week (`2026-W47`): its Runs tab gets the row. */
+export function startRun(module: string, startWeek: string): Promise<RunList> {
+  return send<RunList>("POST", `/api/modules/${encodeURIComponent(module)}/runs`, {
+    start_week: startWeek,
+  });
 }
 
 /** The fields a form hides for its values so far (`visible_if`, 03 §2.1b). */

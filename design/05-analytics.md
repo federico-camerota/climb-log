@@ -38,7 +38,9 @@ LOW/WATCH/GOOD, from the settings; D-095). `group=none` is one point per record 
 with a record, week (from Monday) and month points run without gaps. Cross-module joins are
 **by calendar day** (D-088); `lag=k` reads every metric after the first k days later ("pain
 next morning" joined to the previous day's session). A filter applies to its entity's metrics.
-`program_week` grouping comes with the program modules (M5). A field's values dated before
+`group=program_week` (a program module's metrics, D-109) gives one point per run and program
+week, `R1·W3`, from week 1 of each run to its latest week with a record; records without a
+run are left out, and a lag can't be used. A field's values dated before
 its `since:` are left out (03 §2.2), as in the formulas and the dashboard.
 
 ## 2. Parity analyses (from the current sheets)

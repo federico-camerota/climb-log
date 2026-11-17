@@ -139,6 +139,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/modules/{module}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Runs
+         * @description A program module's runs (its Runs tab) and the run and week of `date` (default today).
+         */
+        get: operations["list_runs_api_modules__module__runs_get"];
+        put?: never;
+        /**
+         * Start Run
+         * @description Start a new run: the next run number, from the Monday of `start_week`, which must come
+         *     after the latest run's start. The Runs tab gets the row, as if typed in the sheet.
+         */
+        post: operations["start_run_api_modules__module__runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/modules/{module}/views/{view}": {
         parameters: {
             query?: never;
@@ -956,6 +981,11 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** NewRun */
+        NewRun: {
+            /** Start Week */
+            start_week: string;
+        };
         /** Note */
         Note: {
             /** Field */
@@ -1052,6 +1082,17 @@ export interface components {
              */
             start: string;
         };
+        /** Position */
+        Position: {
+            /** Light Week */
+            light_week: boolean;
+            /** Phase */
+            phase: string | null;
+            /** Run */
+            run: number;
+            /** Week */
+            week: number;
+        };
         /** PrePostData */
         PrePostData: {
             /** Groups */
@@ -1119,7 +1160,7 @@ export interface components {
              * Group
              * @enum {string}
              */
-            group: "none" | "day" | "week" | "month";
+            group: "none" | "day" | "week" | "month" | "program_week";
             /** Lag */
             lag: number;
             /** Points */
@@ -1197,6 +1238,41 @@ export interface components {
             field: string;
             /** Label */
             label: string;
+        };
+        /** RunInfo */
+        RunInfo: {
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Number */
+            number: number;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /** Start Week */
+            start_week: string;
+        };
+        /** RunList */
+        RunList: {
+            /** As Of */
+            as_of: string | null;
+            current: components["schemas"]["Position"] | null;
+            /** Issues */
+            issues: components["schemas"]["Issue"][];
+            /** Module */
+            module: string;
+            /** Next Week */
+            next_week: string;
+            /** Offline */
+            offline: boolean;
+            /** Runs */
+            runs: components["schemas"]["RunInfo"][];
+            /** Weeks */
+            weeks: number;
         };
         /** ScatterData */
         ScatterData: {
@@ -1568,6 +1644,11 @@ export interface components {
         WeekbarsData: {
             /** Agg */
             agg: string;
+            /**
+             * Grouped
+             * @default false
+             */
+            grouped: boolean;
             /** Label */
             label: string | null;
             /** Shown */
@@ -1764,7 +1845,7 @@ export interface operations {
                 metric: string[];
                 start?: string | null;
                 end?: string | null;
-                group?: "none" | "day" | "week" | "month";
+                group?: "none" | "day" | "week" | "month" | "program_week";
                 agg?: "mean" | "min" | "max" | "sum" | "count" | "latest";
                 rolling?: number | null;
                 lag?: number;
@@ -1812,6 +1893,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModuleList"];
+                };
+            };
+        };
+    };
+    list_runs_api_modules__module__runs_get: {
+        parameters: {
+            query?: {
+                date?: string | null;
+            };
+            header?: never;
+            path: {
+                module: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunList"];
+                };
+            };
+            /** @description Not a program module */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_run_api_modules__module__runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewRun"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunList"];
+                };
+            };
+            /** @description No such module, entity or record */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The key is taken, the record changed since it was read, or the module doesn't load */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description An unknown field or a bad value */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook is open in Excel or LibreOffice */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook can't be reached: offline, read-only */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
                 };
             };
         };

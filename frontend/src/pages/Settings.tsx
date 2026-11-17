@@ -3,6 +3,7 @@ import { Alert, Badge, Card, Group, List, Loader, Stack, Text, Title } from "@ma
 
 import { isLoaded, type ModuleInfo } from "../api/client";
 import { useModules } from "../api/queries";
+import { ProgramRuns } from "../components/ProgramRuns";
 
 function ModuleCard({ module }: { module: ModuleInfo }) {
   const ok = isLoaded(module);
@@ -17,6 +18,7 @@ function ModuleCard({ module }: { module: ModuleInfo }) {
         {module.version != null && ` · version ${String(module.version)}`}
         {module.kind != null && ` · ${module.kind}`}
       </Text>
+      {ok && module.kind === "program" && <ProgramRuns module={module.id} />}
       {module.problems.length > 0 && (
         <List size="sm" c="red">
           {module.problems.map((problem) => (

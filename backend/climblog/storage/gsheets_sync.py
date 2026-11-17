@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 
 from openpyxl.utils import get_column_letter
 
-from climblog.modules.formulas import GOOGLE, normalize
+from climblog.modules.formulas import GOOGLE, normalize, week_rule_formula
 from climblog.storage.base import AUTO, FIRST_DATA_ROW
 from climblog.storage.cells import RawCell
 from climblog.storage.google_client import Json
@@ -39,6 +39,7 @@ from climblog.storage.layout import (
     RangeRule,
     ReportCell,
     TabLayout,
+    WeekRule,
     WorkbookLayout,
 )
 from climblog.storage.xlsx_sync import GREEN, KEY_NOTE, RED, YELLOW, level_fills
@@ -704,6 +705,10 @@ def _validation(spec: ColumnSpec, column: int, comma: bool) -> Json | None:
             condition = {"type": "DATE_ON_OR_AFTER", "values": [{"userEnteredValue": start}]}
         case DateRule(kind="time"):
             condition = {"type": "NUMBER_BETWEEN", "values": [_v(0, comma), _v(0.999988, comma)]}
+        case WeekRule():
+            formula = "=" + week_rule_formula(cell)
+            formula = local_formula(formula) if comma else formula
+            condition = {"type": "CUSTOM_FORMULA", "values": [{"userEnteredValue": formula}]}
         case _:
             return None
     return {"condition": condition, "strict": True}

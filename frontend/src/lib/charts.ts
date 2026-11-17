@@ -103,7 +103,7 @@ export function weekbarsOption(data: WeekbarsData): EChartsCoreOption {
     yAxis: { type: "value" },
     series: data.stacks.map((stack, i) => ({
       type: "bar",
-      stack: "week",
+      ...(data.grouped ? {} : { stack: "week" }), // runs side by side (D-109)
       name: stack.label === "" ? "Total" : stack.label,
       data: stack.values,
       itemStyle: { color: STATUS_HEX[stack.label] ?? PALETTE[i % PALETTE.length] },

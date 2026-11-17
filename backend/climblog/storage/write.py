@@ -14,10 +14,19 @@ import datetime as dt
 from collections.abc import Callable, Collection, Mapping, Sequence
 
 from climblog.expr import Value
+from climblog.modules.program import RUNS_TAB, Run, parse_week
 from climblog.modules.schema import NEXT, BaseField, Entity, Module
-from climblog.storage.base import Append, Edit, Repository, StorageError, Update, WriteConflict
+from climblog.storage.base import (
+    Append,
+    Edit,
+    Repository,
+    StorageError,
+    TableNotFound,
+    Update,
+    WriteConflict,
+)
 from climblog.storage.cells import CellError, RawCell, parse_cell
-from climblog.storage.load import DELETED, Key, ModuleData, describe_key, load_data
+from climblog.storage.load import DELETED, Key, ModuleData, describe_key, load_data, read_runs
 
 UPDATED_AT = "updated_at"
 # Rows that are no record, which the app can soft delete on their own (D-082).
@@ -107,6 +116,34 @@ class RecordWriter:
                 self._check_parent(ent, record, data, parents)
         if edits:
             self.repo.apply(edits)
+
+    def start_run(self, start_week: str) -> Run:
+        """A new run of a program module (D-109): the next run number, starting on the Monday
+        of `start_week` (`2026-W46`), which must come after the latest run's start."""
+        if self.module.program is None:
+            raise WriteError(f"module '{self.module.module}' is not a program", "start_week")
+        text = start_week.strip()
+        try:
+            start = parse_week(text)
+        except ValueError as error:
+            raise WriteError(str(error), "start_week") from None
+        runs = read_runs(self.repo, [])
+        if runs.runs and start <= runs.runs[-1].start:
+            latest = runs.runs[-1]
+            raise WriteError(
+                f"a new run starts after run {latest.number} ({latest.start_week})", "start_week"
+            )
+        run = Run(runs.next_number(), text, start)
+        cells: dict[str, RawCell] = {"run": run.number, "start_week": text}
+        try:
+            stamped = self._stamped(RUNS_TAB, cells, self._now())
+        except TableNotFound:
+            raise WriteError(
+                f"the workbook has no {RUNS_TAB} tab yet: run "
+                f"`climblog check {self.module.module} --apply`"
+            ) from None
+        self.repo.apply([Append(RUNS_TAB, stamped)])
+        return run
 
     def _appends(self, ent: Entity, record: Mapping[str, Value], now: dt.datetime) -> list[Edit]:
         """A new record's rows: its main tab, and each section tab it has values for."""

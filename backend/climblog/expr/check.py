@@ -34,6 +34,7 @@ from climblog.expr.nodes import (
     Node,
     ParentRef,
     Prev,
+    ProgramRef,
     Setting,
     Unary,
     ValueType,
@@ -78,6 +79,8 @@ class Env:
     parent: Mapping[str, NameInfo] | None = None
     children: Mapping[str, Mapping[str, NameInfo]] = field(default_factory=dict)
     entities: Mapping[str, Mapping[str, NameInfo]] = field(default_factory=dict)
+    # A program module's phase names (D-109); None: no `program.<name>`.
+    program: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -135,9 +138,12 @@ class _Checker:
                 return ParentRef(node.at, name), self.parent(node, name)
             case Attr(obj=Call(func="children") as call, name=name):
                 return self.children(call, name)
+            case Attr(obj=Name(name="program"), name=name):
+                kind = self.program(node, name)
+                return ProgramRef(node.at, name, self.env.date_field), kind
             case Attr():
                 raise ExprError(
-                    "`x.y` is only valid as settings.<name>, parent.<name> or "
+                    "`x.y` is only valid as settings.<name>, parent.<name>, program.<name> or "
                     "children(<entity>).<name>",
                     node.at,
                 )
@@ -334,6 +340,21 @@ class _Checker:
             hint = _suggest(name, list(self.env.parent))
             raise ExprError(f"the parent has no field '{name}'{hint}", node.at)
         return _kind(info)
+
+    def program(self, node: Node, name: str) -> Kind:
+        if self.env.program is None:
+            raise ExprError("program.<name> is only valid in a module with a program:", node.at)
+        kinds = {
+            "run": Kind("number"),
+            "week": Kind("number"),
+            "phase": Kind("text"),
+            "is_light_week": Kind("bool"),
+        }
+        if name not in kinds:
+            hint = _suggest(name, list(kinds)) or f" (one of: {', '.join(kinds)})"
+            raise ExprError(f"program has no '{name}'{hint}", node.at)
+        self.names.add(self.env.date_field)  # computed from the record's date
+        return kinds[name]
 
     def children(self, node: Call, name: str | None) -> tuple[Node, Kind]:
         """`children(e)`: one item per child row (for count); `children(e).x`: their x values."""

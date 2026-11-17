@@ -2800,6 +2800,87 @@
       "title": "PrePostWidget",
       "type": "object"
     },
+    "Program": {
+      "additionalProperties": false,
+      "description": "Weeks, phases and light weeks of a program. Its runs start in the workbook's Runs tab\n(an ISO week each, D-109), so the YAML has no start.",
+      "properties": {
+        "weeks": {
+          "minimum": 1,
+          "title": "Weeks",
+          "type": "integer"
+        },
+        "phases": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ProgramPhase"
+          },
+          "title": "Phases",
+          "type": "array"
+        },
+        "light_weeks": {
+          "default": [],
+          "items": {
+            "type": "integer"
+          },
+          "title": "Light Weeks",
+          "type": "array"
+        },
+        "checkpoints": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "default": {},
+          "title": "Checkpoints",
+          "type": "object"
+        }
+      },
+      "required": [
+        "weeks"
+      ],
+      "title": "Program",
+      "type": "object"
+    },
+    "ProgramPhase": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "weeks": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "title": "Weeks",
+          "type": "array"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "required": [
+        "name",
+        "weeks"
+      ],
+      "title": "ProgramPhase",
+      "type": "object"
+    },
     "Recommendation": {
       "additionalProperties": false,
       "description": "The next-session recommendation (D-076): values computed for a day, then the first rule\nthat holds. The app and the sheet's Summary tab share this one definition (D-071).",
@@ -4555,15 +4636,13 @@
     "program": {
       "anyOf": [
         {
-          "additionalProperties": true,
-          "type": "object"
+          "$ref": "#/$defs/Program"
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
-      "title": "Program"
+      "default": null
     },
     "reference": {
       "anyOf": [

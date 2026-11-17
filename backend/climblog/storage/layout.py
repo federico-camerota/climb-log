@@ -13,6 +13,7 @@ from typing import Literal
 
 from climblog.modules import Module
 from climblog.modules.formulas import (
+    RUNS_START,
     ColumnMap,
     Dialect,
     FormulaColumn,
@@ -23,6 +24,7 @@ from climblog.modules.formulas import (
     side_by_side_formulas,
     summary_formulas,
 )
+from climblog.modules.program import RUNS_TAB
 from climblog.modules.schema import (
     BaseField,
     BoolField,
@@ -79,7 +81,12 @@ class DateRule:
     kind: Literal["date", "time"]
 
 
-Validation = ListRule | RangeRule | DateRule
+@dataclass(frozen=True)
+class WeekRule:
+    """An ISO week typed as text, `2026-W42` (a program run's start, D-109)."""
+
+
+Validation = ListRule | RangeRule | DateRule | WeekRule
 
 
 @dataclass(frozen=True)
@@ -166,6 +173,8 @@ def workbook_layout(module: Module) -> WorkbookLayout:
     tabs = [
         tab for entity in module.entities.values() for tab in _entity_tabs(module, entity, placed)
     ]
+    if module.program is not None:
+        tabs.append(runs_tab(placed))
     settings = tuple(
         SettingRow(key, setting.default, setting.label or "")
         for key, setting in module.settings.items()
@@ -315,6 +324,21 @@ def _entity_tabs(
         columns += [_system(name) for name in SYSTEM_COLUMNS]
         tabs.append(TabLayout(tab, tuple(columns), unknown_ok))
     return tabs
+
+
+def runs_tab(placed: Sequence[FormulaColumn]) -> TabLayout:
+    """A program's Runs tab (D-109): the run number, its start week typed as `2026-W42`, and
+    the Monday it starts on (a formula), one row per run."""
+    (start,) = [c for c in placed if c.tab == RUNS_TAB and c.key == RUNS_START]
+    return TabLayout(
+        RUNS_TAB,
+        (
+            ColumnSpec("run", "Run", "key", RangeRule("whole", 1, None), "0", width=8),
+            ColumnSpec("start_week", "Start week\n(2026-W42)", "key", WeekRule(), "@", width=14),
+            _formula(start),
+            *(_system(name) for name in SYSTEM_COLUMNS),
+        ),
+    )
 
 
 def _column(

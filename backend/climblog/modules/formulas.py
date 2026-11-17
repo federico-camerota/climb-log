@@ -39,12 +39,14 @@ from climblog.expr.nodes import (
     Node,
     ParentRef,
     Prev,
+    ProgramRef,
     Setting,
     Unary,
     Window,
 )
 from climblog.modules.checks import derived_plan, recommendation_plan
 from climblog.modules.derived import BandsStep, ExprStep, MapStep, Step, WhenStep
+from climblog.modules.program import RUNS_TAB
 from climblog.modules.schema import (
     NEXT,
     BandsDerived,
@@ -65,6 +67,9 @@ AUTO = "auto:"
 KEY_COLUMN = "auto:_key"
 DELETED = "deleted"  # soft delete (04 §1): deleted rows are left out, as on read
 _ROW = "\x00"  # the row number in a template
+# The Runs tab of a program module (D-109): typed run number and start week, the Monday a formula.
+RUNS_START = "auto:start"
+RUNS_COLUMNS = ("run", "start_week", RUNS_START, "updated_at", DELETED)
 _YES = ('"yes"', '"y"', '"true"', '"si"', '"sì"', '"1"', "TRUE", "1")  # as `cells.py` reads
 _NUMBER = '">-1E+307"'  # a criterion matching any number (formula blanks are text)
 _HUGE = "1E+307"
@@ -135,6 +140,8 @@ def formula_columns(module: Module) -> tuple[list[FormulaColumn], list[AppOnly]]
         placed, missing = _Entity(module, e_name, plans).placement()
         columns += placed
         app_only += missing
+    if module.program is not None:
+        columns.append(FormulaColumn(RUNS_TAB, RUNS_START, "Start\n(Monday)", "DD/MM/YYYY"))
     return columns, app_only
 
 
@@ -150,7 +157,28 @@ def compile_formulas(
     result: dict[tuple[str, str], Template] = {}
     for e_name in module.entities:
         result.update(_Entity(module, e_name, plans, columns, dialect).formulas())
+    if module.program is not None and RUNS_TAB in columns:
+        result[(RUNS_TAB, RUNS_START)] = Template(run_start_formula(columns[RUNS_TAB]))
     return result
+
+
+def run_start_formula(columns: Mapping[str, int]) -> str:
+    """The Monday of the run's start week (`2026-W42` → 12/10/2026): the Monday of the week
+    holding 4 January (always ISO week 1), plus whole weeks; blank if the week isn't one."""
+    week = _ref(RUNS_TAB, columns, "start_week", RUNS_TAB)
+    year = f"VALUE(LEFT({week},4))"
+    jan4 = f"DATE({year},1,4)"
+    monday = f"{jan4}-WEEKDAY({jan4},2)+1+7*(VALUE(RIGHT({week},2))-1)"
+    return f'IF({week}="","",IFERROR({monday},""))'
+
+
+def week_rule_formula(cell: str) -> str:
+    """A data-validation formula for a start week typed as `2026-W42` (any sheet program)."""
+    number = f"VALUE(RIGHT({cell},2))"
+    return (
+        f'AND(LEN({cell})=8,MID({cell},5,2)="-W",ISNUMBER(VALUE(LEFT({cell},4))),'
+        f"ISNUMBER({number}),{number}>=1,{number}<=53)"
+    )
 
 
 def default_columns(module: Module) -> dict[str, dict[str, int]]:
@@ -165,6 +193,8 @@ def default_columns(module: Module) -> dict[str, dict[str, int]]:
             keys += [c.key for c in autos if not c.hidden] + [c.key for c in autos if c.hidden]
             keys += ["updated_at", DELETED]
             tabs[tab] = {key: i for i, key in enumerate(keys, start=1)}
+    if module.program is not None:
+        tabs[RUNS_TAB] = {key: i for i, key in enumerate(RUNS_COLUMNS, start=1)}
     return tabs
 
 
@@ -274,6 +304,8 @@ class _Plans:
             for tab, names in entity.tab_fields().items():
                 keys = [*names, "updated_at", DELETED, KEY_COLUMN, *autos]
                 self.dry[tab] = {key: i for i, key in enumerate(keys, start=1)}
+        if module.program is not None:
+            self.dry[RUNS_TAB] = {key: i for i, key in enumerate(RUNS_COLUMNS, start=1)}
 
 
 @dataclass(frozen=True)
@@ -694,6 +726,8 @@ class _Compiler:
                 return self.prev(name, n)
             case ParentRef(name=name):
                 return self.parent(name)
+            case ProgramRef(name=name, date_field=date_field):
+                return self.program(name, self.value(date_field))
             case Last(entity=entity, field=name, before=before, inclusive=inclusive, n=n):
                 return self.last(entity, name, self.node(before), inclusive, n)
             case Call():
@@ -823,6 +857,38 @@ class _Compiler:
         field = parent.entity.fields[name]
         assert isinstance(field, BaseField)
         return _field_value(field, found)
+
+    def program(self, name: str, day: F) -> F:
+        """`program.<name>` of a day: the latest run start on or before it on the Runs tab
+        (MAXIFS gives 0 when there is none: no run, no week, D-109)."""
+        program = self.module.program
+        assert program is not None  # `check`: program.<name> needs a program
+        starts = self.column(RUNS_TAB, RUNS_START)
+        deleted = self.column(RUNS_TAB, DELETED)
+        latest = (
+            f'{self.dialect.fn("MAXIFS")}({starts},{starts},"<="&INT({_wrap(day.core)}),'
+            f'{deleted},"")'
+        )
+        none = _either(day.test, f"{latest}=0")
+        week = f"INT((INT({_wrap(day.core)})-{latest})/7)+1"
+        match name:
+            case "run":
+                runs = self.column(RUNS_TAB, "run")
+                return F(f"INDEX({runs},MATCH({latest},{starts},0))", none, "number")
+            case "week":
+                return F(week, none, "number")
+            case "phase":
+                result = '""'
+                for phase in reversed(program.phases):
+                    first, last = phase.weeks
+                    test = f"AND({week}>={first},{week}<={last})"
+                    result = f"IF({test},{_text(phase.name)},{result})"
+                return F(result, none, "text")  # "" between phases and after the last week
+            case _:
+                if not program.light_weeks:
+                    return F("FALSE", None, "bool")
+                light = ",".join(f"{week}={w}" for w in program.light_weeks)
+                return F(f"IF({none},FALSE,OR({light}))", None, "bool")
 
     def last(self, e_name: str, name: str, before: F, inclusive: bool = False, n: int = 1) -> F:
         """The field (or derived value) in the latest record dated before the day, or on it

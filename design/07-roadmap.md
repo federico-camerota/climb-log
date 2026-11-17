@@ -144,7 +144,7 @@ were never built; these come first (the rest went to M6 or the backlog, or out o
   block is checked at load; the unused `hidden_in_form` and `searchable` options are removed.
   → done (D-100, #122).
 
-### Before M5: journal additions ☐
+### Before M5: journal additions ☑
 Small, journal-side additions that start collecting data now (D-103); the two programs keep
 being logged in their legacy workbooks until their M5 modules take over, so nothing is lost
 meanwhile. One PR each, in this order:
@@ -169,7 +169,10 @@ plan, reference tables, `ref` fields, prefill and next-morning items, batch form
 module and dashboard, fear rules, module and dashboard, combined recommendation, close.
 - `program:` block (weeks, phases, runs), reference tables, `ref` fields, prefilled fields.
   A program starts on an **ISO week** (`2026-W42`), not a date: week 1 is that week's Monday,
-  and `program.week` counts from there (D-103).
+  and `program.week` counts from there (D-103). → program block done (D-109, #130): runs in
+  a Runs tab (started in the sheet or from Settings), `run` and `week` on every record,
+  `program.*` in expressions and sheet formulas, `weekbars` and the metric layer by program
+  week.
 - **Training plan** module (D-103): rows per planned session (week, optional day, type, short
   description), written ahead; Today shows this week's plan with the program snapshot, and the
   plan feeds the combined recommendation's suggested content; a dashboard lists the weeks.

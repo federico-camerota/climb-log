@@ -223,10 +223,11 @@ class WeekbarsData(BaseModel):
     widget: Literal["weekbars"]
     label: str | None
     agg: str
-    weeks: list[str]  # 2026-W44, every week from the first record's
-    starts: list[dt.date]  # their Mondays
+    weeks: list[str]  # 2026-W44, every week from the first record's; by program week W1, W2…
+    starts: list[dt.date]  # their Mondays (none by program week)
     stacks: list[Stack]
     shown: int  # weeks shown at first
+    grouped: bool = False  # side by side, not stacked: one bar per run (program weeks, D-109)
 
 
 class StackedSeries(BaseModel):

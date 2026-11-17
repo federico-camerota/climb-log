@@ -10,12 +10,10 @@ kind: program
 status_levels: [GREEN, YELLOW, RED]
 
 settings:
-  start_date: {type: date, default: 2026-10-13, label: Program start date}
   yellow_min: {type: number, default: 3}
   red_min:    {type: number, default: 5}
 
-program:
-  start_date: {setting: start_date}
+program:                           # runs start in the Runs tab: run 1 = 2026-W42 (D-109)
   weeks: 12
   phases:
     - {name: "Block 1 · Calm and control", weeks: [1, 4], note: "RPE 5-6"}
@@ -138,6 +136,7 @@ views:
     - {widget: line,
        series: [{metric: checkin.trap_fatigue}, {metric: checkin.pain_during}, {metric: checkin.pain_next_am}, {metric: checkin.pec_fatigue}],
        bands: [{le: settings.yellow_min, label: GREEN}, {le: settings.red_min, label: YELLOW}, {else: RED}]}
-    - {widget: weekbars, metric: checkin.status, agg: count_by_value, group: program_week}
+    # G/Y/R days per calendar week: by program week the bars are the runs (D-109); #137 decides
+    - {widget: weekbars, metric: checkin.status, agg: count_by_value}
     - {widget: program_grid, reference: exercises, entity: exercise_log}
     - {widget: before_after, entity: retest, by: measure_id, across: checkpoint}

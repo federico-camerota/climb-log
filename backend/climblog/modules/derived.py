@@ -46,8 +46,8 @@ from climblog.modules.schema import (
     YamlPath,
 )
 
-# Names that only M5 (program, reference tables) gives meaning to.
-LATER_NAMES = frozenset({"program", "reference"})
+# Names that only a later M5 issue (reference tables) gives meaning to.
+LATER_NAMES = frozenset({"reference"})
 
 
 @dataclass(frozen=True)
@@ -373,7 +373,11 @@ def _names(node: object) -> Iterator[str]:
 def _reads_no_names(node: object) -> bool:
     if isinstance(node, Call):
         return node.func in ("fields", "children", "last")
-    return isinstance(node, Attr) and isinstance(node.obj, Name) and node.obj.name == "parent"
+    return (
+        isinstance(node, Attr)
+        and isinstance(node.obj, Name)
+        and node.obj.name in ("parent", "program")
+    )
 
 
 def _prev_names(node: object) -> Iterator[str]:

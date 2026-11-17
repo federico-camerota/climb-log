@@ -134,10 +134,8 @@ def test_weekbars_mean_leaves_a_week_without_records_empty() -> None:
     assert counted == [{"label": "", "values": [2, 0, 1, 0, 0]}]
 
 
-def test_weekbars_without_records_and_program_weeks() -> None:
+def test_weekbars_without_records() -> None:
     assert one({"widget": "weekbars", "metric": "session.overall_status"}, [])["weeks"] == []
-    spec = {"widget": "weekbars", "metric": "session.overall_status", "group": "program_week"}
-    assert one(spec, [])["widget"] == "planned"
 
 
 # ---- stacked ----

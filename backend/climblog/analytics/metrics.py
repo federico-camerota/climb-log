@@ -10,6 +10,9 @@ A **metric** is a numeric stored field or derived value of an entity, named
   values in it aggregated (`mean`, `min`, `max`, `sum`, `count` of values, or the `latest`).
   Modules are joined by the calendar day (D-088). Day points are the days with a record;
   week and month points run without gaps from the first period to the last;
+- `group="program_week"`: one point per run and program week of one program module (D-109),
+  `R1·W3`, from week 1 of each run to its latest week with a record; records without a run
+  are left out;
 - `lag=k`: every metric after the first is read k days later (its value of day d + k counts
   for day d), e.g. pain the morning after a session;
 - `filters`: a choice field and the values kept; it applies to the metrics of its entity;
@@ -40,7 +43,7 @@ from climblog.modules.schema import (
     Section,
 )
 
-Group = Literal["none", "day", "week", "month"]
+Group = Literal["none", "day", "week", "month", "program_week"]
 Agg = Literal["mean", "min", "max", "sum", "count", "latest"]
 Direction = Literal["higher_better", "lower_better", "neutral"]
 Row = Mapping[str, Value]
@@ -243,6 +246,10 @@ def run_query(query: Query, sources: Mapping[str, Source], today: dt.date) -> Re
 
     found = [records(m, query.lag if i else 0) for i, m in enumerate(wanted)]
     since = [_since(sources[m.module][0], m) for m in wanted]
+    if query.group == "program_week":
+        if sources[wanted[0].module][0].program is None:
+            raise QueryError("program weeks need metrics of a program module")
+        return _per_program_week(query, wanted, found, since)
     if query.group == "none":
         entity = sources[wanted[0].module][0].entities[wanted[0].entity]
         key = [k for k in entity.key or [] if k != entity.date_field]
@@ -288,6 +295,11 @@ def _check(query: Query, known: Mapping[str, Metric], filters: Mapping[str, Filt
             raise QueryError("one point per record needs metrics of one entity; group by day")
         if query.lag:
             raise QueryError("a lag needs points by day, week or month")
+    if query.group == "program_week":
+        if len({m.split(".")[0] for m in query.metrics}) > 1:
+            raise QueryError("program weeks need metrics of one module")
+        if query.lag:
+            raise QueryError("a lag needs points by day, week or month")
     if query.start is not None and query.end is not None and query.start > query.end:
         raise QueryError("start is after end")
 
@@ -325,6 +337,48 @@ def _per_record(
         n = [0 if v is None else 1 for v in values]
         series.append(Series(metric.id, values, n, _rolling(values, query.rolling)))
     return Result("none", query.agg, 0, points, series)
+
+
+def _per_program_week(
+    query: Query,
+    wanted: list[Metric],
+    found: list[list[tuple[dt.date, Row]]],
+    since: list[dt.date],
+) -> Result:
+    """Points by run and program week (the `run` and `week` every program record has)."""
+    starts: dict[tuple[int, int], dt.date] = {}  # (run, week) → its Monday
+    for rows in found:
+        for day, row in rows:
+            run, week = row.get("run"), row.get("week")
+            if isinstance(run, int) and isinstance(week, int) and week >= 1:
+                monday = day - dt.timedelta(days=day.weekday())  # a run starts on a Monday
+                starts.setdefault((run, week), monday)
+    latest: dict[int, int] = {}
+    for run, week in starts:
+        latest[run] = max(week, latest.get(run, 0))
+    first_monday: dict[int, dt.date] = {}
+    for (run, week), monday in starts.items():
+        first_monday.setdefault(run, monday - dt.timedelta(weeks=week - 1))
+    keys = [(run, week) for run in sorted(latest) for week in range(1, latest[run] + 1)]
+    points = []
+    for run, week in keys:
+        monday = first_monday[run] + dt.timedelta(weeks=week - 1)
+        points.append(Point(monday, monday + dt.timedelta(days=6), f"R{run}·W{week}"))
+    index = {key: i for i, key in enumerate(keys)}
+    series: list[Series] = []
+    for metric, rows, tracked in zip(wanted, found, since, strict=True):
+        buckets: dict[int, list[float]] = {}
+        for day, row in rows:
+            run, week = row.get("run"), row.get("week")
+            if not isinstance(run, int) or not isinstance(week, int) or week < 1:
+                continue
+            value = _number(row.get(metric.field)) if day >= tracked else None
+            if value is not None:
+                buckets.setdefault(index[(run, week)], []).append(value)
+        values = [_aggregate(query.agg, buckets.get(i, [])) for i in range(len(keys))]
+        n = [len(buckets.get(i, [])) for i in range(len(keys))]
+        series.append(Series(metric.id, values, n, _rolling(values, query.rolling)))
+    return Result("program_week", query.agg, 0, points, series)
 
 
 def _period_start(group: Group, day: dt.date) -> dt.date:

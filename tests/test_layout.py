@@ -163,7 +163,7 @@ def test_reference_templates_leave_unknown_columns_alone(load: LoadYaml) -> None
         module: test_layout
         name: Test layout
         version: 1
-        kind: program
+        kind: journal
         entities:
           quiz:
             label: Quiz

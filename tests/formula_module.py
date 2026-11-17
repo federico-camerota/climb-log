@@ -158,3 +158,47 @@ entities:
       week_eights: "count(window(session.effort, days=7, until=date), equals=8)"
       week_mean: "mean(window(session.effort, days=7, until=date))"
 """
+
+# A program (D-109): the run, week, phase and light week of every record, from the Runs tab, on
+# a parent and a child entity; `parity.py` types runs whose weeks cover before the first run,
+# every phase, a light week and weeks after the last one.
+PROGRAM_MODULE = """\
+module: test_program
+name: Test program
+version: 1
+kind: program
+program:
+  weeks: 4
+  phases:
+    - {name: Base, weeks: [1, 2]}
+    - {name: "Peak · build", weeks: [3, 4]}
+  light_weeks: [2, 4]
+entities:
+  checkin:
+    label: Check-in
+    tab: Checkins
+    key: [date]
+    fields:
+      date: {type: date, required: true}
+      pain: {type: integer, min: 0, max: 10}
+      minutes: {type: number, min: 0, max: 120}
+    derived:
+      phase: "program.phase"
+      light: "program.is_light_week"
+      target: "program.week * 10 if program.is_light_week else program.week * 20"
+      early: "program.week <= 2"
+      peak: "program.phase == 'Peak · build'"
+      load: "minutes * program.run"
+  exercise:
+    label: Exercise
+    tab: Exercises
+    key: [date, set_no]
+    parent: {entity: checkin, key: [date]}
+    fields:
+      date: {type: date, required: true}
+      set_no: {type: integer, min: 1}
+      reps: {type: integer, min: 0, max: 30}
+    derived:
+      in_base: "program.phase == 'Base'"
+      reps_week: "reps * program.week"
+"""

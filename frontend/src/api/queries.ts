@@ -13,6 +13,7 @@ import {
   getRecommendation,
   getRecord,
   getRecords,
+  getRuns,
   getToday,
   getView,
   hiddenFields,
@@ -38,6 +39,10 @@ export function useHealth() {
 
 export function useModules() {
   return useQuery({ queryKey: ["modules"], queryFn: getModules });
+}
+
+export function useRuns(module: string, enabled = true) {
+  return useQuery({ queryKey: ["runs", module], queryFn: () => getRuns(module), enabled });
 }
 
 export function useRecords(module: string, entity: string, enabled = true) {

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 from conftest import LoadYaml
-from formula_module import MODULE, WINDOW_MODULE
+from formula_module import MODULE, PROGRAM_MODULE, WINDOW_MODULE
 from parity import generate, mismatches, soffice, work_dir
 
 from climblog.modules import Module, load_module
@@ -39,6 +39,11 @@ def test_every_construct_matches_the_app(load: LoadYaml, seed: int) -> None:
 @pytest.mark.parametrize("seed", [1, 2, 3])
 def test_last_until_and_window_match_the_app(load: LoadYaml, seed: int) -> None:
     assert check(load(WINDOW_MODULE), seed) == []
+
+
+@pytest.mark.parametrize("seed", [1, 2])
+def test_program_weeks_match_the_app(load: LoadYaml, seed: int) -> None:
+    assert check(load(PROGRAM_MODULE), seed) == []
 
 
 @pytest.mark.parametrize(

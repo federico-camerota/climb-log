@@ -213,6 +213,9 @@ class FakeRelated:
         days = {dt.date(2026, 10, d): v for d, v in [(6, 1), (10, 4), (15, None), (20, 4)]}
         return [v for d, v in days.items() if start <= d <= end]
 
+    def program(self, name: str, day: dt.date | None) -> Value:
+        return None
+
 
 @pytest.mark.parametrize(
     ("source", "expected"),
