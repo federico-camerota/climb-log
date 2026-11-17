@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router";
 
 import type { ModuleInfo } from "../api/client";
+import { RunOfDay } from "../components/ProgramRuns";
 import { WithModule } from "../components/WithModule";
 import { RecordForm } from "../forms/RecordForm";
 import { entityOf, fieldLabel, formLabel, formsOf, keyOf } from "../forms/schema";
@@ -123,6 +124,7 @@ function LogForm({ module }: { module: ModuleInfo }) {
           );
         })}
       </Group>
+      {module.kind === "program" && <RunOfDay module={module.id} date={date} />}
       {unpicked.length > 0 ? (
         <Text c="dimmed">Pick the {unpicked.join(" and ").toLowerCase()} first.</Text>
       ) : (

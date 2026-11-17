@@ -53,14 +53,19 @@ describe("Settings", () => {
       ],
       current: { run: 2, week: 1, phase: "Block 1", light_week: false },
     };
+    let posted = false;
     const calls = stubApi({
       "/api/health": HEALTH,
       "/api/modules": {
         modules: [{ ...module("shoulder", "Shoulder program", ["checkin"]), kind: "program" }],
         problems: [],
       },
-      "/api/modules/shoulder/runs": runs,
-      "POST /api/modules/shoulder/runs": started,
+      // after the POST the server reads the new run back, as the app asks again
+      "/api/modules/shoulder/runs": () => Promise.resolve(Response.json(posted ? started : runs)),
+      "POST /api/modules/shoulder/runs": () => {
+        posted = true;
+        return Promise.resolve(Response.json(started));
+      },
     });
     renderApp("/settings");
     expect(await screen.findByText("Today: run 1, week 6 · Block 2")).toBeInTheDocument();

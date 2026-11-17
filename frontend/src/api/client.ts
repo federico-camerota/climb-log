@@ -180,9 +180,10 @@ export function addRecord(module: string, entity: string, values: Values): Promi
   return send<Written>("POST", entityPath(module, entity), { values });
 }
 
-/** A program module's runs and the run and week of today (D-109). */
-export function getRuns(module: string): Promise<RunList> {
-  return getJson<RunList>(`/api/modules/${encodeURIComponent(module)}/runs`);
+/** A program module's runs and the run and week of a day (default today; D-109). */
+export function getRuns(module: string, date?: string): Promise<RunList> {
+  const query = date === undefined ? "" : `?date=${encodeURIComponent(date)}`;
+  return getJson<RunList>(`/api/modules/${encodeURIComponent(module)}/runs${query}`);
 }
 
 /** Start a new run of a program on an ISO week (`2026-W47`): its Runs tab gets the row. */

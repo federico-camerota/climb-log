@@ -6,7 +6,7 @@ import { useState } from "react";
 import { startRun, type RunList } from "../api/client";
 import { useRuns } from "../api/queries";
 import { formatDateTime } from "../lib/format";
-import { weekMonday } from "../lib/weeks";
+import { describePosition, weekMonday } from "../lib/weeks";
 
 /** A program module's runs on Settings (D-109): each run's start and end, today's run and week,
  * and a new run started on an ISO week (its row goes to the Runs tab, as if typed there). */
@@ -27,7 +27,7 @@ export function ProgramRuns({ module }: { module: string }) {
       <Text size="sm" fw={500}>
         Runs
       </Text>
-      <Text size="sm">{describeToday(data)}</Text>
+      <Text size="sm">Today: {describePosition(data)}</Text>
       {data.runs.length > 0 && (
         <Table withTableBorder={false} verticalSpacing={2}>
           <Table.Thead>
@@ -82,14 +82,21 @@ export function ProgramRuns({ module }: { module: string }) {
   );
 }
 
-function describeToday(data: RunList): string {
-  const now = data.current;
-  if (now === null) {
-    return data.runs.length === 0 ? "No run has started yet." : "Today is before the first run.";
-  }
-  const where = now.week > data.weeks ? `after the last week (${String(data.weeks)})` : now.phase;
-  const light = now.light_week ? " · light week" : "";
-  return `Today: run ${String(now.run)}, week ${String(now.week)}${where ? ` · ${where}` : ""}${light}`;
+/** The Log page's line under the date (D-109): the run and week the record will belong to,
+ * read-only, as the app and the sheet compute them from the date. */
+export function RunOfDay({ module, date }: { module: string; date: string }) {
+  const query = useRuns(module, date);
+  if (!query.isSuccess) return null;
+  const data = query.data;
+  const text =
+    data.current === null && data.runs.length === 0
+      ? "No run has started yet: start one in Settings."
+      : describePosition(data);
+  return (
+    <Text size="sm" c={data.current === null ? "orange" : "dimmed"}>
+      {text.charAt(0).toUpperCase() + text.slice(1)}
+    </Text>
+  );
 }
 
 function StartRun({
@@ -105,8 +112,9 @@ function StartRun({
   const queryClient = useQueryClient();
   const start = useMutation({
     mutationFn: () => startRun(module, week.trim()),
-    onSuccess: (runs) => {
-      queryClient.setQueryData(["runs", module], runs);
+    onSuccess: () => {
+      // the runs, and the Log page's run line of any day, are read again
+      void queryClient.invalidateQueries({ queryKey: ["runs", module] });
       // every record's run and week may change: read them again
       void queryClient.invalidateQueries({ queryKey: ["records", module] });
       void queryClient.invalidateQueries({ queryKey: ["view", module] });
