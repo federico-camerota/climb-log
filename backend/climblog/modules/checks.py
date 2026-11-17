@@ -67,6 +67,7 @@ _TAB_MAX_LENGTH = 31  # Excel's limit
 _VALUE_TYPES: dict[str, ValueType] = {
     "date": "date",
     "datetime": "date",
+    "week": "date",  # its Monday
     "time": "time",
     "number": "number",
     "integer": "number",
@@ -291,7 +292,7 @@ def _check_entity(module: Module, e_name: str, entity: Entity) -> list[Problem]:
         problems.append(
             Problem(
                 (*at, "date_field") if "date_field" in entity.model_fields_set else at,
-                f"date field '{entity.date_field}' must be a field of type date or datetime",
+                f"date field '{entity.date_field}' must be a field of type date, datetime or week",
             )
         )
     for i, part in enumerate(key):

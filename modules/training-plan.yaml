@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=module.schema.json
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Training plan (#131, D-110): the sessions planned for each week, written ahead (on the phone in
+# its Google Sheet, or in the app), and this week's plan on Today, today's sessions first.
+# New tracker, no legacy workbook. One row per planned session: its week as 2026-W47 and,
+# optionally, its day; blank day = sometime that week.
+# A plain calendar of weeks: add a `program:` block (kind: program) to give each planned session
+# its run, program week and phase too (D-109); the field is `week_of` because a program module's
+# own `week` column is its program week.
+
+module: training_plan
+name: Training plan
+version: 1
+kind: journal
+description: The sessions planned for each week, written ahead; this week's plan on Today.
+
+entities:
+  planned:
+    label: Planned session
+    tab: Plan
+    date_field: week_of
+    key: [week_of, item]                  # blank number = the next one that week (D-050)
+    fields:
+      week_of: {type: week, required: true, label: "Week (2026-W47)"}
+      item: {type: integer, min: 1, default: next, label: "Session # (blank = next)"}
+      day:  {type: choice, choices: [Mon, Tue, Wed, Thu, Fri, Sat, Sun], label: Day (blank = any)}
+      type:
+        type: choice
+        required: true
+        allow_other: true                # anything else after a warning (Q23)
+        choices: [Climbing, Hangboard, Strength, Endurance / ARC, Active rest,
+                  Shoulder primer, Shoulder A, Shoulder B,
+                  Fear gym 1, Fear gym 2, Fear outdoor 1, Fear outdoor 2,
+                  Max hangs, Finger curls, Rest]
+      description: {type: text, optional: true, label: What (optional)}
+
+forms:
+  plan: {entity: planned}
+
+views:
+  overview:
+    - widget: table
+      label: This week and the next four
+      entity: planned
+      columns: [week_of, day, type, description]
+      labels: {week_of: Week, day: Day, description: What}
+      window_days: 6                   # from this week's Monday, whatever the day
+      ahead_days: 28                   # to the Monday four weeks on: five weeks, oldest first
+    - widget: weekbars
+      label: Planned sessions per week, by type
+      metric: planned.type
+      agg: count_by_value

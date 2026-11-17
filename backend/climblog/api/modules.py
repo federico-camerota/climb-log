@@ -9,7 +9,7 @@ and soft delete one (D-075), through `RecordWriter`.
 """
 
 import datetime as dt
-from collections.abc import Iterator, Sequence
+from collections.abc import Collection, Iterator, Sequence
 from contextlib import contextmanager
 from typing import Any
 
@@ -20,7 +20,7 @@ from climblog.catalog import Catalog, EntityRecords, Entry, served
 from climblog.expr import Value
 from climblog.modules.program import Runs as ProgramRuns
 from climblog.modules.program import week_text
-from climblog.modules.schema import BaseField
+from climblog.modules.schema import BaseField, DateField
 from climblog.storage import (
     DataIssue,
     KeyTaken,
@@ -224,7 +224,7 @@ def list_records(request: Request, module: str, entity: str) -> Records:
     return Records(
         module=module,
         entity=entity,
-        records=[_record(data, index) for index in range(len(data.records))],
+        records=[_record(data, index, _weeks(entry, entity)) for index in range(len(data.records))],
         issues=[_issue(i) for i in data.issues],
         as_of=data.as_of,
         offline=data.offline,
@@ -413,7 +413,7 @@ def _written(current: Catalog, entry: Entry, entity: str, key: Sequence[Value]) 
     if found is None:  # pragma: no cover - written, then deleted by hand at once
         raise HTTPException(404, WriteProblem(message="the record is gone").model_dump())
     data, index = found
-    return Written(record=_record(data, index), as_of=data.as_of)
+    return Written(record=_record(data, index, _weeks(entry, entity)), as_of=data.as_of)
 
 
 def _issue(issue: DataIssue) -> Issue:
@@ -429,8 +429,21 @@ def _issue(issue: DataIssue) -> Issue:
     )
 
 
-def _record(data: EntityRecords, index: int) -> Record:
-    return Record(values=data.records[index], derived=data.derived[index], rows=data.rows[index])
+def _record(data: EntityRecords, index: int, weeks: Collection[str] = ()) -> Record:
+    """A record for the API; its week fields as typed, `2026-W47` (D-110), not their Monday."""
+    values = dict(data.records[index])
+    for name in weeks:
+        value = values.get(name)
+        if isinstance(value, dt.date):
+            values[name] = week_text(value)
+    return Record(values=values, derived=data.derived[index], rows=data.rows[index])
+
+
+def _weeks(entry: Entry, entity: str) -> set[str]:
+    """The entity's week fields (D-110)."""
+    assert entry.module is not None
+    fields = entry.module.entities[entity].fields
+    return {n for n, f in fields.items() if isinstance(f, DateField) and f.type == "week"}
 
 
 def _info(entry: Entry) -> ModuleInfo:

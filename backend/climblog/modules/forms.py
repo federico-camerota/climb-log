@@ -10,6 +10,10 @@ What is due on a day: when no form's entity has a record that day, the module's 
 there are records, each record's forms are listed (pre, then post), done / partial / missing by
 how many of their scored fields (everything but text) are filled. A field hidden by its
 `visible_if` doesn't count (`hidden`), as the form doesn't show it.
+
+A form whose entity is dated by a week (a training plan, D-110) is never due: its records of
+the day's week are listed instead (`Day.plan`), today's first, then by day, those without a
+day last.
 """
 
 import datetime as dt
@@ -19,7 +23,7 @@ from typing import Any
 
 from climblog.expr import Value, evaluate, prepare
 from climblog.modules.checks import expression_env
-from climblog.modules.schema import BaseField, Entity, Module, TextField
+from climblog.modules.schema import BaseField, ChoiceField, DateField, Entity, Module, TextField
 
 DONE, PARTIAL, MISSING = "done", "partial", "missing"
 ANOTHER = "another"  # a form with `repeat: true`: one more record can be added (D-107)
@@ -48,6 +52,17 @@ class Due:
 
 
 @dataclass(frozen=True)
+class Planned:
+    """A planned session of the day's week (D-110)."""
+
+    form: str  # the form that edits it
+    key: dict[str, Value]  # its key, the week as typed (`2026-W47`)
+    day: str | None  # Mon…Sun, or none: sometime that week
+    line: str  # "Tue · Climbing · Limit bouldering"
+    today: bool  # planned for the day itself
+
+
+@dataclass(frozen=True)
 class Day:
     """A module's forms on a day, and its latest record up to it."""
 
@@ -56,6 +71,10 @@ class Day:
     last: dt.date | None  # the latest record of the first form's entity, on or before the day
     last_label: str | None = None  # that entity's label, e.g. "Session"
     notes: list[str] = field(default_factory=list)  # forms left out, and why
+    plan: list[Planned] = field(default_factory=list)  # the week's planned sessions (D-110)
+    plan_form: str | None = None  # the form that plans one more
+    plan_week: str | None = None  # the day's week, `2026-W47`
+    plan_field: str | None = None  # the field the week goes in (the form's date field)
 
 
 def forms_of(module: Module) -> dict[str, Form]:
@@ -127,8 +146,11 @@ def due(
     forms = forms_of(module)
     notes: list[str] = []
     usable = [f for f in forms.values() if f.phase != "next_day"]
+    planning = [f for f in usable if by_week(module.entities[f.entity])]
+    usable = [f for f in usable if f not in planning]
+    plan = _plan(module, planning, tables, day)
     if not usable:
-        return Day([], False, None, notes=notes)
+        return Day([], False, None, notes=notes, **plan)
     on_day = {
         name: _sorted(
             module.entities[name],
@@ -182,7 +204,69 @@ def due(
         max(dates, default=None),
         first.label,
         notes,
+        **plan,
     )
+
+
+WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def by_week(entity: Entity) -> bool:
+    """Whether the entity's records are dated by a week (a plan, D-110)."""
+    dating = entity.fields.get(_date_field(entity))
+    return isinstance(dating, DateField) and dating.type == "week"
+
+
+def _plan(
+    module: Module,
+    forms: Sequence[Form],
+    tables: Mapping[str, Sequence[Mapping[str, Value]]],
+    day: dt.date,
+) -> dict[str, Any]:
+    """The planned sessions of the day's week, today's first, then by day, those without a day
+    last; and the form that plans one more."""
+    if not forms:
+        return {}
+    from climblog.modules.program import week_text  # it imports the schema
+
+    monday = day - dt.timedelta(days=day.weekday())
+    today = WEEKDAYS[day.weekday()]
+    found: list[tuple[tuple[int, int, int], Planned]] = []
+    for e_name in dict.fromkeys(f.entity for f in forms):
+        entity = module.entities[e_name]
+        form = next(f.name for f in forms if f.entity == e_name)
+        date = _date_field(entity)
+        weekday = _weekday_field(entity)
+        keys = entity.key or [date]
+        shown = [n for n in entity.fields if n not in keys and n != weekday]
+        for record in _sorted(
+            entity, [r for r in tables.get(e_name, ()) if _day(r, entity) == monday]
+        ):
+            when = record.get(weekday) if weekday else None
+            when = when if isinstance(when, str) and when in WEEKDAYS else None
+            parts = [when or "Any day"]
+            parts += [str(v) for n in shown if (v := record.get(n)) not in (None, "")]
+            key = {p: week_text(monday) if p == date else record.get(p) for p in keys}
+            order = (
+                0 if when == today else 1,
+                WEEKDAYS.index(when) if when else len(WEEKDAYS),
+                len(found),
+            )
+            found.append((order, Planned(form, key, when, " · ".join(parts), when == today)))
+    return {
+        "plan": [planned for _, planned in sorted(found, key=lambda item: item[0])],
+        "plan_form": forms[0].name,
+        "plan_week": week_text(monday),
+        "plan_field": _date_field(module.entities[forms[0].entity]),
+    }
+
+
+def _weekday_field(entity: Entity) -> str | None:
+    """The field naming a planned session's day: a choice of Mon…Sun."""
+    for name, f in entity.fields.items():
+        if isinstance(f, ChoiceField) and tuple(f.choices or ()) == WEEKDAYS:
+            return name
+    return None
 
 
 def _status(

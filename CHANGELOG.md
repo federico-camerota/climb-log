@@ -7,6 +7,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- A training plan module (`modules/training-plan.yaml`, on Google Sheets): the sessions planned
+  for each week, typed by week (`2026-W47`) with an optional day, a type and a description, in the
+  sheet or in the app (the Log page asks for the week). Today lists this week's plan, today's
+  sessions first, with a link to plan one more; its dashboard shows this week and the next four.
+  Fields of the new type `week` can date a record; a `program:` block is optional (#131, D-110).
 - Program modules (`kind: program`) get a checked `program:` block (weeks, phases, light weeks,
   checkpoints) and **runs**: each run starts on an ISO week typed in the workbook's new Runs tab
   (`2026-W42`, validated), or started from Settings ("Start a new run…"). Every record gets its

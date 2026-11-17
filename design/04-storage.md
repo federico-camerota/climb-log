@@ -23,6 +23,10 @@
     number or week (`2027-W53`: 2027 has 52) is a data issue and left out, and so is a second
     run starting in the same week (the formulas take the first); a deleted row counts for
     neither. Every dated tab gets `auto:run` and `auto:week` columns.
+  - A **week** column (a field of type `week`, D-110: a planned session's week) holds text
+    `2026-W47`, formatted as text, with the same validation as the Runs tab's start week. The
+    app writes it as text (on Google as a raw string, so it is never read as a date) and reads
+    a typed date as its week. Its formulas use the week's Monday, the hidden `auto:_key` too.
 **Hand entry is a first-class path** (D-003, D-013): I sometimes log directly in Google
 Sheets without the app, so every tab must be comfortable to fill by hand.
 
@@ -406,7 +410,7 @@ stored on disk (`~/.local/share/climblog/snapshots/<module>.json.gz`, folder set
 | Climbing journal | Google Sheets | daily use, hand entry when away |
 | Shoulder program | Google Sheets | daily use |
 | Fear of falling | Google Sheets | daily use |
-| Training plan (M5, D-103) | decided in its issue | the week's planned sessions |
+| Training plan (`modules/training-plan.yaml`, D-110) | Google Sheets | the week's planned sessions, typed ahead on the phone or in the app |
 | Protein log (`modules/protein.yaml`, D-107) | Google Sheets | protein per meal, typed on the phone; the day's total |
 | **Finger strength** (4th) | local `.xlsx` | real journal (max hangs, finger curls) and the end-to-end test of the local backend, child entities and conditional fields (D-019, D-025) |
 

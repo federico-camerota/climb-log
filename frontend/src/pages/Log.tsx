@@ -10,6 +10,8 @@ import { WithModule } from "../components/WithModule";
 import { RecordForm } from "../forms/RecordForm";
 import { entityOf, fieldLabel, formLabel, formsOf, keyOf } from "../forms/schema";
 import { asText } from "../forms/values";
+import { formatDateTime } from "../lib/format";
+import { weekSpan, weekText } from "../lib/weeks";
 
 export function Log() {
   return (
@@ -59,7 +61,11 @@ function LogForm({ module }: { module: ModuleInfo }) {
   if (entity === undefined) return <Stack>{picker}</Stack>;
 
   const [dateField = "date", ...others] = keyOf(entity);
-  const date = params.get(dateField) ?? dayjs().format("YYYY-MM-DD");
+  // a plan's records are dated by a week, typed 2026-W47 (D-110)
+  const byWeek = entity.fields[dateField]?.type === "week";
+  const today = dayjs().format("YYYY-MM-DD");
+  const date = params.get(dateField) ?? (byWeek ? weekText(today) : today);
+  const span = byWeek ? weekSpan(date) : null;
   const recordKey: Record<string, string> = { [dateField]: date };
   for (const name of others) {
     // `default: next` (a meal's number): blank, the next number when saved (D-050, D-107)
@@ -83,14 +89,32 @@ function LogForm({ module }: { module: ModuleInfo }) {
     <Stack>
       {picker}
       <Group align="end">
-        <DateInput
-          label="Date"
-          valueFormat="DD/MM/YYYY"
-          value={date}
-          onChange={(value) => {
-            if (value !== null) setKey(dateField, value);
-          }}
-        />
+        {byWeek ? (
+          <TextInput
+            label="Week"
+            placeholder="2026-W47"
+            value={date}
+            error={span === null ? "Not a week like 2026-W47" : undefined}
+            description={
+              span === null
+                ? undefined
+                : `Mon ${formatDateTime(span[0])} – Sun ${formatDateTime(span[1])}`
+            }
+            onChange={(event) => {
+              setKey(dateField, event.currentTarget.value.trim());
+            }}
+            w={200}
+          />
+        ) : (
+          <DateInput
+            label="Date"
+            valueFormat="DD/MM/YYYY"
+            value={date}
+            onChange={(value) => {
+              if (value !== null) setKey(dateField, value);
+            }}
+          />
+        )}
         {others.map((name) => {
           const field = entity.fields[name];
           if (field?.choices !== undefined) {
@@ -124,8 +148,12 @@ function LogForm({ module }: { module: ModuleInfo }) {
           );
         })}
       </Group>
-      {module.kind === "program" && <RunOfDay module={module.id} date={date} />}
-      {unpicked.length > 0 ? (
+      {module.kind === "program" && (byWeek ? span !== null : true) && (
+        <RunOfDay module={module.id} date={span?.[0] ?? date} />
+      )}
+      {byWeek && span === null ? (
+        <Text c="dimmed">Type the week first, like 2026-W47.</Text>
+      ) : unpicked.length > 0 ? (
         <Text c="dimmed">Pick the {unpicked.join(" and ").toLowerCase()} first.</Text>
       ) : (
         <RecordForm

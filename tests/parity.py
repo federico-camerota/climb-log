@@ -33,7 +33,7 @@ from climblog.expr import Value
 from climblog.modules import Module
 from climblog.modules.compute import compute_module
 from climblog.modules.formulas import formula_columns
-from climblog.modules.program import RUNS_TAB
+from climblog.modules.program import RUNS_TAB, week_text
 from climblog.modules.schema import (
     BaseField,
     BoolField,
@@ -198,7 +198,7 @@ def typed_rows(
                 empty = all(values[k] is None for k in names if k not in keys)
                 if section and (rng.random() < 0.2 or empty):
                     continue  # a section not filled in
-                tab_rows.append({k: _cell(v) for k, v in values.items()})
+                tab_rows.append({k: _cell(v, entity.fields[k]) for k, v in values.items()})
     return rows, typed
 
 
@@ -214,7 +214,10 @@ def _records(module: Module, rng: random.Random, count: int) -> dict[str, list[d
         while len(records) < count:
             day += dt.timedelta(days=rng.choice([0, 1, 1, 2, 3]))
             record = {k: _value(module, f, rng) for k, f in _fields(module, name).items()}
-            record[entity.date_field] = day
+            dating = entity.fields[entity.date_field]
+            by_week = isinstance(dating, DateField) and dating.type == "week"
+            # a week-dated record (a plan, D-110) is dated by its week's Monday
+            record[entity.date_field] = day - dt.timedelta(days=day.weekday()) if by_week else day
             for part in (entity.key or [])[1:]:
                 if isinstance(entity.fields[part], NumberField):
                     record[part] = rng.choice([None, None, 1, 2])  # a second session now and then
@@ -318,7 +321,9 @@ def _value(module: Module, field: BaseField, rng: random.Random) -> Value:
     return None
 
 
-def _cell(value: Value) -> Any:
+def _cell(value: Value, field: object = None) -> Any:
+    if isinstance(field, DateField) and field.type == "week" and isinstance(value, dt.date):
+        return week_text(value)  # typed as 2026-W47 (D-110)
     if isinstance(value, bool):
         return "Yes" if value else "No"
     if isinstance(value, dt.date) and not isinstance(value, dt.datetime):

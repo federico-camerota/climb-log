@@ -4,6 +4,7 @@
 // authority on every value (D-075); the checks here only answer sooner.
 
 import type { FieldDef, ScaleDef } from "./schema";
+import { weekMonday } from "../lib/weeks";
 
 /** What an input holds: text for most fields, a number (or null) for a scale. */
 export type InputValue = string | number | null;
@@ -49,6 +50,9 @@ export function unchanged(field: FieldDef, read: unknown, value: InputValue): bo
 export function problem(field: FieldDef, value: InputValue): string | null {
   const blank = value === null || (typeof value === "string" && value.trim() === "");
   if (blank) return field.required === true ? "Required" : null;
+  if (field.type === "week" && typeof value === "string" && weekMonday(value) === null) {
+    return "Not a week like 2026-W47";
+  }
   if (!NUMERIC.has(field.type) || typeof value !== "string") return null;
   const text = value.trim();
   if (!NUMBER.test(text)) return "Not a number (e.g. 7,5)";

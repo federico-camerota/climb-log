@@ -12,8 +12,8 @@ as v0.3.0. M4 (analytics: the metric layer, widget library v1, training load, be
 grades, the Explore page with correlations; also SVG charts and a calendar day's records)
 done, released as v0.4.0 (`07-roadmap.md`, D-086–D-098). The journal additions planned
 before M5 are done (hardest send, more body parts, a protein log; D-105–D-107). M5, the program
-modules with a training plan (D-103), is in progress: the program block with its runs is done
-(D-109).
+modules with a training plan (D-103), is in progress: the program block with its runs (D-109)
+and the training plan (D-110) are done.
 Last updated 2026-11-17.
 
 ## Read in this order

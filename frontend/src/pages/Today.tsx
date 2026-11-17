@@ -152,6 +152,7 @@ function DueList({ day, date }: { day: ModuleDay; date: string }) {
           )}
         </Group>
         {day.week !== null && <WeekLine week={day.week} />}
+        {day.plan_form != null && <PlanList day={day} />}
         {day.any_one && <Text size="sm">Nothing logged yet: one of these.</Text>}
         {day.items.map((item) => (
           <DueItem
@@ -173,6 +174,40 @@ function DueList({ day, date }: { day: ModuleDay; date: string }) {
         )}
       </Stack>
     </Card>
+  );
+}
+
+/** The day's week of a training plan (D-110): today's planned sessions first, then by day. */
+function PlanList({ day }: { day: ModuleDay }) {
+  const week = day.plan_week ?? "";
+  const link = (key: Record<string, unknown>) => {
+    const search = new URLSearchParams();
+    for (const [name, value] of Object.entries(key)) {
+      if (value !== null && value !== undefined) search.set(name, asText(value));
+    }
+    return `/log/${day.module}/${day.plan_form ?? ""}?${search.toString()}`;
+  };
+  return (
+    <Stack gap={4}>
+      <Text size="sm" c="dimmed">
+        This week ({week})
+      </Text>
+      {day.plan.length === 0 && <Text size="sm">Nothing planned this week yet.</Text>}
+      {day.plan.map((item) => (
+        <Group key={JSON.stringify(item.key)} justify="space-between" wrap="nowrap">
+          <Text size="sm" fw={item.today ? 600 : undefined}>
+            {item.today ? "Today · " : ""}
+            {item.today ? item.line.split(" · ").slice(1).join(" · ") : item.line}
+          </Text>
+          <Anchor component={Link} to={link(item.key)} size="sm">
+            Open
+          </Anchor>
+        </Group>
+      ))}
+      <Anchor component={Link} to={link({ [day.plan_field ?? "week"]: week })} size="sm">
+        Plan a session
+      </Anchor>
+    </Stack>
   );
 }
 

@@ -108,6 +108,7 @@ entities:
 | type | Spreadsheet cell | Form control | Notes |
 |---|---|---|---|
 | `date`, `datetime`, `time` | ISO date / datetime | date picker (`date`), time input (`time`), text (`datetime`) | typed by hand: ISO or day-first (`24/10/2026`), never month-first (04 §3b) |
+| `week` | text `2026-W47` (validated) | text, this week by default as a record's date | an ISO week, read as its **Monday** (a date cell counts as its week); it can be an entity's `date_field`: records **dated by a week** (a training plan, D-110). In formulas a week is its Monday; `last()`/`window()` over a week-dated entity are app only |
 | `number` | number | text with a decimal keyboard (D-077) | `min`, `max`, `step`, `unit` |
 | `integer` | number | text with a decimal keyboard | |
 | `scale` | number | dropdown, blank first, best value marked (D-078) | references `scales:`; carries `direction` |
@@ -488,6 +489,13 @@ reminder card asks for "pain next morning" (`phase: next_day`).
 `from: journal.session.hardest_grade` and is prefilled (editable) from the same-day record
 of another module.
 
+A form whose entity is **dated by a week** (`date_field` of type `week`: a training plan,
+D-110) is never due. Today lists that entity's records of the day's week instead: today's first
+(the day is a choice field of `Mon`…`Sun`), then by day, those without a day ("any day") last,
+each as its non-key values ("Tue · Climbing · Limit bouldering"), and a link to plan one more.
+On the Log page its date is a **week** input (`2026-W47`, this week by default, with the Monday
+and Sunday it covers).
+
 ### 2.7 Views (dashboards)
 A view is a list of widgets from a **widget library**, each bound to metrics:
 
@@ -552,6 +560,8 @@ Drawn with #78 (D-084):
   window_days: 14
   averages: [wellbeing_score]
   note: note                 # the latest non-blank one
+  # ahead_days: 28           # a plan (D-110): also the records up to 28 days after the day,
+                             #   oldest first (window_days: 6 = from this week's Monday)
 - widget: monthly            # per calendar month, 6 at first
   count: session
   count_label: Sessions logged

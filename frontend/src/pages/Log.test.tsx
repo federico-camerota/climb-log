@@ -429,4 +429,47 @@ describe("Log, module options in forms (#122)", () => {
       await screen.findByText("Before the first run (2026-W37): no run or week"),
     ).toBeInTheDocument();
   });
+
+  it("logs a plan by week, this week by default", async () => {
+    const plan = {
+      id: "training_plan",
+      name: "Training plan",
+      version: 1,
+      kind: "journal",
+      problems: [],
+      module_schema: {
+        entities: {
+          planned: {
+            label: "Planned session",
+            date_field: "week_of",
+            key: ["week_of", "item"],
+            fields: {
+              week_of: { type: "week" },
+              item: { type: "integer", default: "next" },
+              type: { type: "choice", choices: ["Climbing", "Rest"] },
+            },
+          },
+        },
+        forms: { plan: { entity: "planned" } },
+      },
+    };
+    const empty = { records: [], issues: [], as_of: null, offline: false };
+    stubApi({
+      "/api/health": HEALTH,
+      "/api/modules": { modules: [plan], problems: [] },
+      "/api/modules/training_plan/planned": {
+        module: "training_plan",
+        entity: "planned",
+        ...empty,
+      },
+    });
+    const { router } = renderApp("/log/training_plan/plan?week_of=2026-W47");
+    const week = await screen.findByRole("textbox", { name: "Week" });
+    expect(week).toHaveValue("2026-W47");
+    expect(screen.getByText("Mon 16/11/2026 – Sun 22/11/2026")).toBeInTheDocument();
+    await userEvent.clear(week);
+    await userEvent.type(week, "2026-W4x");
+    expect(screen.getByText("Not a week like 2026-W47")).toBeInTheDocument();
+    expect(router.state.location.search).toContain("week_of=2026-W4x");
+  });
 });

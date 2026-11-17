@@ -5,12 +5,12 @@ To be resolved before or during the milestone shown. Answers are moved into `dec
 ## Open
 | # | Question | Needed by | My default if unanswered |
 |---|---|---|---|
-| Q23 | Training plan: the list of session types, and whether a planned session can name a program session (shoulder A/B, fear rungs) | M5 training plan issue | the journal's session types plus the program sessions; free text description |
-| Q25 | Where the training plan lives (Google or local) | M5 training plan issue | Google, read on the phone |
 
 ## Resolved
 | # | Answer | Decision |
 |---|---|---|
+| Q23 | One list: the journal's session types, the program sessions (shoulder primer/A/B, fear gym/outdoor sessions, max hangs, finger curls) and Rest, other values accepted after a warning; a free-text description | D-110 |
+| Q25 | Google Sheets, written and read on the phone | D-110 |
 | Q1 | One tab per section | D-006 |
 | Q2 | Multiple sessions per day only across different journals; journals stay separate | D-005, D-016 |
 | Q3 / Q3b | French + gym grades; gym grades are plain numbers, logged as they are | D-017 |

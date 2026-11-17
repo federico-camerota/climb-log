@@ -107,7 +107,9 @@ function describe(name: string, entity: EntityDef, key: Values): string {
   const parts = keyOf(entity).map((part) => {
     const value = key[part];
     const text = typeof value === "string" ? value : JSON.stringify(value ?? "");
-    if (part === (entity.date_field ?? "date")) return formatDateTime(text);
+    if (part === (entity.date_field ?? "date")) {
+      return entity.fields[part]?.type === "week" ? `Week ${text}` : formatDateTime(text);
+    }
     const field = entity.fields[part];
     return field === undefined ? text : `${fieldLabel(part, field)} ${text}`;
   });

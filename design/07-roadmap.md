@@ -176,7 +176,10 @@ module and dashboard, fear rules, module and dashboard, combined recommendation,
 - **Training plan** module (D-103): rows per planned session (week, optional day, type, short
   description), written ahead; Today shows this week's plan with the program snapshot, and the
   plan feeds the combined recommendation's suggested content; a dashboard lists the weeks.
-  It uses the program block (its start week and phases).
+  It uses the program block (its start week and phases). → done (D-110, #131):
+  `modules/training-plan.yaml` on Google, sessions typed by week (`2026-W47`) and optional day,
+  a program block optional; this week's plan on Today (the program snapshot and the
+  recommendation's use of the plan come with #141).
 - `shoulder.yaml` + importer (plan, exercise log, check-ins, retests); review-flag rule;
   program grid, weekly dashboard, retests view; next-morning reminder.
 - `fear-of-falling.yaml` + importer (fear map, ladder, falls, 20Q, weekly review);

@@ -201,7 +201,9 @@ class BaseField(Strict):
 
 
 class DateField(BaseField):
-    type: Literal["date", "datetime", "time"]
+    # `week`: an ISO week typed as `2026-W47`, read as its Monday; it can date a record (a
+    # planned session, D-110)
+    type: Literal["date", "datetime", "time", "week"]
 
 
 class NumberField(BaseField):
@@ -299,6 +301,7 @@ _FIELD_TAGS = {
     "date": "date",
     "datetime": "date",
     "time": "date",
+    "week": "date",
     "number": "number",
     "integer": "number",
     "scale": "scale",
@@ -740,6 +743,8 @@ class TableWidget(_Widget):
     columns: list[str] = Field(min_length=1)  # the entity's fields or derived values
     window_days: int | None = Field(None, ge=0)
     last: int | None = Field(None, ge=1)
+    # a plan (D-110): also the records up to `ahead_days` after the day, oldest first
+    ahead_days: int | None = Field(None, ge=1)
     averages: list[str] = []  # columns averaged over the rows shown
     note: str | None = None  # a text field: its latest non-blank value up to the day
     labels: dict[str, str] = {}  # a column's label (default: the form's, or the derived name)

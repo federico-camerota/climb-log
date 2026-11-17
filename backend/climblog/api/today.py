@@ -45,6 +45,14 @@ class WeekLoad(BaseModel):
     others: list[OtherLoad]
 
 
+class PlannedItem(BaseModel):
+    form: str  # the form that edits it
+    key: dict[str, Any]  # its key, the week as typed (2026-W47)
+    day: str | None  # Mon…Sun, or none: sometime that week
+    line: str  # "Tue · Climbing · Limit bouldering"
+    today: bool  # planned for the day itself
+
+
 class ModuleDay(BaseModel):
     module: str
     name: str
@@ -55,6 +63,12 @@ class ModuleDay(BaseModel):
     days_since: int | None
     week: WeekLoad | None  # this week's training load, when the module has one (D-102)
     notes: list[str]  # forms left out, and why
+    # a training plan (D-110): the day's week's planned sessions, today's first, and the form
+    # (with the week) that plans one more
+    plan: list[PlannedItem] = []
+    plan_form: str | None = None
+    plan_week: str | None = None
+    plan_field: str | None = None  # the field the week goes in
     as_of: dt.datetime | None
     offline: bool
 
@@ -101,6 +115,10 @@ def get_today(request: Request, date: dt.date | None = None) -> Today:
                     others=[OtherLoad(label=a, load=b, without=c) for a, b, c in week.others],
                 ),
                 notes=result.notes,
+                plan=[PlannedItem(**vars(item)) for item in result.plan],
+                plan_form=result.plan_form,
+                plan_week=result.plan_week,
+                plan_field=result.plan_field,
                 as_of=entry.repo.as_of,
                 offline=entry.repo.offline,
             )
