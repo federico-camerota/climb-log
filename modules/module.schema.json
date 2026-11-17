@@ -849,7 +849,8 @@
           "enum": [
             "date",
             "datetime",
-            "time"
+            "time",
+            "week"
           ],
           "title": "Type",
           "type": "string"
@@ -3930,6 +3931,19 @@
           ],
           "default": null,
           "title": "Last"
+        },
+        "ahead_days": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ahead Days"
         },
         "averages": {
           "default": [],

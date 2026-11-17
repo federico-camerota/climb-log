@@ -53,6 +53,8 @@ from climblog.modules.schema import (
     BaseField,
     BoolField,
     ChoiceField,
+    DateField,
+    Entity,
     ExprDerived,
     MapDerived,
     Module,
@@ -163,9 +165,16 @@ def compile_formulas(
 
 
 def run_start_formula(columns: Mapping[str, int]) -> str:
-    """The Monday of the run's start week (`2026-W42` → 12/10/2026): the Monday of the week
-    holding 4 January (always ISO week 1), plus whole weeks; blank if the week isn't one."""
+    """The Monday of the run's start week (`2026-W42` → 12/10/2026); blank if the week isn't
+    one."""
     week = _ref(RUNS_TAB, columns, "start_week", RUNS_TAB)
+    return week_monday(week)
+
+
+def week_monday(week: str) -> str:
+    """The Monday of an ISO week typed as `2026-W47` in a cell (or a formula giving the text):
+    the Monday of the week holding 4 January (always ISO week 1), plus whole weeks; blank if it
+    is blank or isn't a week (D-109, D-110)."""
     year = f"VALUE(LEFT({week},4))"
     jan4 = f"DATE({year},1,4)"
     monday = f"{jan4}-WEEKDAY({jan4},2)+1+7*(VALUE(RIGHT({week},2))-1)"
@@ -470,6 +479,8 @@ class _Entity:
         code = self.key_code.formula(
             lambda f: _ref(tab, cols, f, tab), lambda f: _span(tab, cols, f)
         )
+        if self.key_code.by_week:  # `2026-W47`: its Monday (D-110)
+            return f'IF({date}="","",IFERROR(INT({week_monday(date)})*10{code},""))'
         return f'IF({date}="","",INT({date})*10{code})'
 
 
@@ -498,6 +509,8 @@ class _KeyCode:
             owner = module.entities[entity.parent.entity]
             parts = owner.key or []
         self.date_field = parts[0] if parts else entity.date_field
+        dating = owner.fields.get(self.date_field)
+        self.by_week = isinstance(dating, DateField) and dating.type == "week"
         if not parts:
             self.reason = "rows have no natural key to be matched on"
             return
@@ -898,6 +911,7 @@ class _Compiler:
         has a row there), then its row on the field's tab by the same key: a split entity's
         latest record may have no row on that tab yet, and is blank there, as in the app."""
         other = _Entity(self.module, e_name, self.e.plans)
+        _not_by_week(other.entity)
         tab, key = self._column_of(other, name)
         keyed = other.needs_key() and other.key_code.reason is None and not other.key_code.choices
         main = other.entity.main_tab
@@ -918,6 +932,7 @@ class _Compiler:
         """`count/sum/min/max/mean` of `window(e.x, days=n, until=d)`: the *IFS functions over
         the rows dated from d - n to d; `count(..., equals=v)` counts the values equal to v."""
         other = _Entity(self.module, node.entity, self.e.plans)
+        _not_by_week(other.entity)
         tab, key = self._column_of(other, node.field)
         until = self.node(node.until)
         dates = self.column(tab, other.entity.date_field)
@@ -1100,6 +1115,9 @@ class _Compiler:
 
     def fields(self, node: Fields) -> list[_Item]:
         date = self.cell(self.tab, node.date_field)
+        dating = self.entity.fields.get(node.date_field)
+        if isinstance(dating, DateField) and dating.type == "week":
+            date = week_monday(date)  # D-110
         items = []
         for ref in node.refs:
             include = None
@@ -1184,8 +1202,18 @@ class _Compiler:
 # ---- Helpers ----
 
 
+def _not_by_week(entity: Entity) -> None:
+    dating = entity.fields.get(entity.date_field)
+    if isinstance(dating, DateField) and dating.type == "week":
+        raise Unsupported("last() and window() over records dated by a week")
+
+
 def _field_value(field: BaseField, cell: F) -> F:
-    """A stored field as the app reads it: blank = its default; Yes/No as TRUE/FALSE."""
+    """A stored field as the app reads it: blank = its default; Yes/No as TRUE/FALSE; a week
+    as its Monday (D-110)."""
+    if isinstance(field, DateField) and field.type == "week":
+        monday = week_monday(cell.core)
+        return F(monday, f'{_wrap(monday)}=""', "date", empty=True)
     if isinstance(field, BoolField):
         truth = _truthy(cell.core)
         if field.default is not None:

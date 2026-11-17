@@ -15,7 +15,7 @@ import datetime as dt
 import statistics
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from climblog.analytics.grade_charts import grade_charts
 from climblog.analytics.load import Other, training_load
@@ -25,6 +25,7 @@ from climblog.expr import Value
 from climblog.expr.functions import sheet_round
 from climblog.modules.compute import Timeline
 from climblog.modules.forms import field_label
+from climblog.modules.program import week_text
 from climblog.modules.schema import (
     Band,
     BarsWidget,
@@ -32,6 +33,7 @@ from climblog.modules.schema import (
     BodyHeatmapWidget,
     BoxByWidget,
     ChoiceField,
+    DateField,
     GradesWidget,
     HeatmapWidget,
     KpiWidget,
@@ -68,7 +70,10 @@ class _Records:
     key: list[str]  # the key parts other than the date (session_no)
 
 
-Records = Callable[[str], _Records]
+class Records(Protocol):
+    def __call__(self, entity: str, ahead: int = 0) -> _Records:
+        """The entity's records up to the day (and `ahead` days after it)."""
+        ...
 
 
 def compute_view(
@@ -82,19 +87,20 @@ def compute_view(
     """Each widget's data, in order. `tables[entity]` holds each record's stored and derived
     values (deleted ones left out); `others` finds another module and its records by its
     `module:` id (the training load's other sources)."""
-    found: dict[str, _Records] = {}
+    found: dict[tuple[str, int], _Records] = {}
 
-    def records(entity: str) -> _Records:
-        if entity not in found:
+    def records(entity: str, ahead: int = 0) -> _Records:
+        if (entity, ahead) not in found:
             ent = module.entities[entity]
             timeline = Timeline(ent, list(tables.get(entity, ())))
-            upto = [i for i, d in enumerate(timeline.days) if d != dt.date.min and d <= day]
-            found[entity] = _Records(
+            end = day + dt.timedelta(days=ahead)
+            upto = [i for i, d in enumerate(timeline.days) if d != dt.date.min and d <= end]
+            found[(entity, ahead)] = _Records(
                 [timeline.days[i] for i in upto],
                 [timeline.rows[i] for i in upto],
                 [p for p in ent.key or [] if p != ent.date_field],
             )
-        return found[entity]
+        return found[(entity, ahead)]
 
     result: list[dict[str, Any]] = []
     for widget in widgets:
@@ -465,14 +471,20 @@ def _text_feed(widget: TextFeedWidget, records: Records, day: dt.date) -> dict[s
 def _table(module: Module, widget: TableWidget, records: Records, day: dt.date) -> dict[str, Any]:
     """The entity's records of the last `window_days` days (or the `last` ones), newest first,
     the averages of some columns over them, and the latest note up to the day."""
-    found = records(widget.entity)
+    found = records(widget.entity, widget.ahead_days or 0)
     pairs = list(zip(found.days, found.rows, strict=True))
     if widget.window_days is not None:
         since = day - dt.timedelta(days=widget.window_days)
         pairs = [(w, r) for w, r in pairs if w >= since]
     elif widget.last is not None:
         pairs = pairs[-widget.last :]
-    pairs.reverse()
+    if widget.ahead_days is None:
+        pairs.reverse()  # newest first; a plan reads oldest (this week) first
+    weeks = {
+        name
+        for name, f in module.entities[widget.entity].fields.items()
+        if isinstance(f, DateField) and f.type == "week"
+    }
     label = _labeller(module, widget.entity, widget.labels)
     note = None
     if widget.note is not None:
@@ -485,13 +497,22 @@ def _table(module: Module, widget: TableWidget, records: Records, day: dt.date) 
         "widget": "table",
         "label": widget.label,
         "columns": [{"field": c, "label": label(c)} for c in widget.columns],
-        "rows": [{c: _json(row.get(c)) for c in widget.columns} for _, row in pairs],
+        "rows": [
+            {c: _week_or_json(row.get(c), c in weeks) for c in widget.columns} for _, row in pairs
+        ],
         "averages": [
             {"field": a, "label": label(a), "value": _mean([row.get(a) for _, row in pairs])}
             for a in widget.averages
         ],
         "note": note,
     }
+
+
+def _week_or_json(value: Value, week: bool) -> Any:
+    """A week field as typed, `2026-W47` (D-110); anything else as JSON."""
+    if week and isinstance(value, dt.date):
+        return week_text(value)
+    return _json(value)
 
 
 def _monthly(widget: MonthlyWidget, records: Records, day: dt.date) -> dict[str, Any]:

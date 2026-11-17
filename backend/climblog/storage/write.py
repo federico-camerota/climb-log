@@ -14,8 +14,8 @@ import datetime as dt
 from collections.abc import Callable, Collection, Mapping, Sequence
 
 from climblog.expr import Value
-from climblog.modules.program import RUNS_TAB, Run, parse_week
-from climblog.modules.schema import NEXT, BaseField, Entity, Module
+from climblog.modules.program import RUNS_TAB, Run, parse_week, week_text
+from climblog.modules.schema import NEXT, BaseField, DateField, Entity, Module
 from climblog.storage.base import (
     Append,
     Edit,
@@ -149,7 +149,7 @@ class RecordWriter:
         """A new record's rows: its main tab, and each section tab it has values for."""
         edits: list[Edit] = []
         for tab, fields in ent.tab_fields().items():
-            cells = {f: _cell(record[f]) for f in fields if f in record}
+            cells = {f: _cell(record[f], ent.fields[f]) for f in fields if f in record}
             has_data = any(record.get(f) is not None for f in fields if f not in _key(ent))
             if tab == ent.main_tab or has_data:
                 edits.append(Append(tab, self._stamped(tab, cells, now)))
@@ -187,14 +187,18 @@ class RecordWriter:
         now = self._now()
         edits: list[Edit] = []
         for tab, fields in ent.tab_fields().items():
-            cells = {f: _cell(changes[f]) for f in fields if f in changes and f not in _key(ent)}
+            cells = {
+                f: _cell(changes[f], ent.fields[f])
+                for f in fields
+                if f in changes and f not in _key(ent)
+            }
             if not cells:
                 continue
             if tab in places:
                 as_read = self._row(tab, places[tab])
                 edits.append(Update(tab, places[tab], self._stamped(tab, cells, now), as_read))
             else:
-                keys = {part: _cell(record[part]) for part in _key(ent)}
+                keys = {part: _cell(record[part], ent.fields[part]) for part in _key(ent)}
                 edits.append(Append(tab, self._stamped(tab, keys | cells, now)))
         if edits:
             self.repo.apply(edits)
@@ -218,7 +222,7 @@ class RecordWriter:
             self._or_default(ent, p, parse_cell(self.module, _field(ent, p), cells.get(p)))
             for p in _key(ent)
         )
-        keys = {p: _cell(v) for p, v in zip(_key(ent), key, strict=True)}
+        keys = {p: _cell(v, ent.fields[p]) for p, v in zip(_key(ent), key, strict=True)}
         self.repo.apply([Append(ent.main_tab, self._stamped(ent.main_tab, keys, self._now()))])
         return key
 
@@ -442,8 +446,11 @@ def _show(value: Value) -> str:
     return "blank" if value is None else repr(str(value))
 
 
-def _cell(value: Value) -> RawCell:
-    """A value as written to the sheet: Yes/No for booleans, everything else as it is."""
+def _cell(value: Value, field: object = None) -> RawCell:
+    """A value as written to the sheet: Yes/No for booleans, a week as `2026-W47` (D-110),
+    everything else as it is."""
     if isinstance(value, bool):
         return "Yes" if value else "No"
+    if isinstance(field, DateField) and field.type == "week" and isinstance(value, dt.date):
+        return week_text(value)
     return value

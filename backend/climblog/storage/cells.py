@@ -95,6 +95,8 @@ def parse_cell(module: Module, field: BaseField, raw: RawCell) -> Value:
             return _date(raw)
         case DateField(type="datetime"):
             return _datetime(raw)
+        case DateField(type="week"):
+            return _week(raw)
         case DateField():
             return _time(raw)
         case NumberField():
@@ -333,6 +335,19 @@ def _date(raw: RawCell) -> dt.date:
         case str():
             return _date_text(raw, "date").date()
     raise CellError(f"{_show(raw)} is not a date")
+
+
+def _week(raw: RawCell) -> dt.date:
+    """An ISO week typed as `2026-W47`, as its Monday; a date cell counts as its week."""
+    if isinstance(raw, str):
+        from climblog.modules.program import parse_week  # it imports the schema
+
+        try:
+            return parse_week(raw)
+        except ValueError as error:
+            raise CellError(str(error)) from None
+    day = _date(raw)
+    return day - dt.timedelta(days=day.weekday())
 
 
 def _datetime(raw: RawCell) -> dt.datetime:

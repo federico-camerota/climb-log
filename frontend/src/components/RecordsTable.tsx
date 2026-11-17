@@ -43,6 +43,7 @@ import {
   type Filters,
 } from "../lib/recordFilters";
 import { fold, matches } from "../lib/search";
+import { weekMonday } from "../lib/weeks";
 
 interface Row {
   values: Record<string, unknown>; // stored and derived
@@ -105,7 +106,8 @@ export function RecordsTable({
   const rows = useMemo(() => rowsOf(data), [data]);
   const searching = query.trim() !== "";
   const dateField = entity.date_field ?? "date";
-  const dated = entity.fields[dateField]?.type === "date";
+  const dateType = entity.fields[dateField]?.type;
+  const dated = dateType === "date" || dateType === "week";
   const statuses = useMemo(() => {
     const levels = statusLevelsOf(module);
     const derived = columns.filter((c) => c.type === "derived").map((c) => c.id);
@@ -133,7 +135,7 @@ export function RecordsTable({
           (!onlyIssues || row.issues.length > 0) &&
           passes(
             row.values,
-            dated ? asText(row.values[dateField]) || null : null,
+            dated ? dayOf(asText(row.values[dateField]), dateType === "week") : null,
             filters,
             statuses.map((c) => c.id),
           ) &&
@@ -143,7 +145,7 @@ export function RecordsTable({
           ),
       )
       .map((row) => ({ ...row, matched: matchedIn(row, hidden, query) }));
-  }, [rows, columns, shown, query, onlyIssues, filters, statuses, dated, dateField]);
+  }, [rows, columns, shown, query, onlyIssues, filters, statuses, dated, dateField, dateType]);
 
   const defs = useMemo<ColumnDef<Row>[]>(() => {
     const picked: ColumnDef<Row>[] = columns
@@ -463,4 +465,10 @@ function saveColumns(key: string, ids: string[]): void {
   } catch {
     // storage off: the choice lasts until the page is left
   }
+}
+
+/** A record's day for the date filters: a week (2026-W47, D-110) is its Monday. */
+function dayOf(text: string, week: boolean): string | null {
+  if (text === "") return null;
+  return week ? weekMonday(text) : text;
 }

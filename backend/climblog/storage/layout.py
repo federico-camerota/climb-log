@@ -419,6 +419,8 @@ def _validation(module: Module, field: BaseField) -> Validation | None:
             return DateRule("date")
         case DateField(type="time"):
             return DateRule("time")
+        case DateField(type="week"):
+            return WeekRule()
     return None
 
 
@@ -430,7 +432,7 @@ def _number_format(field: BaseField) -> str | None:
             return "DD/MM/YYYY HH:MM"
         case DateField(type="time"):
             return "HH:MM"
-        case TextField():
+        case DateField(type="week") | TextField():
             return "@"  # notes stay as typed (04 §3b)
     return None
 

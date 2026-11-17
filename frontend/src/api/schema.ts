@@ -901,6 +901,17 @@ export interface components {
             notes: string[];
             /** Offline */
             offline: boolean;
+            /**
+             * Plan
+             * @default []
+             */
+            plan: components["schemas"]["PlannedItem"][];
+            /** Plan Field */
+            plan_field?: string | null;
+            /** Plan Form */
+            plan_form?: string | null;
+            /** Plan Week */
+            plan_week?: string | null;
             week: components["schemas"]["WeekLoad"] | null;
         };
         /** ModuleInfo */
@@ -1050,6 +1061,21 @@ export interface components {
              * @enum {string}
              */
             widget: "planned";
+        };
+        /** PlannedItem */
+        PlannedItem: {
+            /** Day */
+            day: string | null;
+            /** Form */
+            form: string;
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            };
+            /** Line */
+            line: string;
+            /** Today */
+            today: boolean;
         };
         /** Point */
         Point: {

@@ -45,6 +45,17 @@ export function FieldInput({ name, field, scale, value, onChange, error, suggest
           clearable={field.required !== true}
         />
       );
+    case "week": // an ISO week (D-110)
+      return (
+        <TextInput
+          {...common}
+          placeholder="2026-W47"
+          value={text}
+          onChange={(e) => {
+            set(e.currentTarget.value);
+          }}
+        />
+      );
     case "time":
       return (
         <TimeInput

@@ -166,4 +166,45 @@ describe("Today", () => {
     renderApp(`/?date=${DAY}`);
     expect(await screen.findByText("journal: workbook not found")).toBeInTheDocument();
   });
+
+  it("lists this week's plan, today's first, with a link to plan one more", async () => {
+    api(
+      day([], {
+        module: "training_plan",
+        name: "Training plan",
+        last: null,
+        last_label: null,
+        days_since: null,
+        plan: [
+          {
+            form: "plan",
+            key: { week_of: "2026-W44", item: 2 },
+            day: "Fri",
+            line: "Fri · Shoulder A",
+            today: true,
+          },
+          {
+            form: "plan",
+            key: { week_of: "2026-W44", item: 1 },
+            day: null,
+            line: "Any day · Hangboard",
+            today: false,
+          },
+        ],
+        plan_form: "plan",
+        plan_week: "2026-W44",
+        plan_field: "week_of",
+      }),
+    );
+    renderApp(`/?date=${DAY}`);
+    expect(await screen.findByText("This week (2026-W44)")).toBeInTheDocument();
+    expect(screen.getByText("Today · Shoulder A")).toBeInTheDocument();
+    expect(screen.getByText("Any day · Hangboard")).toBeInTheDocument();
+    const open = screen.getAllByRole("link", { name: "Open" });
+    expect(open[0]).toHaveAttribute("href", "/log/training_plan/plan?week_of=2026-W44&item=2");
+    expect(screen.getByRole("link", { name: "Plan a session" })).toHaveAttribute(
+      "href",
+      "/log/training_plan/plan?week_of=2026-W44",
+    );
+  });
 });

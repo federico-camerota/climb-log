@@ -202,3 +202,44 @@ entities:
       in_base: "program.phase == 'Base'"
       reps_week: "reps * program.week"
 """
+
+# A plan (D-110): records dated by a week typed as 2026-W47, numbered within their week (a blank
+# number is the next one), a derived value reading the week's Monday, and, as a program, the
+# run, week and phase of that Monday.
+WEEK_MODULE = """\
+module: test_weeks
+name: Test weeks
+version: 1
+kind: journal
+entities:
+  planned:
+    label: Planned session
+    tab: Plan
+    date_field: week_of
+    key: [week_of, item]
+    fields:
+      week_of: {type: week, required: true}
+      item: {type: integer, min: 1, default: next}
+      day: {type: choice, choices: [Mon, Tue, Wed, Thu, Fri, Sat, Sun]}
+      minutes: {type: number, min: 0, max: 120}
+      note: {type: text}
+    derived:
+      double: "minutes * 2"
+      monday: "weekday(week_of)"
+      days_on: "days_between(week_of, week_of)"
+      before: "prev(minutes)"
+"""
+
+WEEK_PROGRAM_MODULE = WEEK_MODULE.replace(
+    "kind: journal",
+    """kind: program
+program:
+  weeks: 4
+  phases:
+    - {name: Base, weeks: [1, 2]}
+  light_weeks: [3]""",
+).replace(
+    '      days_on: "days_between(week_of, week_of)"',
+    '      days_on: "days_between(week_of, week_of)"\n      phase: "program.phase"\n'
+    '      light: "program.is_light_week"',
+)

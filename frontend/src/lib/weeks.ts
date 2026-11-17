@@ -16,6 +16,25 @@ export function weekMonday(text: string): string | null {
   return monday.toISOString().slice(0, 10);
 }
 
+/** The ISO week of a `yyyy-mm-dd` day, written `2026-W47`. */
+export function weekText(day: string): string {
+  const date = new Date(`${day.slice(0, 10)}T00:00:00Z`);
+  const thursday = new Date(date);
+  thursday.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const year = thursday.getUTCFullYear();
+  const week = Math.ceil(((thursday.getTime() - Date.UTC(year, 0, 1)) / 86_400_000 + 1) / 7);
+  return `${String(year)}-W${String(week).padStart(2, "0")}`;
+}
+
+/** `2026-W47` → its Monday and Sunday, `yyyy-mm-dd`; null if it isn't a week. */
+export function weekSpan(text: string): [string, string] | null {
+  const monday = weekMonday(text);
+  if (monday === null) return null;
+  const sunday = new Date(`${monday}T00:00:00Z`);
+  sunday.setUTCDate(sunday.getUTCDate() + 6);
+  return [monday, sunday.toISOString().slice(0, 10)];
+}
+
 /** 52 or 53: the ISO week of 28 December, always in the year's last week. */
 function weeksIn(year: number): number {
   const day = new Date(Date.UTC(year, 11, 28));

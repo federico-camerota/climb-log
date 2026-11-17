@@ -130,6 +130,9 @@ def _expressions(node: Any) -> Iterator[str]:
 def test_draft_expressions_parse(file: Path) -> None:
     """Every expression in the drafts is valid syntax (names are checked per issue, #10, #11)."""
     found = [e for e in _expressions(YAML(typ="safe").load(file)) if e not in _LATER]
-    assert found
+    text = file.read_text(encoding="utf-8")
+    # a module without derived values (the training plan) has none to find
+    assert found or not any(f"\n{k}:" in text for k in ("recommendation", "summary"))
+    assert found or "derived:" not in text
     for source in found:
         parse(source)
