@@ -1,17 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """README screenshots of the app on a fictional journal (#80, D-034): headless Firefox.
 
-    make build
-    uv run python scripts/demo_journal.py build/demo/journal.xlsx
+    make build demo
     uv run python scripts/screenshots.py build/demo/config.toml docs/screenshots
 
-build/demo/config.toml is written by hand (the demo script writes only the workbook):
+`make demo` writes the fictional workbooks and their app config (scripts/demo.py).
 
-    [modules.journal]
-    definition = "/abs/path/to/climb-log/modules/journal.yaml"
-    workbook = "/abs/path/to/climb-log/build/demo/journal.xlsx"
-
-Serves the built app on the given app config (a fictional journal only), then captures each
+Serves the built app on the given app config (fictional data only), then captures each
 page with `firefox --headless --screenshot`. Firefox takes its picture at the page's load
 event, before the app has fetched its data, so each page is shown in a frame by a small local
 page whose load event waits a few seconds (a slow image). Run from the repository root; Firefox
@@ -30,8 +25,8 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-DAY = "2026-10-30"  # the day the pages show (the demo journal ends there)
-START = "2026-05-01"  # the Explore page's range (the demo journal's 26 weeks)
+DAY = "2026-12-18"  # the day the pages show (the demo set ends there)
+START = "2026-06-19"  # the Explore page's range (the demo set's 26 weeks)
 SLEEP, FEEL = "journal.session.wb_sleep_hours", "journal.session.feel_score"
 PAGES = {  # file → (path, height)
     "today.png": (f"/?date={DAY}", 1100),
