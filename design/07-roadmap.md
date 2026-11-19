@@ -163,6 +163,13 @@ meanwhile. One PR each, in this order:
   plan), a daily target in g/day as a setting (body weight isn't logged, D-025), on Today and in
   a dashboard line against the target. → done (D-107): meal rows summed per day.
 
+### Before #132: illness and sick days ☑
+Asked by the owner during M5 (2026-11-19), one journal PR before M5 goes on: an **Illness**
+score (1–10, lower is better) on the session's wellbeing and on rest days, counted like the
+others from 2026-11-23, and a **Sick** rest type for sick days (S on the calendar, a "Sick days"
+row in the monthly table) (#151). An additive sync on the live journal, run by the owner. → done
+(D-111).
+
 ### M5 · Program modules ☐
 Issues #130–#142 in milestone "M5 · Program modules", in build order: program block, training
 plan, reference tables, `ref` fields, prefill and next-morning items, batch forms, shoulder

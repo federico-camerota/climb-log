@@ -256,8 +256,10 @@ def test_the_monthly_table_is_the_legacy_one(seed: int) -> None:
         if app is None:  # before the first record: the legacy shows zeros and dashes
             assert count == 0 and rest_count == 0, (month, sheet)
             continue
+        extra = dict(zip(data["extra"], app["extra"], strict=True))  # by label
         expected = [None if v == dash else v for v in (*classes, overall, low, rest_mean)]
-        actual = [*app["classes"], app["overall"], app["low"], app["extra"][1]]
+        actual = [*app["classes"], app["overall"], app["low"], extra["Rest-day wellbeing"]]
         assert app["count"] == count, (month, sheet)
-        assert app["extra"][0] == rest_count, (month, sheet)
+        assert extra["Rest days logged"] == rest_count, (month, sheet)
+        assert extra["Sick days"] == 0, (month, sheet)  # not in the legacy table (D-111)
         assert actual == pytest.approx(expected), (month, sheet)

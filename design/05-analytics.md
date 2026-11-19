@@ -55,7 +55,8 @@ its `since:` are left out (03 §2.2), as in the formulas and the dashboard.
   with the legacy rows and the latest session's notes.
 - Monthly averages (any range, not just 6 months). Done (D-084, #78): 6, 12, 24 or all months,
   as the legacy formulas (checked on LibreOffice): sessions logged, each class's average, the
-  overall as the average of the class averages, LOW sessions, rest days and their wellbeing.
+  overall as the average of the class averages, LOW sessions, rest days and their wellbeing;
+  sick days too (D-111).
 - Top reflections of the last 14 days (by score) and reflections needing attention. Done
   (D-084, #78): per prompt the top 3 by score then the newest, as the legacy lists.
 - Rest-day log with status and days since the last climb. Done (D-084, #78): the last 14 days,
@@ -73,8 +74,8 @@ its `since:` are left out (03 §2.2), as in the formulas and the dashboard.
 ### 3.1 Journal / training
 - **Calendar heatmap** (GitHub-style): each day coloured by overall status (any metric:
   backlog);
-  rest days and program sessions shown as markers. Click a day to open its records (done,
-  D-098).
+  rest days and program sessions shown as markers (a sick day S, a rest day R, D-111). Click a
+  day to open its records (done, D-098).
 - **Trend lines with bands**: any metric with a rolling mean and the LOW/WATCH bands shaded.
 - **Pre → post deltas**: how a session changes mood, soreness per body part (paired dot
   plot), by session type.

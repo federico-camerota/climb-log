@@ -683,7 +683,8 @@ class HeatmapMark(Strict):
 class HeatmapWidget(_Widget):
     """A calendar from the first record's month, at most the last `months` months: each day
     coloured by the worst of its records' status (`metric`), the days of another entity
-    (`extra`, e.g. rest days) in lighter colours, and a letter per day (`mark`, `extra_mark`)."""
+    (`extra`, e.g. rest days) in lighter colours, and a letter per day (`mark`; on a day with
+    only an extra record, `extra_marks` by a field of it, else `extra_mark`)."""
 
     widget: Literal["heatmap_calendar"]
     metric: str  # `entity.field`, a status
@@ -691,6 +692,9 @@ class HeatmapWidget(_Widget):
     months: int = Field(12, ge=1)
     mark: HeatmapMark | None = None  # e.g. {field: session.setting, letters: {Outdoor: O}}
     extra_mark: Letter | None = None  # the letter of a day with only an extra record, e.g. R
+    # by a field of the extra record, before `extra_mark`: {field: rest_day.rest_type,
+    # letters: {Sick: S}} (D-111)
+    extra_marks: HeatmapMark | None = None
 
 
 class SideGroup(Strict):
@@ -755,15 +759,25 @@ class MonthlyClass(Strict):
     score: str  # `entity.field`
 
 
+class MonthlyWhere(Strict):
+    """Only the records whose field equals a value, e.g. rest_type Sick (D-111)."""
+
+    field: str  # a field of the counted entity
+    equals: str
+
+
 class MonthlyExtra(Strict):
     label: str
     count: str | None = None  # an entity: its records in the month
     mean: str | None = None  # `entity.field`: its average in the month
+    where: MonthlyWhere | None = None  # with count: only the matching records
 
     @model_validator(mode="after")
     def _one(self) -> Self:
         if (self.count is None) == (self.mean is None):
             raise ValueError("give either count (an entity) or mean (entity.field)")
+        if self.where is not None and self.count is None:
+            raise ValueError("where goes with count")
         return self
 
 

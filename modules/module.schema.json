@@ -1656,7 +1656,7 @@
     },
     "HeatmapWidget": {
       "additionalProperties": false,
-      "description": "A calendar from the first record's month, at most the last `months` months: each day\ncoloured by the worst of its records' status (`metric`), the days of another entity\n(`extra`, e.g. rest days) in lighter colours, and a letter per day (`mark`, `extra_mark`).",
+      "description": "A calendar from the first record's month, at most the last `months` months: each day\ncoloured by the worst of its records' status (`metric`), the days of another entity\n(`extra`, e.g. rest days) in lighter colours, and a letter per day (`mark`; on a day with\nonly an extra record, `extra_marks` by a field of it, else `extra_mark`).",
       "properties": {
         "label": {
           "anyOf": [
@@ -1721,6 +1721,17 @@
           ],
           "default": null,
           "title": "Extra Mark"
+        },
+        "extra_marks": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HeatmapMark"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1999,12 +2010,43 @@
           ],
           "default": null,
           "title": "Mean"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MonthlyWhere"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
         "label"
       ],
       "title": "MonthlyExtra",
+      "type": "object"
+    },
+    "MonthlyWhere": {
+      "additionalProperties": false,
+      "description": "Only the records whose field equals a value, e.g. rest_type Sick (D-111).",
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "equals": {
+          "title": "Equals",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field",
+        "equals"
+      ],
+      "title": "MonthlyWhere",
       "type": "object"
     },
     "MonthlyWidget": {

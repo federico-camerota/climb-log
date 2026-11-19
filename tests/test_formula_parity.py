@@ -5,6 +5,7 @@ Fictional workbooks with random rows (blanks included) from fixed seeds; skipped
 LibreOffice is found (see `parity.py`).
 """
 
+import datetime as dt
 import os
 import tempfile
 from pathlib import Path
@@ -18,7 +19,7 @@ from formula_module import (
     WEEK_PROGRAM_MODULE,
     WINDOW_MODULE,
 )
-from parity import generate, mismatches, soffice, work_dir
+from parity import START, generate, mismatches, soffice, work_dir
 
 from climblog.modules import Module, load_module
 
@@ -30,11 +31,12 @@ REQUIRED = bool(os.environ.get("CLIMBLOG_REQUIRE_SOFFICE"))
 pytestmark = pytest.mark.skipif(soffice() is None and not REQUIRED, reason="no working LibreOffice")
 
 
-def check(module: Module, seed: int) -> list[str]:
+def check(module: Module, seed: int, start: dt.date | None = None) -> list[str]:
     command = soffice()
     assert command is not None, "CLIMBLOG_REQUIRE_SOFFICE is set but no LibreOffice works"
     with tempfile.TemporaryDirectory(dir=work_dir()) as folder:
-        return mismatches(module, generate(module, Path(folder), seed), command)
+        generated = generate(module, Path(folder), seed, start=start or START)
+        return mismatches(module, generated, command)
 
 
 @pytest.mark.parametrize("seed", [1, 2, 3])
@@ -64,3 +66,10 @@ def test_records_dated_by_a_week_match_the_app(load: LoadYaml, text: str, seed: 
 @pytest.mark.parametrize("seed", [1, 2])
 def test_modules_match_the_app(file: Path, seed: int) -> None:
     assert check(load_module(file), seed) == []
+
+
+@pytest.mark.parametrize("seed", [1, 2])
+def test_the_journal_matches_the_app_across_the_start_of_illness(seed: int) -> None:
+    # 40 records from 1 Nov: some before 23 Nov (illness left out), most after (D-111)
+    module = load_module(ROOT / "modules" / "journal.yaml")
+    assert check(module, seed, start=dt.date(2026, 11, 1)) == []

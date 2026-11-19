@@ -705,6 +705,21 @@ def _views(module: Module) -> list[Problem]:
                                 "the metric's entity",
                             )
                         )
+                if widget.extra_marks is not None:
+                    at_marks = (*at, "extra_marks", "field")
+                    if widget.extra is None:
+                        problems.append(Problem(at_marks, "extra_marks needs extra"))
+                    else:
+                        metrics.append((at_marks, widget.extra_marks.field))
+                        entity = widget.extra.partition(".")[0]
+                        if widget.extra_marks.field.partition(".")[0] != entity:
+                            problems.append(
+                                Problem(
+                                    at_marks,
+                                    f"'{widget.extra_marks.field}' is not a field of "
+                                    f"'{entity}', the extra entity",
+                                )
+                            )
             elif isinstance(widget, MonthlyWidget):
                 problems += _entity_named(module, widget.count, (*at, "count"))
                 metrics += [
@@ -715,6 +730,9 @@ def _views(module: Module) -> list[Problem]:
                 for j, extra in enumerate(widget.extra):
                     if extra.count is not None:
                         problems += _entity_named(module, extra.count, (*at, "extra", j, "count"))
+                        if extra.where is not None:
+                            where = f"{extra.count}.{extra.where.field}"
+                            metrics.append(((*at, "extra", j, "where", "field"), where))
                     if extra.mean is not None:
                         metrics.append(((*at, "extra", j, "mean"), extra.mean))
             elif isinstance(widget, BarsWidget | BoxByWidget):

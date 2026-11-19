@@ -203,7 +203,10 @@ an allow-list; no `eval`; code in `climblog/expr/`, D-043):
   selectors must match), so formulas don't need to name every field (adding a soreness field
   updates them automatically). A list can be passed to the aggregates, `all_present`, `count`
   and `flip_all`. A record leaves out a field dated before its `since:`, and a `retired` field
-  where it is blank (so old scores keep counting it, new records don't need it)
+  where it is blank (so old scores keep counting it, new records don't need it). Only
+  `fields(...)` does this: a field named in a formula counts on every record, so a formula that
+  should take a new field from its start reads it through `fields(...)` (the journal's
+  wellbeing status and rest-day scores, D-111)
 - `flip` needs to know the scale: its argument is a scale field, or `min/max/mean/round/coalesce`
   of values on one scale (`flip(max(fields(tag=soreness)))`); otherwise the module doesn't load
 
@@ -542,6 +545,7 @@ Drawn with #78 (D-084):
   months: 12
   mark: {field: session.setting, letters: {Indoor: G, Outdoor: O}}  # letters on a day (1–2 chars)
   extra_mark: R                    # the letter of an extra-only day
+  extra_marks: {field: rest_day.rest_type, letters: {Sick: S}}   # by its record's field, before extra_mark (D-111)
 - widget: side_by_side       # the latest records, newest first (4 at first, up to 12)
   entity: session
   last: 4
@@ -569,6 +573,8 @@ Drawn with #78 (D-084):
   overall: Overall           # the average of the class averages
   low: session.overall_status
   extra: [{label: Rest days logged, count: rest_day}, {label: Rest-day wellbeing, mean: rest_day.wellbeing_score}]
+  # a count of the matching records only (D-111):
+  # extra: [{label: Sick days, count: rest_day, where: {field: rest_type, equals: Sick}}]
 ```
 
 Drawn with #98 (D-091), computed with the metric layer (D-090) where they group by period:

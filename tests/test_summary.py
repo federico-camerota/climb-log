@@ -179,6 +179,26 @@ def test_a_summary_cell_changed_by_hand_is_drift_and_put_back(tmp_path: Path) ->
     assert find_drift(JOURNAL, repo) == []
 
 
+def test_a_column_the_summary_reads_missing_is_a_sync_difference_not_a_crash(
+    tmp_path: Path,
+) -> None:
+    # a workbook from before a field the summary shows (illness, D-111): `check` compares
+    # before `--apply` adds the column, and must report it instead of failing to compile
+    path = tmp_path / "journal.xlsx"
+    repo = XlsxBackend(path)
+    sync_module(JOURNAL, repo)
+    book = openpyxl.load_workbook(path)
+    sheet = book["Wellbeing"]
+    [column] = [c.column for c in sheet[2] if c.value == "wb_illness"]
+    sheet.delete_cols(column)
+    book.save(path)
+    missing = [(d.tab, d.message) for d in check_schema(JOURNAL, repo) if d.level == "sync"]
+    assert ("Wellbeing", "column 'wb_illness' is missing") in missing
+    assert [d for d in find_drift(JOURNAL, repo) if d.tab == "Summary"] == []
+    assert "Wellbeing: added column 'wb_illness'" in sync_module(JOURNAL, repo)
+    assert find_drift(JOURNAL, repo) == []
+
+
 def test_a_missing_summary_is_a_sync_difference(tmp_path: Path) -> None:
     path = tmp_path / "journal.xlsx"
     repo = XlsxBackend(path)

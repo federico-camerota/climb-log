@@ -7,6 +7,14 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- The journal tracks illness: an **Illness** score (1 = healthy, 10 = in bed) on the session's
+  Wellbeing · before and on rest days, from 2026-11-23, counted like the other wellbeing scores
+  (score, status, log check: a bad cold alone makes Wellbeing LOW and the advice RECOVER). Sick
+  days are rest days of the new type **Sick**: the training calendar marks them S and the
+  monthly table counts them. Journal module version 4; on a live journal, run
+  `climblog check journal --apply` before logging on that day. Two widget options make this
+  possible: a calendar letter by a field of the extra record (`extra_marks`), and a monthly
+  count of the matching records only (`where`) (#151, D-111).
 - A training plan module (`modules/training-plan.yaml`, on Google Sheets): the sessions planned
   for each week, typed by week (`2026-W47`) with an optional day, a type and a description, in the
   sheet or in the app (the Log page asks for the week). Today lists this week's plan, today's
@@ -66,6 +74,11 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 - The commit check refuses the app's snapshots (`*.json.gz`) outside the fictional-data folders,
   and OAuth secrets, tokens and `.env` files anywhere, not only spreadsheets (it also catches a
   file added by force past `.gitignore`).
+
+### Fixed
+- `climblog check` no longer fails on a workbook from before a new field that the Summary tab
+  shows (it couldn't compile the Summary's formulas without the column): it reports the missing
+  column, and `--apply` adds it and rewrites the Summary (D-111).
 
 ## [0.4.0] - 2026-11-03
 
