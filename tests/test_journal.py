@@ -15,6 +15,7 @@ import pytest
 from climblog.expr import Value
 from climblog.modules import Module, load_module
 from climblog.modules.compute import compute_module
+from climblog.modules.schema import ChoiceField
 
 JOURNAL = Path(__file__).parent.parent / "modules" / "journal.yaml"
 PARTS = ["fingers", "forearms", "elbows", "shoulders", "neck_traps", "wrists", "skin"]
@@ -316,3 +317,56 @@ def test_days_since_the_last_climb(journal: Module) -> None:
     result = computed(journal, sessions, rests)["rest_day"]
     assert [r["days_since_climb"] for r in result] == [3, 3, None]  # strictly before the day
     assert [r["weekday"] for r in result] == ["Sat", "Wed", "Thu"]
+
+
+# ---- Illness and sick days (D-111) ----
+
+FROM_ILLNESS = dt.date(2026, 11, 23)  # a Monday, the day illness starts (since:)
+
+
+def test_illness_counts_in_wellbeing_from_2026_11_23(journal: Module) -> None:
+    values = wellbeing((7, 8, 9), (3, 6, 7))
+    ill = computed(journal, [{"date": FROM_ILLNESS, **values, "wb_illness": 8}])["session"][0]
+    assert ill["wb_pre_status"] == "LOW"  # 11 - 8 = 3 ≤ LowMax: a cold alone (owner, D-111)
+    assert (ill["wb_status"], ill["overall_status"]) == ("LOW", "LOW")
+    assert ill["wb_score"] == 6.9  # (7 + 8 + 9 + (11 - 8) + (11 - 3) + 6 + 7) / 7 = 48 / 7
+    well = computed(journal, [{"date": FROM_ILLNESS, **values, "wb_illness": 1}])["session"][0]
+    assert (well["wb_pre_status"], well["wb_score"]) == ("GOOD", 7.9)  # 55 / 7
+    # before its start: the three questions only, a value typed anyway is left out
+    before = session(journal, **values, wb_illness=8)
+    assert (before["wb_pre_status"], before["wb_score"]) == ("GOOD", 7.5)
+
+
+def test_from_its_start_wellbeing_needs_illness(journal: Module) -> None:
+    full = (
+        wellbeing((7, 8, 9), (3, 6, 7))
+        | soreness("pre", dict.fromkeys(PARTS + LOWER_PARTS, 2))
+        | soreness("post", dict.fromkeys(PARTS + LOWER_PARTS, 3))
+        | mental()
+        | {"feel_enjoyment": 9, "feel_satisfaction": 6, "rf_change_priority": 4}
+    )
+    found = computed(journal, [{"date": FROM_ILLNESS, **full}])["session"][0]
+    assert (found["wb_pre_status"], found["wb_score"]) == (None, None)
+    assert found["log_check"] == "Missing: Wellbeing"
+    with_it = computed(journal, [{"date": FROM_ILLNESS, **full, "wb_illness": 1}])["session"][0]
+    assert with_it["log_check"] == "Complete"
+    on_the_day_before = {"date": FROM_ILLNESS - dt.timedelta(days=1), **full}
+    assert computed(journal, [on_the_day_before])["session"][0]["log_check"] == "Complete"
+
+
+def test_a_sick_day_is_a_rest_day_with_illness_in_its_wellbeing(journal: Module) -> None:
+    rest_type = journal.entities["rest_day"].fields["rest_type"]
+    assert isinstance(rest_type, ChoiceField)
+    assert rest_type.choices == [
+        "Full rest",
+        "Active recovery",
+        "Sick",
+    ]
+    scores = {"sleep_quality": 8, "mood": 7, "energy": 6, "motivation": 9, "life_stress": 3}
+    sick = rest_day(date=FROM_ILLNESS, rest_type="Sick", illness=7, **scores)
+    result = computed(journal, [], [sick])["rest_day"][0]
+    assert result["wellbeing_score"] == 7.0  # (8 + 7 + 6 + 9 + (11 - 3) + (11 - 7)) / 6
+    assert (result["wellbeing_status"], result["status"]) == ("LOW", "LOW")  # 11 - 7 = 4
+    # not filled in from its start: no score; the status takes the others (missing as 10)
+    blank = computed(journal, [], [rest_day(date=FROM_ILLNESS, **scores)])["rest_day"][0]
+    assert (blank["wellbeing_score"], blank["wellbeing_status"]) == (None, "WATCH")

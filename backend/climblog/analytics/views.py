@@ -318,7 +318,8 @@ def _planned(widget: Widget, why: str = "comes with M5 or later") -> dict[str, A
 def _heatmap(widget: HeatmapWidget, records: Records, day: dt.date) -> dict[str, Any]:
     """Each day with records, from the first record's month (at most the last `months`
     months): the worst status of its records, how many there are, the `extra` entity's status
-    that day, and its letters (the records' `mark`, else `extra_mark` on an extra-only day)."""
+    that day, and its letters (the records' `mark`; on an extra-only day, `extra_marks` by its
+    record's field, else `extra_mark`)."""
     entity, name = _split(widget.metric)
     found = records(entity)
     other = records(_split(widget.extra)[0]) if widget.extra is not None else None
@@ -351,13 +352,20 @@ def _heatmap(widget: HeatmapWidget, records: Records, day: dt.date) -> dict[str,
         for when, row in zip(other.days, other.rows, strict=True):
             if not start <= when <= day:
                 continue
-            entry(when)["extra"] = _json(row.get(extra_name))
+            item = entry(when)
+            item["extra"] = _json(row.get(extra_name))
+            if widget.extra_marks is not None:
+                field = _split(widget.extra_marks.field)[1]
+                letter = widget.extra_marks.letters.get(str(row.get(field)))
+                if letter is not None:
+                    item["extra_letter"] = letter
     for item in days.values():
         item["status"] = _json(item["status"])
         item.setdefault("extra", None)
         marks: list[str] = item.pop("marks")
-        if not marks and item["records"] == 0 and widget.extra_mark is not None:
-            marks = [widget.extra_mark]
+        extra_letter = item.pop("extra_letter", None) or widget.extra_mark
+        if not marks and item["records"] == 0 and extra_letter is not None:
+            marks = [extra_letter]
         item["mark"] = "".join(marks) or None
     legend = [
         {"letter": letter, "label": value}
@@ -365,6 +373,11 @@ def _heatmap(widget: HeatmapWidget, records: Records, day: dt.date) -> dict[str,
     ]
     if widget.extra_mark is not None and extra_label is not None:
         legend.append({"letter": widget.extra_mark, "label": extra_label.replace("_", " ")})
+    if widget.extra_marks is not None and extra_label is not None:
+        legend += [
+            {"letter": letter, "label": value}
+            for value, letter in widget.extra_marks.letters.items()
+        ]
     return {
         "widget": "heatmap_calendar",
         "label": widget.label,
@@ -552,7 +565,11 @@ def _monthly(widget: MonthlyWidget, records: Records, day: dt.date) -> dict[str,
         extras: list[float | None] = []
         for extra in widget.extra:
             if extra.count is not None:
-                extras.append(float(len(in_month(extra.count, month))))
+                found = in_month(extra.count, month)
+                if extra.where is not None:
+                    name, value = extra.where.field, extra.where.equals
+                    found = [r for r in found if r.get(name) == value]
+                extras.append(float(len(found)))
             elif extra.mean is not None:
                 entity, name = _split(extra.mean)
                 found = in_month(entity, month)

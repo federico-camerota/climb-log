@@ -144,12 +144,18 @@ PARITY_RUNS: list[dict[str, Any]] = [
 ]
 
 
-def generate(module: Module, folder: Path, seed: int, records: int = 40) -> Generated:
+START = dt.date(2026, 9, 1)  # the fictional records' first day (a Tuesday)
+
+
+def generate(
+    module: Module, folder: Path, seed: int, records: int = 40, start: dt.date = START
+) -> Generated:
     """A workbook made by schema sync (formula columns and buffer included), then random
-    fictional rows typed into it, as by hand (and a program's runs)."""
+    fictional rows typed into it, as by hand (and a program's runs). A later `start` reaches
+    a field's `since:` (e.g. the journal's illness, D-111)."""
     path = folder / "parity.xlsx"
     sync_module(module, XlsxBackend(path))
-    rows, typed = typed_rows(module, seed, records)
+    rows, typed = typed_rows(module, seed, records, start)
     if module.program is not None:
         typed[RUNS_TAB] = PARITY_RUNS
     book = openpyxl.load_workbook(path)
@@ -181,12 +187,12 @@ def generate_google(module: Module, repo: Repository, seed: int, records: int = 
 
 
 def typed_rows(
-    module: Module, seed: int, records: int
+    module: Module, seed: int, records: int, start: dt.date = START
 ) -> tuple[dict[str, list[dict[str, Value]]], dict[str, list[dict[str, Any]]]]:
     """Random fictional records (entity → values), and the cells of each tab's rows from row
     3, as they would be typed (Yes/No, dates as midnight)."""
     rng = random.Random(seed)
-    rows = _records(module, rng, records)
+    rows = _records(module, rng, records, start)
     typed: dict[str, list[dict[str, Any]]] = {}
     for name, entity in module.entities.items():
         keys = set(entity.key or [])
@@ -202,11 +208,12 @@ def typed_rows(
     return rows, typed
 
 
-def _records(module: Module, rng: random.Random, count: int) -> dict[str, list[dict[str, Value]]]:
+def _records(
+    module: Module, rng: random.Random, count: int, start: dt.date = START
+) -> dict[str, list[dict[str, Value]]]:
     rows: dict[str, list[dict[str, Value]]] = {}
     parents = [n for n, e in module.entities.items() if e.parent is None]
     children = [n for n, e in module.entities.items() if e.parent is not None]
-    start = dt.date(2026, 9, 1)
     for name in parents:
         entity = module.entities[name]
         records: list[dict[str, Value]] = []

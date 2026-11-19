@@ -141,6 +141,9 @@ def test_the_calendar_takes_a_days_worst_status_and_marks_rest_days() -> None:
     rest: list[dict[str, Value]] = [
         {"date": OCT + dt.timedelta(days=6), "status": "GOOD"},
         {"date": OCT + dt.timedelta(days=7), "status": "LOW"},  # with a session: its letters
+        # a sick day: S instead of R (D-111)
+        {"date": OCT + dt.timedelta(days=9), "status": "WATCH", "rest_type": "Sick"},
+        {"date": OCT + dt.timedelta(days=10), "status": "GOOD", "rest_type": "Full rest"},
     ]
     found = one("heatmap_calendar", *rows, rest=rest)
     # from the first record's month, not a year of empty months
@@ -155,12 +158,15 @@ def test_the_calendar_takes_a_days_worst_status_and_marks_rest_days() -> None:
         {"letter": "O", "label": "Outdoor"},
         {"letter": "H", "label": "Home wall"},
         {"letter": "R", "label": "rest day"},
+        {"letter": "S", "label": "Sick"},
     ]
     assert found["days"] == [
         {"date": "2026-10-05", "status": "LOW", "records": 2, "extra": None, "mark": "GO"},
         {"date": "2026-10-06", "status": "WATCH", "records": 1, "extra": None, "mark": "G"},
         {"date": "2026-10-07", "status": None, "records": 0, "extra": "GOOD", "mark": "R"},
         {"date": "2026-10-08", "status": "GOOD", "records": 1, "extra": "LOW", "mark": None},
+        {"date": "2026-10-10", "status": None, "records": 0, "extra": "WATCH", "mark": "S"},
+        {"date": "2026-10-11", "status": None, "records": 0, "extra": "GOOD", "mark": "R"},
     ]
 
 
@@ -250,7 +256,10 @@ def test_the_monthly_averages_as_the_legacy_table() -> None:
         session(4, wb_score=7, overall_status="GOOD"),
         session(40, mn_score=5),  # November: after the day
     ]
-    rest: list[dict[str, Value]] = [{"date": dt.date(2026, 9, 10), "wellbeing_score": 5.0}]
+    rest: list[dict[str, Value]] = [
+        {"date": dt.date(2026, 9, 10), "wellbeing_score": 5.0, "rest_type": "Sick"},
+        {"date": dt.date(2026, 10, 10), "rest_type": "Full rest"},
+    ]
     found = one("monthly", *rows, rest=rest)
     assert (found["count_label"], found["overall"], found["months"]) == (
         "Sessions logged",
@@ -264,7 +273,7 @@ def test_the_monthly_averages_as_the_legacy_table() -> None:
         "classes": [None] * 4,
         "overall": None,
         "low": None,
-        "extra": [1.0, 5.0],
+        "extra": [1.0, 1.0, 5.0],  # rest days, sick days (D-111), rest-day wellbeing
     }
     assert october == {
         "month": "2026-10",
@@ -272,7 +281,7 @@ def test_the_monthly_averages_as_the_legacy_table() -> None:
         "classes": [6.5, 7.0, None, None],
         "overall": 6.8,
         "low": 1,
-        "extra": [0.0, None],
+        "extra": [1.0, 0.0, None],
     }
 
 
@@ -303,6 +312,26 @@ def test_the_monthly_averages_as_the_legacy_table() -> None:
             "{widget: heatmap_calendar, metric: session.overall_status,"
             " mark: {field: rest_day.status, letters: {GOOD: G}}}",
             "views.main[0].mark.field: 'rest_day.status' is not a field of 'session'",
+        ),
+        (  # D-111: a letter by a field of the extra record, and a filtered monthly count
+            "{widget: heatmap_calendar, metric: session.score,"
+            " extra_marks: {field: session.mood, letters: {'1': S}}}",
+            "views.main[0].extra_marks.field: extra_marks needs extra",
+        ),
+        (
+            "{widget: heatmap_calendar, metric: session.score, extra: session.score,"
+            " extra_marks: {field: session.nope, letters: {'1': S}}}",
+            "views.main[0].extra_marks.field: 'session' has no field or derived value 'nope'",
+        ),
+        (
+            "{widget: monthly, count: session,"
+            " extra: [{label: X, count: session, where: {field: nope, equals: A}}]}",
+            "views.main[0].extra[0].where.field: 'session' has no field or derived value 'nope'",
+        ),
+        (
+            "{widget: monthly, count: session,"
+            " extra: [{label: X, mean: session.mood, where: {field: mood, equals: A}}]}",
+            "views.main[0].extra[0]: where goes with count",
         ),
     ],
 )

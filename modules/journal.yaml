@@ -5,9 +5,10 @@
 
 module: journal
 name: Climbing journal
-version: 3   # 2: hardest send, disciplines, Font grades (#117); 3: back, core and legs (#128)
+version: 4   # 2: hardest send, disciplines, Font grades (#117); 3: back, core and legs (#128);
+             # 4: illness, sick days (D-111)
 kind: journal
-description: Pre/post session state, session feel, reflections and rest days.
+description: Pre/post session state, session feel, reflections, rest days and sick days.
 
 status_levels: [GOOD, WATCH, LOW]          # best → worst
 reflect_levels: [GOOD, WORTH NOTING, NEEDS ATTENTION]
@@ -84,6 +85,8 @@ entities:
       wb_sleep_quality: {type: scale, scale: s10, section: wb_pre}
       wb_mood_pre:      {type: scale, scale: s10, section: wb_pre}
       wb_energy_pre:    {type: scale, scale: s10, section: wb_pre}
+      # illness (D-111): 1 = healthy, 10 = in bed; counted like the others (score, status, log check)
+      wb_illness:       {type: scale, scale: s10_down, section: wb_pre, label: "Illness (cold, flu…)", since: 2026-11-23}
       wb_note_pre:      {type: text, section: wb_pre}
       wb_fatigue_post:  {type: scale, scale: s10_down, section: wb_post}
       wb_mood_post:     {type: scale, scale: s10, section: wb_post}
@@ -132,9 +135,9 @@ entities:
       days_since_prev: "days_between(prev(date), date)"
       session_load: "duration_min * feel_effort"          # session-RPE load (new)
 
-      wb_pre_status:
-        require: "all_present(wb_sleep_quality, wb_mood_pre, wb_energy_pre)"
-        bands_of: "min(wb_sleep_quality, wb_mood_pre, wb_energy_pre)"
+      wb_pre_status:   # fields(...), so that a field counts from its `since:` (illness, D-111)
+        require: "all_present(fields(section=wb_pre, type=scale))"
+        bands_of: "min(flip_all(fields(section=wb_pre, type=scale)))"
         bands: &std_bands
           - {le: settings.low_max,   label: LOW}
           - {le: settings.watch_max, label: WATCH}
@@ -195,23 +198,25 @@ entities:
     key: [date]
     fields:
       date:      {type: date, required: true}
-      rest_type: {type: choice, choices: [Full rest, Active recovery]}
+      rest_type: {type: choice, choices: [Full rest, Active recovery, Sick]}   # Sick: a sick day (D-111)
       activity:  {type: choice, choices: [None, Mobility / stretching, Walk / hike, Easy cardio, Yoga, Massage / self-massage, Other]}
       sleep_hours:   {type: number, min: 0, max: 14, step: 0.5, unit: h}
-      sleep_quality: {type: scale, scale: s10}
-      mood:          {type: scale, scale: s10}
-      energy:        {type: scale, scale: s10}
-      motivation:    {type: scale, scale: s10, label: Motivation to climb}
-      life_stress:   {type: scale, scale: s10_down}
+      # tag wellbeing: the scores and status below (fields(...) counts illness from its since:)
+      sleep_quality: {type: scale, scale: s10, tags: [wellbeing]}
+      mood:          {type: scale, scale: s10, tags: [wellbeing]}
+      energy:        {type: scale, scale: s10, tags: [wellbeing]}
+      motivation:    {type: scale, scale: s10, label: Motivation to climb, tags: [wellbeing]}
+      life_stress:   {type: scale, scale: s10_down, tags: [wellbeing]}
+      illness:       {type: scale, scale: s10_down, label: "Illness (cold, flu…)", tags: [wellbeing], since: 2026-11-23}
       body_:         {template: soreness}
       note:          {type: text, multiline: true}
     derived:
       wellbeing_score:
-        require: "all_present(sleep_quality, mood, energy, motivation, life_stress)"
-        expr: "round(mean(sleep_quality, mood, energy, motivation, flip(life_stress)), 1)"
+        require: "all_present(fields(tag=wellbeing))"
+        expr: "round(mean(flip_all(fields(tag=wellbeing))), 1)"
       body_readiness: "round(11 - mean(fields(tag=soreness)), 1)"
       wellbeing_status:
-        bands_of: "min(sleep_quality, mood, energy, motivation, flip(life_stress), missing_as=10)"
+        bands_of: "min(flip_all(fields(tag=wellbeing)), missing_as=10)"
         bands: *std_bands
       body_status:
         bands_of: "flip(max(fields(tag=soreness)))"
@@ -292,8 +297,8 @@ summary:
     groups:
       - {label: Session, fields: [venue, session_type, hardest_grade]}
       - label: Wellbeing
-        fields: [wb_sleep_quality, wb_mood_pre, wb_energy_pre, wb_fatigue_post, wb_mood_post,
-                 wb_recovery_feel, wb_score, wb_status]
+        fields: [wb_sleep_quality, wb_mood_pre, wb_energy_pre, wb_illness, wb_fatigue_post,
+                 wb_mood_post, wb_recovery_feel, wb_score, wb_status]
       - label: Physical (before climbing)
         fields: [ph_pre_fingers, ph_pre_forearms, ph_pre_elbows, ph_pre_shoulders,
                  ph_pre_neck_traps, ph_pre_wrists, ph_pre_skin, ph_pre_upper_back,
@@ -304,7 +309,7 @@ summary:
                  mn_fear_response, mn_route_confidence, mn_approach, mn_score, mn_status]
       - {label: Session feel, fields: [feel_enjoyment, feel_satisfaction, feel_score, feel_status]}
       - {label: Overall, fields: [overall_score, overall_status]}
-    labels: {wb_mood_pre: Mood (pre), wb_energy_pre: Energy (pre), wb_fatigue_post: Post fatigue ↓,
+    labels: {wb_mood_pre: Mood (pre), wb_energy_pre: Energy (pre), wb_illness: Illness ↓, wb_fatigue_post: Post fatigue ↓,
              wb_mood_post: Post mood, mn_life_stress: Life stress ↓, mn_confidence: Confidence (pre),
              mn_anxiety: Anxiety (pre) ↓, mn_focus: Focus during, mn_fear_response: Fear response ↓,
              wb_score: Wellbeing score, wb_status: Wellbeing status, ph_readiness: Readiness score,
@@ -336,6 +341,7 @@ views:
       months: 12
       mark: {field: session.setting, letters: {Indoor: G, Outdoor: O, Home wall: H}}
       extra_mark: R
+      extra_marks: {field: rest_day.rest_type, letters: {Sick: S}}   # a sick day: S (D-111)
     - widget: line
       label: Scores by class
       series:
@@ -354,8 +360,8 @@ views:
       groups:
         - {label: Session, fields: [venue, session_type, hardest_grade]}
         - label: Wellbeing
-          fields: [wb_sleep_quality, wb_mood_pre, wb_energy_pre, wb_fatigue_post, wb_mood_post,
-                   wb_recovery_feel, wb_score, wb_status]
+          fields: [wb_sleep_quality, wb_mood_pre, wb_energy_pre, wb_illness, wb_fatigue_post,
+                   wb_mood_post, wb_recovery_feel, wb_score, wb_status]
         - label: Physical (before climbing)
           fields: [ph_pre_fingers, ph_pre_forearms, ph_pre_elbows, ph_pre_shoulders,
                    ph_pre_neck_traps, ph_pre_wrists, ph_pre_skin, ph_pre_upper_back,
@@ -367,7 +373,7 @@ views:
         - {label: Session feel, fields: [feel_enjoyment, feel_satisfaction, feel_score, feel_status]}
         - {label: Overall, fields: [overall_score, overall_status]}
       notes: [wb_note_pre, wb_note_post, ph_note_pre, ph_note_post, mn_note_pre, mn_note_post, feel_note]
-      labels: {wb_mood_pre: Mood (pre), wb_energy_pre: Energy (pre), wb_fatigue_post: Post fatigue,
+      labels: {wb_mood_pre: Mood (pre), wb_energy_pre: Energy (pre), wb_illness: Illness, wb_fatigue_post: Post fatigue,
                wb_mood_post: Post mood, mn_confidence: Confidence (pre), mn_anxiety: Anxiety (pre),
                mn_focus: Focus during, wb_score: Wellbeing score, wb_status: Wellbeing status, ph_readiness: Readiness score,
                ph_status: Physical status, mn_score: Mental score, mn_status: Mental status,
@@ -409,6 +415,7 @@ views:
       low: session.overall_status
       extra:
         - {label: Rest days logged,   count: rest_day}
+        - {label: Sick days,          count: rest_day, where: {field: rest_type, equals: Sick}}
         - {label: Rest-day wellbeing, mean: rest_day.wellbeing_score}
       months: 6
   # Training load (D-092): session-RPE load per week (duration x effort), the acute:chronic

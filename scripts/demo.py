@@ -7,9 +7,11 @@ Writes a folder with a workbook per module and an app config pointing to them:
 - `journal.xlsx`: 26 weeks up to `--end` (enough for the training-load ratio and a few
   correlations), about three sessions a week (now and then two on one day), rest days in
   between, scores (and a bit of the sleep) that drift with a slow "form" curve and a few bad
-  days, grades that rise slowly (sport in French grades, bouldering in Font), and short
-  `[ESEMPIO]` notes. Fields with a `since:` are blank before it, as in a real journal; the
-  default end lies after the latest `since:` so every field has a few weeks of values.
+  days, grades that rise slowly (sport in French grades, bouldering in Font), illness mostly 1-2
+  with one cold three weeks before the end (two Sick rest days, then lighter sessions while it
+  clears, D-111), and short `[ESEMPIO]` notes. Fields with a `since:` are blank before it, as
+  in a real journal; the default end lies after the latest `since:` so every field has a few
+  weeks of values.
 - `protein.xlsx`: 2-5 meals a day around the daily target, a few days not logged.
 - `finger-strength.xlsx`: about two sessions a week, max hangs and finger curls in turn, with
   their sets and slowly rising loads.
@@ -90,8 +92,11 @@ def grades(rng: random.Random, kind: str, level: float) -> dict[str, Any]:
     return values
 
 
-def session(rng: random.Random, day: dt.date, n: int, form: float, level: float) -> dict[str, Any]:
-    """One session: `form` (about 4-9) moves every score; soreness goes the other way."""
+def session(
+    rng: random.Random, day: dt.date, n: int, form: float, level: float, ill: float = 1.2
+) -> dict[str, Any]:
+    """One session: `form` (about 4-9) moves every score; soreness goes the other way; `ill`
+    is the illness score's centre (about 1, 4 with a cold)."""
     sore = 11 - form
     session_type = rng.choice(TYPES)
     venue = rng.choices(list(VENUES), weights=[6, 3, 1])[0]
@@ -108,6 +113,7 @@ def session(rng: random.Random, day: dt.date, n: int, form: float, level: float)
         "wb_sleep_quality": scale(rng, form),
         "wb_mood_pre": scale(rng, form),
         "wb_energy_pre": scale(rng, form),
+        "wb_illness": scale(rng, ill, 0.6),
         "wb_fatigue_post": scale(rng, sore + 1),
         "wb_mood_post": scale(rng, form + 0.5),
         "wb_recovery_feel": scale(rng, form),
@@ -149,10 +155,10 @@ def session(rng: random.Random, day: dt.date, n: int, form: float, level: float)
     return values
 
 
-def rest_day(rng: random.Random, day: dt.date, form: float) -> dict[str, Any]:
+def rest_day(rng: random.Random, day: dt.date, form: float, ill: float = 1.2) -> dict[str, Any]:
     values: dict[str, Any] = {
         "date": day.isoformat(),
-        "rest_type": rng.choice(["Full rest", "Active recovery"]),
+        "rest_type": "Sick" if ill >= 5 else rng.choice(["Full rest", "Active recovery"]),
         "activity": rng.choice(["None", "Mobility / stretching", "Walk / hike", "Yoga"]),
         "sleep_hours": rng.choice([7, 7.5, 8, 8.5]),
         "sleep_quality": scale(rng, form + 0.5),
@@ -160,6 +166,7 @@ def rest_day(rng: random.Random, day: dt.date, form: float) -> dict[str, Any]:
         "energy": scale(rng, form),
         "motivation": scale(rng, form + 1),
         "life_stress": scale(rng, 11 - form - 1),
+        "illness": scale(rng, ill, 0.6),
         "note": rng.choice(NOTES),
     }
     for part in BODY:
@@ -175,13 +182,18 @@ def journal(rng: random.Random, start: dt.date, end: dt.date) -> list[tuple[str,
         # a slow curve between about 5 and 8.5, with an odd bad day
         form = 6.8 + 1.6 * math.sin(offset / 9) - (2.5 if rng.random() < 0.08 else 0)
         level = 3 + 2 * offset / max(days, 1)  # 6b+/6B+ → 7a/7A over the weeks
+        cold = offset - (days - 21)  # days into a cold 3 weeks before the end (D-111)
+        if cold in (0, 1):  # two sick days, then four days of a milder cold
+            records.append(("rest_day", rest_day(rng, day, form - 2, ill=7)))
+            continue
+        ill = 4.0 if 2 <= cold <= 5 else 1.2
         roll = rng.random()
         if roll < 0.42:
-            records.append(("session", session(rng, day, 1, form, level)))
+            records.append(("session", session(rng, day, 1, form, level, ill)))
             if rng.random() < 0.1:
-                records.append(("session", session(rng, day, 2, form - 0.5, level)))
+                records.append(("session", session(rng, day, 2, form - 0.5, level, ill)))
         elif roll < 0.7:
-            records.append(("rest_day", rest_day(rng, day, form)))
+            records.append(("rest_day", rest_day(rng, day, form, ill)))
     return records
 
 

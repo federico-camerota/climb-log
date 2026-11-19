@@ -97,6 +97,8 @@ def _report_drift(module: Module, repo: Repository, dialect: Dialect) -> list[Dr
             columns[tab.name] = dict(repo.read_formulas(tab.name).numbers)
         except StorageError:
             return []  # a missing tab: `check` reports it
+        if any(c.key not in columns[tab.name] for c in tab.columns):
+            return []  # a missing column (a new field): `check` reports it, sync rewrites the tab
     try:
         found = repo.read_formulas(report.name)
     except StorageError:
