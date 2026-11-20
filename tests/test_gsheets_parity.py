@@ -14,14 +14,14 @@ import pytest
 from backends import LIVE, GSheets
 from conftest import LoadYaml
 from fake_sheets import FakeSheetsClient
-from formula_module import MODULE
+from formula_module import MODULE, REF_MODULE
 from parity import compare, generate_google
 from workbooks import D20, SYNC_MODULE
 
 from climblog.config import config_path, load_config
 from climblog.modules import Module, load_module
 from climblog.storage import Append, GSheetsBackend, find_drift, sync_module
-from climblog.storage.google_client import RestSheetsClient
+from climblog.storage.google_client import SHEETS, RestSheetsClient
 from climblog.storage.gsheets import grid_rows, local_formula
 
 ROOT = Path(__file__).parent.parent
@@ -111,3 +111,40 @@ def test_every_construct_matches_the_app(
 )
 def test_modules_match_the_app(file: Path, harness: GSheets) -> None:  # pragma: no cover
     assert mismatches(load_module(file), harness, 1) == []
+
+
+@live
+@pytest.mark.parametrize("seed", [1, 2])
+def test_reference_lookups_match_the_app(
+    load: LoadYaml, harness: GSheets, seed: int
+) -> None:  # pragma: no cover - live only
+    # refs typed by hand, retired and deleted rows, per-week columns (D-113)
+    assert mismatches(load(REF_MODULE), harness, seed) == []
+
+
+@live
+def test_the_demo_program_matches_the_app(harness: GSheets) -> None:  # pragma: no cover
+    assert mismatches(load_module(ROOT / "scripts" / "demo-program.yaml"), harness, 1) == []
+
+
+@live
+def test_a_ref_dropdown_lists_the_keys_offered(harness: GSheets) -> None:  # pragma: no cover
+    """Google takes the open-ended range rule (D-113) and keeps it as written."""
+    module = load_module(ROOT / "scripts" / "demo-program.yaml")
+    repo = harness.new()
+    sync_module(module, repo)
+    assert repo.spreadsheet_id is not None
+    fields = "sheets(properties(title),data(rowData(values(dataValidation))))"
+    client = harness.client
+    assert isinstance(client, RestSheetsClient)
+    doc = client._call(
+        "GET",
+        f"{SHEETS}/{repo.spreadsheet_id}",
+        params={"ranges": "'Exercise log'!B3", "includeGridData": "true", "fields": fields},
+    )
+    rule = doc["sheets"][0]["data"][0]["rowData"][0]["values"][0]["dataValidation"]
+    assert rule["condition"] == {
+        "type": "ONE_OF_RANGE",
+        "values": [{"userEnteredValue": "=Exercises!$M$3:$M"}],
+    }
+    assert rule.get("strict", False) is False
