@@ -44,6 +44,10 @@ export type ModuleDay = Schemas["ModuleDay"];
 export type DueForm = Schemas["DueForm"];
 export type RunList = Schemas["RunList"];
 export type RunInfo = Schemas["RunInfo"];
+export type ReferenceList = Schemas["ReferenceList"];
+export type ReferenceTableInfo = Schemas["ReferenceTableInfo"];
+export type ReferenceTableRows = Schemas["ReferenceTableRows"];
+export type ReferenceRow = Schemas["ReferenceRow"];
 
 /** A record's stored values (or its key's), by field name, as the API reads and writes them. */
 export type Values = Record<string, unknown>;
@@ -191,6 +195,42 @@ export function startRun(module: string, startWeek: string): Promise<RunList> {
   return send<RunList>("POST", `/api/modules/${encodeURIComponent(module)}/runs`, {
     start_week: startWeek,
   });
+}
+
+/** The names of a module's reference tables, in YAML order (D-112). */
+export function referenceNames(module: ModuleInfo): string[] {
+  const tables = module.module_schema?.reference;
+  return typeof tables === "object" && tables !== null ? Object.keys(tables) : [];
+}
+
+function referencePath(module: string, table: string): string {
+  return `/api/modules/${encodeURIComponent(module)}/reference/${encodeURIComponent(table)}`;
+}
+
+/** A reference table's rows (retired ones included) and its tab's data issues. */
+export function getReferenceRows(module: string, table: string): Promise<ReferenceTableRows> {
+  return getJson<ReferenceTableRows>(referencePath(module, table));
+}
+
+/** Add a row to a reference table; its key must be new. */
+export function addReferenceRow(
+  module: string,
+  table: string,
+  values: Values,
+): Promise<ReferenceTableRows> {
+  return send<ReferenceTableRows>("POST", referencePath(module, table), { values });
+}
+
+/** Change some columns of a reference row (its key stays); `expected` holds them as read. */
+export function updateReferenceRow(
+  module: string,
+  table: string,
+  key: string,
+  values: Values,
+  expected: Values,
+): Promise<ReferenceTableRows> {
+  const path = `${referencePath(module, table)}/row?${new URLSearchParams({ key }).toString()}`;
+  return send<ReferenceTableRows>("PATCH", path, { values, expected });
 }
 
 /** The fields a form hides for its values so far (`visible_if`, 03 §2.1b). */

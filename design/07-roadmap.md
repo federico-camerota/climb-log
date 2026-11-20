@@ -187,6 +187,10 @@ module and dashboard, fear rules, module and dashboard, combined recommendation,
   `modules/training-plan.yaml` on Google, sessions typed by week (`2026-W47`) and optional day,
   a program block optional; this week's plan on Today (the program snapshot and the
   recommendation's use of the plan come with #141).
+- Reference tables (03 §2.5). → done (D-112, #132): a checked `reference:` block (fields,
+  one key, `per_week` columns, a `retired` column), a tab each by schema sync, rows read with
+  their data issues, added and changed (never re-keyed or deleted) through the API, and the
+  **Program** page; the fictional demo program shows them.
 - `shoulder.yaml` + importer (plan, exercise log, check-ins, retests); review-flag rule;
   program grid, weekly dashboard, retests view; next-morning reminder.
 - `fear-of-falling.yaml` + importer (fear map, ladder, falls, 20Q, weekly review);

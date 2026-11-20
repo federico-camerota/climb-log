@@ -15,7 +15,10 @@ Writes a folder with a workbook per module and an app config pointing to them:
 - `protein.xlsx`: 2-5 meals a day around the daily target, a few days not logged.
 - `finger-strength.xlsx`: about two sessions a week, max hangs and finger curls in turn, with
   their sets and slowly rising loads.
-- `config.toml`: the three modules, with backups and snapshots inside the folder, so serving
+- `demo-program.xlsx`: a fictional six-week program (`scripts/demo-program.yaml`): one run from
+  the first week, two sessions a week, and its reference tables (exercises with a prescription
+  per week, one of them retired; tracks and their drills), to show the Program page (D-112).
+- `config.toml`: the four modules, with backups and snapshots inside the folder, so serving
   the demo never touches the app's real data folders.
 
 Every value is invented. Written through the app's own writer, so the workbooks are exactly
@@ -33,14 +36,17 @@ from pathlib import Path
 from typing import Any
 
 from climblog.modules import load_module
+from climblog.modules.program import week_text
 from climblog.modules.schema import Module
 from climblog.storage import RecordWriter, XlsxBackend, sync_module
 
 MODULES = Path(__file__).parent.parent / "modules"
 FILES = {  # module → (definition, workbook)
-    "journal": ("journal.yaml", "journal.xlsx"),
-    "protein": ("protein.yaml", "protein.xlsx"),
-    "finger_strength": ("finger-strength.yaml", "finger-strength.xlsx"),
+    "journal": (MODULES / "journal.yaml", "journal.xlsx"),
+    "protein": (MODULES / "protein.yaml", "protein.xlsx"),
+    "finger_strength": (MODULES / "finger-strength.yaml", "finger-strength.xlsx"),
+    # a fictional program, to show reference tables until the real programs' modules (D-112)
+    "demo_program": (Path(__file__).parent / "demo-program.yaml", "demo-program.xlsx"),
 }
 END = dt.date(2026, 12, 18)
 
@@ -292,7 +298,69 @@ def fingers(rng: random.Random, start: dt.date, end: dt.date) -> list[tuple[str,
     return records
 
 
-GENERATORS = {"journal": journal, "protein": protein, "finger_strength": fingers}
+def program(rng: random.Random, start: dt.date, end: dt.date) -> list[tuple[str, dict[str, Any]]]:
+    """The demo program's sessions: A on Mondays, B on Thursdays, now and then skipped."""
+    records: list[tuple[str, dict[str, Any]]] = []
+    for offset in range((end - start).days + 1):
+        day = start + dt.timedelta(days=offset)
+        if day.weekday() not in (0, 3) or rng.random() < 0.15:
+            continue
+        values: dict[str, Any] = {
+            "date": day.isoformat(),
+            "session": "A" if day.weekday() == 0 else "B",
+            "minutes": rng.choice([20, 25, 25, 30]),
+        }
+        if rng.random() < 0.3:
+            values["notes"] = "[ESEMPIO] Felt loose after the warm-up."
+        records.append(("session", values))
+    return records
+
+
+# The demo program's reference tables (D-112): six exercises with a prescription per week
+# (one retired), two tracks and their drills. Invented.
+PRESCRIPTIONS = ["2×10", "3×10", "2×8 light", "3×12", "4×10", "3×15"]
+EXERCISES = [
+    ("A1", "[ESEMPIO] Wall slides", "A", "Slow, no pain"),
+    ("A2", "[ESEMPIO] Band pull-aparts", "A", "Add a band when easy"),
+    ("A3", "[ESEMPIO] Scapular push-ups", "A", None),
+    ("B1", "[ESEMPIO] Hip airplanes", "B", "Hold a support at first"),
+    ("B2", "[ESEMPIO] Cossack squats", "B", "Depth before load"),
+    ("B3", "[ESEMPIO] Ankle rocks", "B", None),
+]
+TRACKS = [("T1", "[ESEMPIO] Balance"), ("T2", "[ESEMPIO] Reach")]
+DRILLS = [
+    ("D1", "T1", 1, "[ESEMPIO] Stand on one foot, eyes open"),
+    ("D2", "T1", 2, "[ESEMPIO] Stand on one foot, eyes closed"),
+    ("D3", "T2", 1, "[ESEMPIO] Reach to a hold at shoulder height"),
+    ("D4", "T2", 2, "[ESEMPIO] Reach to a hold above the head"),
+]
+
+
+def program_setup(writer: RecordWriter, start: dt.date) -> None:
+    """A run from the start's week, and the reference rows, typed as in the app."""
+    writer.start_run(week_text(start))
+    weeks = range(1, 7)
+    for i, (key, name, session, rule) in enumerate(EXERCISES):
+        values: dict[str, Any] = {"id": key, "name": name, "session": session, "load_rule": rule}
+        values |= {
+            f"w{w}": "Skip" if w == 3 and i % 3 == 2 else PRESCRIPTIONS[w - 1] for w in weeks
+        }
+        writer.add_reference_row("exercises", values)
+    writer.update_reference_row("exercises", "A3", {"retired": True})
+    for key, name in TRACKS:
+        writer.add_reference_row("tracks", {"id": key, "name": name})
+    for key, track, order, text in DRILLS:
+        values = {"id": key, "track": track, "order": order, "description": text}
+        writer.add_reference_row("drills", values)
+
+
+GENERATORS = {
+    "journal": journal,
+    "protein": protein,
+    "finger_strength": fingers,
+    "demo_program": program,
+}
+SETUP = {"demo_program": program_setup}
 
 CONFIG = """\
 # The fictional demo set written by scripts/demo.py: every value is invented.
@@ -313,15 +381,17 @@ def write(folder: Path, end: dt.date, seed: int, weeks: int = 26) -> dict[str, i
     start = end - dt.timedelta(weeks=weeks)
     counts: dict[str, int] = {}
     for offset, (name, (definition, workbook)) in enumerate(FILES.items()):
-        module = load_module(MODULES / definition)
+        module = load_module(definition)
         repo = XlsxBackend(folder / workbook)
         sync_module(module, repo)
+        writer = RecordWriter(module, repo)
+        if name in SETUP:
+            SETUP[name](writer, start)
         records = GENERATORS[name](random.Random(seed + offset), start, end)
-        RecordWriter(module, repo).add_many([(e, tracked(module, e, r)) for e, r in records])
+        writer.add_many([(e, tracked(module, e, r)) for e, r in records])
         counts[name] = len(records)
     modules = "".join(
-        f'\n[modules.{name}]\ndefinition = "{(MODULES / definition).resolve()}"\n'
-        f'workbook = "{workbook}"\n'
+        f'\n[modules.{name}]\ndefinition = "{definition.resolve()}"\nworkbook = "{workbook}"\n'
         for name, (definition, workbook) in FILES.items()
     )
     (folder / "config.toml").write_text(

@@ -2620,6 +2620,44 @@
       "title": "Parent",
       "type": "object"
     },
+    "PerWeek": {
+      "additionalProperties": false,
+      "description": "`per_week: {name: prescription, type: text}`: one column per program week, `w1`…`wN`.",
+      "properties": {
+        "name": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "default": "text",
+          "enum": [
+            "text",
+            "number",
+            "integer"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "PerWeek",
+      "type": "object"
+    },
     "PercentField": {
       "additionalProperties": false,
       "properties": {
@@ -3187,6 +3225,101 @@
         "per_reference_group"
       ],
       "title": "ReferenceGroupDerived",
+      "type": "object"
+    },
+    "ReferenceTable": {
+      "additionalProperties": false,
+      "description": "Rows a program reads (exercises, ladder rungs, questions): one tab, one row per key,\ntyped in the sheet or the app; no date. A row can be retired (its `retired` column).",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "tab": {
+          "title": "Tab",
+          "type": "string"
+        },
+        "key": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Key",
+          "type": "string"
+        },
+        "fields": {
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DateField"
+                },
+                {
+                  "$ref": "#/$defs/NumberField"
+                },
+                {
+                  "$ref": "#/$defs/ScaleField"
+                },
+                {
+                  "$ref": "#/$defs/ChoiceField"
+                },
+                {
+                  "$ref": "#/$defs/MultichoiceField"
+                },
+                {
+                  "$ref": "#/$defs/BoolField"
+                },
+                {
+                  "$ref": "#/$defs/TextField"
+                },
+                {
+                  "$ref": "#/$defs/GradeField"
+                },
+                {
+                  "$ref": "#/$defs/DurationField"
+                },
+                {
+                  "$ref": "#/$defs/RefField"
+                },
+                {
+                  "$ref": "#/$defs/PercentField"
+                },
+                {
+                  "$ref": "#/$defs/TemplateUse"
+                },
+                {
+                  "$ref": "#/$defs/ReferenceTemplateUse"
+                }
+              ]
+            }
+          },
+          "title": "Fields",
+          "type": "object"
+        },
+        "per_week": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PerWeek"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "tab",
+        "key",
+        "fields"
+      ],
+      "title": "ReferenceTable",
       "type": "object"
     },
     "ReferenceTemplateUse": {
@@ -4703,7 +4836,11 @@
     "reference": {
       "anyOf": [
         {
-          "additionalProperties": true,
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "$ref": "#/$defs/ReferenceTable"
+            }
+          },
           "type": "object"
         },
         {

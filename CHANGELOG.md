@@ -7,6 +7,13 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- Reference tables: a module's `reference:` block is now checked and each table gets its own
+  tab (key, fields, a column per program week with `per_week`, and `retired`), so a program's
+  exercises, rungs or questions can be typed in the sheet or kept in the app. The new
+  **Program** page lists them, one tab per table: add a row, edit one (its key stays), retire
+  one (kept for the records that use it, hidden unless asked). Rows without a key, duplicate
+  keys and bad cells are data issues. The demo set gets a fictional six-week program to show
+  them (#132, D-112).
 - The journal tracks illness: an **Illness** score (1 = healthy, 10 = in bed) on the session's
   Wellbeing · before and on rest days, from 2026-11-23, counted like the other wellbeing scores
   (score, status, log check: a bad cold alone makes Wellbeing LOW and the advice RECOVER). Sick

@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# A fictional program for the demo set and the tests (D-108, D-112): a six-week mobility
+# block with its exercises and drills in reference tables. Nothing here is a real program;
+# the real ones (shoulder, fear of falling) come with their own modules and importers.
+module: demo_program
+name: Demo program
+version: 1
+kind: program
+description: A fictional six-week mobility block, to show reference tables.
+
+program:
+  weeks: 6
+  phases:
+    - {name: Learn, weeks: [1, 3]}
+    - {name: Load, weeks: [4, 6]}
+  light_weeks: [3]
+
+reference:
+  exercises:
+    label: Exercises
+    tab: Exercises
+    key: id
+    fields:
+      id: {type: text, help: "A short code, like A1"}
+      name: {type: text, required: true}
+      session: {type: choice, choices: [A, B]}
+      load_rule: {type: text, label: Load rule}
+    per_week: {name: prescription, type: text}  # W1…W6: "3×10", "Skip"
+  tracks:
+    label: Tracks
+    tab: Tracks
+    key: id
+    fields:
+      id: {type: text}
+      name: {type: text, required: true}
+  drills:
+    label: Drills
+    tab: Drills
+    key: id
+    fields:
+      id: {type: text}
+      track: {type: ref, reference: tracks}
+      order: {type: integer, min: 1}
+      description: {type: text}
+
+entities:
+  session:
+    label: Session
+    tab: Sessions
+    key: [date]
+    fields:
+      date: {type: date, required: true}
+      session: {type: choice, choices: [A, B]}
+      minutes: {type: number, min: 0, max: 180, unit: min}
+      notes: {type: text, multiline: true}
+
+forms:
+  session: {entity: session}

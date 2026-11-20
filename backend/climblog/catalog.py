@@ -29,8 +29,10 @@ from climblog.modules.summary import summarize, summary_plan
 from climblog.storage import (
     CachedRepository,
     DataIssue,
+    ReferenceRows,
     StorageError,
     load_data,
+    read_reference,
     read_runs,
     read_settings,
 )
@@ -198,6 +200,12 @@ class Catalog:
             return NO_RUNS, []
         issues: list[DataIssue] = []
         return read_runs(entry.repo.pinned(), issues), issues
+
+    def reference(self, entry: Entry, table: str) -> tuple[ReferenceRows, list[DataIssue]]:
+        """A reference table's rows and its tab's data issues (D-112)."""
+        assert entry.module is not None and entry.repo is not None
+        issues: list[DataIssue] = []
+        return read_reference(entry.module, table, entry.repo.pinned(), issues), issues
 
     def full_tables(
         self, entry: Entry

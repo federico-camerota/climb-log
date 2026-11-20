@@ -6,6 +6,7 @@ import { Dashboards } from "./pages/Dashboards";
 import { Explore } from "./pages/Explore";
 import { Log } from "./pages/Log";
 import { NotFound } from "./pages/NotFound";
+import { Program } from "./pages/Program";
 import { Records } from "./pages/Records";
 import { Settings } from "./pages/Settings";
 import { Today } from "./pages/Today";
@@ -20,6 +21,7 @@ export const routes: RouteObject[] = [
       { path: "log/:module?/:form?", element: <Log /> },
       { path: "records/:module?/:entity?", element: <Records /> },
       { path: "dashboards/:module?", element: <Dashboards /> },
+      { path: "program/:module?/:table?", element: <Program /> },
       { path: "explore", element: <Explore /> },
       { path: "settings", element: <Settings /> },
       { path: "*", element: <NotFound /> },

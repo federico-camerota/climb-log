@@ -139,6 +139,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/modules/{module}/reference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tables
+         * @description The module's reference tables (none for most modules).
+         */
+        get: operations["list_tables_api_modules__module__reference_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/modules/{module}/reference/{table}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Rows
+         * @description A reference table's rows, retired ones included, and its tab's data issues.
+         */
+        get: operations["list_rows_api_modules__module__reference__table__get"];
+        put?: never;
+        /**
+         * Add Row
+         * @description Add a row, with a key no row has yet.
+         */
+        post: operations["add_row_api_modules__module__reference__table__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/modules/{module}/reference/{table}/row": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Row
+         * @description Change some columns of the row with this key (`?key=A3`); `retired: true` retires it.
+         */
+        patch: operations["update_row_api_modules__module__reference__table__row_patch"];
+        trace?: never;
+    };
     "/api/modules/{module}/runs": {
         parameters: {
             query?: never;
@@ -992,6 +1056,13 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** NewReferenceRow */
+        NewReferenceRow: {
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
+        };
         /** NewRun */
         NewRun: {
             /** Start Week */
@@ -1257,6 +1328,64 @@ export interface components {
             offline: boolean;
             /** Records */
             records: components["schemas"]["Record"][];
+        };
+        /** ReferenceChanges */
+        ReferenceChanges: {
+            /** Expected */
+            expected?: {
+                [key: string]: unknown;
+            } | null;
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
+        };
+        /** ReferenceList */
+        ReferenceList: {
+            /** Module */
+            module: string;
+            /** Tables */
+            tables: components["schemas"]["ReferenceTableInfo"][];
+        };
+        /** ReferenceRow */
+        ReferenceRow: {
+            /** Row */
+            row: number;
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
+        };
+        /** ReferenceTableInfo */
+        ReferenceTableInfo: {
+            /** Columns */
+            columns: string[];
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+            /** Per Week Label */
+            per_week_label: string | null;
+            /** Tab */
+            tab: string;
+            /** Week Columns */
+            week_columns: string[];
+        };
+        /** ReferenceTableRows */
+        ReferenceTableRows: {
+            /** As Of */
+            as_of: string | null;
+            /** Issues */
+            issues: components["schemas"]["Issue"][];
+            /** Module */
+            module: string;
+            /** Offline */
+            offline: boolean;
+            /** Rows */
+            rows: components["schemas"]["ReferenceRow"][];
+            table: components["schemas"]["ReferenceTableInfo"];
         };
         /** Row */
         Row: {
@@ -1919,6 +2048,229 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModuleList"];
+                };
+            };
+        };
+    };
+    list_tables_api_modules__module__reference_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceList"];
+                };
+            };
+            /** @description No such module */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rows_api_modules__module__reference__table__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module: string;
+                table: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceTableRows"];
+                };
+            };
+            /** @description No such table */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_row_api_modules__module__reference__table__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module: string;
+                table: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewReferenceRow"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceTableRows"];
+                };
+            };
+            /** @description No such module, entity or record */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The key is taken, the record changed since it was read, or the module doesn't load */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description An unknown field or a bad value */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook is open in Excel or LibreOffice */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook can't be reached: offline, read-only */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+        };
+    };
+    update_row_api_modules__module__reference__table__row_patch: {
+        parameters: {
+            query: {
+                key: string;
+            };
+            header?: never;
+            path: {
+                module: string;
+                table: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceChanges"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceTableRows"];
+                };
+            };
+            /** @description No such module, entity or record */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The key is taken, the record changed since it was read, or the module doesn't load */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description An unknown field or a bad value */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook is open in Excel or LibreOffice */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook can't be reached: offline, read-only */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
                 };
             };
         };
