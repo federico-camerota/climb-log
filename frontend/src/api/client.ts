@@ -50,6 +50,10 @@ export type PrefillSource = Schemas["PrefillSource"];
 export type ReferenceTableInfo = Schemas["ReferenceTableInfo"];
 export type ReferenceTableRows = Schemas["ReferenceTableRows"];
 export type ReferenceRow = Schemas["ReferenceRow"];
+export type BatchRows = Schemas["BatchRows"];
+export type BatchRow = Schemas["BatchRow"];
+export type BatchWrite = Schemas["BatchWrite"];
+export type BatchWritten = Schemas["BatchWritten"];
 
 /** A record's stored values (or its key's), by field name, as the API reads and writes them. */
 export type Values = Record<string, unknown>;
@@ -68,6 +72,7 @@ export class ApiError extends Error {
     readonly field?: string, // the (first) field at fault (a write's 422)
     method = "GET",
     readonly problems: FieldProblem[] = [], // every field at fault
+    readonly index?: number, // a batch's row at fault: new rows first, then changed (D-115)
   ) {
     super(detail ?? `${method} ${path} failed with HTTP ${String(status)}`);
     this.name = "ApiError";
@@ -78,6 +83,7 @@ interface Detail {
   message?: string;
   field?: string;
   problems?: FieldProblem[];
+  index?: number;
 }
 
 function isFieldProblem(item: unknown): item is FieldProblem {
@@ -103,7 +109,9 @@ async function detailOf(response: Response): Promise<Detail> {
       // a module that doesn't load lists its problems as text: not fields
       const listed = "problems" in detail && Array.isArray(detail.problems) ? detail.problems : [];
       const problems = (listed as unknown[]).filter(isFieldProblem);
-      return { message: String(detail.message), field, problems };
+      const index =
+        "index" in detail && typeof detail.index === "number" ? detail.index : undefined;
+      return { message: String(detail.message), field, problems, index };
     }
   } catch {
     // not JSON: keep the generic message
@@ -121,8 +129,8 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   if (!response.ok) {
-    const { message, field, problems } = await detailOf(response);
-    throw new ApiError(response.status, path, message, field, method, problems);
+    const { message, field, problems, index } = await detailOf(response);
+    throw new ApiError(response.status, path, message, field, method, problems, index);
   }
   return (response.status === 204 ? undefined : await response.json()) as T;
 }
@@ -202,6 +210,24 @@ export function startRun(module: string, startWeek: string): Promise<RunList> {
 /** The other modules' records of a day that prefill an entity's `from:` fields (D-114). */
 export function getPrefill(module: string, entity: string, date: string): Promise<Prefill> {
   return getJson<Prefill>(`${entityPath(module, entity)}/prefill?date=${encodeURIComponent(date)}`);
+}
+
+/** A batch form's rows for the shared key values (the date, D-115), each with its record. */
+export function getBatch(module: string, form: string, key: Values): Promise<BatchRows> {
+  const params = new URLSearchParams();
+  for (const [name, value] of Object.entries(key)) params.set(name, asParam(value));
+  const path = `/api/modules/${encodeURIComponent(module)}/forms/${encodeURIComponent(form)}`;
+  return getJson<BatchRows>(`${path}/batch?${params.toString()}`);
+}
+
+function asParam(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+/** A batch form's rows in one save, all or none (D-115). */
+export function saveBatch(module: string, entity: string, body: BatchWrite): Promise<BatchWritten> {
+  return send<BatchWritten>("POST", `${entityPath(module, entity)}/batch`, body);
 }
 
 /** The names of a module's reference tables, in YAML order (D-112). */

@@ -21,12 +21,14 @@ from climblog.modules.schema import (
     NEXT,
     BarsWidget,
     BaseField,
+    BatchOver,
     BodyHeatmapWidget,
     BoxByWidget,
     ChoiceField,
     DateField,
     DurationField,
     Entity,
+    FormModel,
     GradeField,
     GradesWidget,
     HeatmapWidget,
@@ -238,6 +240,15 @@ def _forms(module: Module) -> list[Problem]:
                 problems.append(
                     Problem((*at, "keep_fields", j), f"'{form.entity}' has no field '{kept}'")
                 )
+        if form.keep_fields and not form.repeat and form.batch_over is None:
+            problems.append(
+                Problem(
+                    (*at, "keep_fields"),
+                    "keep_fields needs `repeat: true` or `batch_over` (the fields kept for the"
+                    " next record, or typed once for the batch)",
+                )
+            )
+        problems += _batch(module, form, at)
         for j, child in enumerate(form.children):
             c_at: YamlPath = (*at, "children", j)
             found = _entity_named(module, child.entity, (*c_at, "entity"))
@@ -260,6 +271,71 @@ def _forms(module: Module) -> list[Problem]:
                             (*c_at, "copy_previous", k),
                             f"'{child.entity}' has no field '{copied}'",
                         )
+                    )
+    return problems
+
+
+def _batch(module: Module, form: FormModel, at: YamlPath) -> list[Problem]:
+    """A batch form (D-115): its table exists and one `ref` key field of the form's entity
+    points at it; the filter names the table's fields and their values; nothing else in the
+    form is repeated."""
+    batch = form.batch()
+    if batch is None:
+        return []
+    b_at: YamlPath = (*at, "batch_over")
+    if isinstance(form.batch_over, BatchOver):
+        b_at = (*b_at, "reference")
+    tables = module.reference or {}
+    if batch.reference not in tables:
+        known = ", ".join(tables) or "none"
+        return [Problem(b_at, f"no reference table '{batch.reference}' (tables: {known})")]
+    entity = module.entities[form.entity]
+    problems: list[Problem] = []
+    refs = [
+        n
+        for n, f in entity.fields.items()
+        if isinstance(f, RefField) and f.reference == batch.reference and not f.retired
+    ]
+    if len(refs) != 1:
+        found = "none" if not refs else ", ".join(refs)
+        problems.append(
+            Problem(
+                b_at,
+                f"'{form.entity}' needs one ref field to '{batch.reference}' (found: {found})",
+            )
+        )
+    elif refs[0] not in (entity.key or []):
+        problems.append(
+            Problem(b_at, f"'{refs[0]}' must be part of the key of '{form.entity}' (one row each)")
+        )
+    for part in entity.key or []:
+        f = entity.fields.get(part)
+        if isinstance(f, BaseField) and f.default == NEXT:
+            problems.append(
+                Problem(b_at, f"'{form.entity}' has a numbered key part '{part}': no batch form")
+            )
+    if entity.parent is not None:
+        problems.append(
+            Problem(
+                b_at,
+                f"'{form.entity}' is a child entity: its rows are logged in its parent's form",
+            )
+        )
+    for clash in ("children", "repeat", "phase", "sections"):
+        if getattr(form, clash):
+            problems.append(Problem((*at, clash), f"a batch form has no {clash}"))
+    table = tables[batch.reference]
+    for name, values in batch.where.items():
+        w_at: YamlPath = (*at, "batch_over", "where", name)
+        f = table.fields.get(name)
+        if not isinstance(f, BaseField):
+            known = ", ".join(table.fields)
+            problems.append(Problem(w_at, f"'{batch.reference}' has no field '{name}' ({known})"))
+        elif isinstance(f, ChoiceField) and f.choices is not None:
+            for j, value in enumerate(values):
+                if value not in f.choices:
+                    problems.append(
+                        Problem((*w_at, j), f"'{value}' is not one of {name}'s choices")
                     )
     return problems
 

@@ -23,6 +23,7 @@ from typing import Any
 
 from climblog.expr import Value, evaluate, prepare
 from climblog.modules.checks import expression_env
+from climblog.modules.reference import match_key
 from climblog.modules.schema import BaseField, ChoiceField, DateField, Entity, Module, TextField
 
 DONE, PARTIAL, MISSING = "done", "partial", "missing"
@@ -37,6 +38,7 @@ class Form:
     sections: tuple[str, ...] | None  # None: every field of the entity
     repeats: bool  # child rows in the form (finger-strength sets): the form's own fields count
     another: bool = False  # `repeat: true`: many records a day (meals), Today offers one more
+    batch: bool = False  # `batch_over`: one row per reference row, counted as one item (D-115)
 
 
 @dataclass(frozen=True)
@@ -87,6 +89,7 @@ def forms_of(module: Module) -> dict[str, Form]:
             tuple(form.sections) if form.sections is not None else None,
             bool(form.children),
             form.repeat,
+            form.batch_over is not None,
         )
         for name, form in (module.forms or {}).items()
     }
@@ -143,9 +146,11 @@ def due(
     tables: Mapping[str, Sequence[Mapping[str, Value]]],
     day: dt.date,
     settings: Mapping[str, Value] | None = None,
+    reference: Mapping[str, Sequence[Mapping[str, Value]]] | None = None,
 ) -> Day:
     """The module's forms on `day`. `tables[entity]` holds each record's stored and derived
-    values (deleted ones left out)."""
+    values (deleted ones left out); `reference[table]` a reference table's rows, for the
+    batch forms (D-115)."""
     forms = forms_of(module)
     notes: list[str] = []
     mornings = _next_mornings(module, forms.values(), tables, day, settings or {})
@@ -180,7 +185,7 @@ def due(
             entity = module.entities[e_name]
             for record in records:
                 key = {part: record.get(part) for part in entity.key or [_date_field(entity)]}
-                for f in (f for f in usable if f.entity == e_name):
+                for f in (f for f in usable if f.entity == e_name and not f.batch):
                     status, missing = _status(module, f, record, day, settings or {})
                     items.append(
                         Due(
@@ -192,6 +197,8 @@ def due(
                             record.get("log_check"),
                         )
                     )
+        batches = [f for f in usable if f.batch]
+        items += _batches(module, batches, on_day, day, settings or {}, reference or {})
         for f in entry:  # a repeated form: after the day's records, one more (D-107)
             if f.another and on_day.get(f.entity):
                 date = _date_field(module.entities[f.entity])
@@ -210,6 +217,71 @@ def due(
         notes,
         **plan,
     )
+
+
+def _batches(
+    module: Module,
+    forms: Sequence[Form],
+    on_day: Mapping[str, Sequence[Mapping[str, Value]]],
+    day: dt.date,
+    settings: Mapping[str, Value],
+    reference: Mapping[str, Sequence[Mapping[str, Value]]],
+) -> list[Due]:
+    """The batch forms with records on the day, one item each, counted: "Session a · 7 of 9"
+    (D-115). Done when every row has its record and each is done. When two batch forms share
+    rows (the primer of sessions A and B), a form is listed for a record of its own rows; for
+    shared rows alone, each form that has them."""
+    from climblog.modules.batch import batch_rows, key_parts  # it imports the schema
+
+    # (form, the shared key values) → its rows, each with its record of the day if any
+    batches: dict[tuple[str, tuple[Value, ...]], list[tuple[Any, Any]]] = {}
+    keys: dict[tuple[str, tuple[Value, ...]], dict[str, Value]] = {}
+    by_name = {f.name: f for f in forms}
+    for f in forms:
+        model = (module.forms or {})[f.name]
+        batch = model.batch()
+        assert batch is not None
+        records = list(on_day.get(f.entity, ()))
+        parts = key_parts(module, model)
+        for group in dict.fromkeys(tuple(r.get(p) for p in parts) for r in records):
+            key = dict(zip(parts, group, strict=True))
+            table = reference.get(batch.reference, ())
+            rows = batch_rows(module, model, table, records, key).rows
+            batches[f.name, group] = [
+                (r, None if r.record is None else records[r.record]) for r in rows
+            ]
+            keys[f.name, group] = key
+
+    def row_keys(at: tuple[str, tuple[Value, ...]], logged: bool = False) -> set[Value]:
+        return {match_key(r.key) for r, rec in batches[at] if rec is not None or not logged}
+
+    def own(at: tuple[str, tuple[Value, ...]]) -> set[Value]:
+        """Its logged rows that are no row of the entity's other batch forms."""
+        name, group = at
+        rivals = [
+            row_keys(b)
+            for b in batches
+            if b[0] != name and b[1] == group and by_name[b[0]].entity == by_name[name].entity
+        ]
+        return {k for k in row_keys(at, True) if not any(k in other for other in rivals)}
+
+    items: list[Due] = []
+    for at, pairs in batches.items():
+        name, group = at
+        f = by_name[name]
+        if not row_keys(at, True):
+            continue
+        if not own(at) and any(
+            own(b) for b in batches if b[1] == group and by_name[b[0]].entity == f.entity
+        ):
+            continue  # shared rows only, and another form has rows of its own
+        logged = [rec for _, rec in pairs if rec is not None]
+        statuses = [_status(module, f, rec, day, settings)[0] for rec in logged]
+        done = len(logged) == len(pairs) and all(s == DONE for s in statuses)
+        missing = [str(r.key) for r, rec in pairs if rec is None]
+        label = f"{form_label(name)} · {len(logged)} of {len(pairs)}"
+        items.append(Due(name, label, keys[at], DONE if done else PARTIAL, missing))
+    return items
 
 
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")

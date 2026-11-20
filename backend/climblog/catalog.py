@@ -19,6 +19,7 @@ from climblog.analytics.load import Other, training_load
 from climblog.config import AppConfig, ConfigError, config_path, load_config
 from climblog.expr import Value
 from climblog.modules import Module, ModuleError
+from climblog.modules.batch import Batch, batch_rows
 from climblog.modules.checks import recommendation_plan
 from climblog.modules.compute import compute_module
 from climblog.modules.forms import Day, due, hidden
@@ -170,7 +171,11 @@ class Catalog:
                         )
                     ],
                 )
-        return due(module, full, day, settings), week
+        tables = {
+            b.reference for form in (module.forms or {}).values() if (b := form.batch()) is not None
+        }
+        reference = {name: self.reference(entry, name)[0].rows for name in tables}
+        return due(module, full, day, settings, reference), week
 
     def others(self, entry: Entry) -> Other:
         """Another loaded module by its `module:` id, with its records (unreadable: none)."""
@@ -221,6 +226,25 @@ class Catalog:
         assert entry.module is not None and entry.repo is not None
         settings = read_settings(entry.module, entry.repo.pinned())
         return hidden(entry.module, entity, values, settings)
+
+    def batch(
+        self, entry: Entry, form: str, key: Mapping[str, Value]
+    ) -> tuple[Batch, EntityRecords]:
+        """A batch form's rows for the shared key values `key` (the date, D-115), each with
+        its record if logged, and the entity's records they point into."""
+        assert entry.module is not None and entry.repo is not None
+        module = entry.module
+        model = (module.forms or {})[form]
+        records = self.records(entry, model.entity)
+        batch = model.batch()
+        assert batch is not None
+        table, issues = self.reference(entry, batch.reference)
+        runs, _ = self.runs(entry)
+        day = key.get(module.entities[model.entity].date_field or "date")
+        found = runs.at(day if isinstance(day, dt.date) else None)
+        week = found.week if found is not None else None
+        rows = batch_rows(module, model, table.rows, records.records, key, week)
+        return rows, replace(records, issues=records.issues + issues)
 
     def runs(self, entry: Entry) -> tuple[Runs, list[DataIssue]]:
         """A program module's runs and the Runs tab's data issues (D-109); none otherwise."""

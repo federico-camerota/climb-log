@@ -59,7 +59,7 @@ def writer(program: Module, repo: Repository) -> RecordWriter:
 
 def test_the_tables_of_a_module(program: Module) -> None:
     tables = program.reference or {}
-    assert list(tables) == ["exercises", "tracks", "drills"]
+    assert list(tables) == ["exercises", "tracks", "measures", "drills"]
     assert list(reference_columns(program, "exercises")) == [
         "id",
         "name",
@@ -164,7 +164,7 @@ def test_the_tab_of_a_table(program: Module) -> None:
     assert {columns[k].group for k in ("name", "session", "w1", RETIRED)} == {"reference"}
     assert columns["w1"].label == "W1\nPrescription"
     assert columns["w1"].number_format == "@"  # typed as text: "3×10"
-    assert columns["session"].validation == ListRule(("A", "B"))
+    assert columns["session"].validation == ListRule(("Warm-up", "A", "B"))
     assert columns[RETIRED].validation == ListRule(("Yes", "No"))
     drills = {c.key: c for c in tabs["Drills"].columns}
     assert drills["order"].validation == RangeRule("whole", 1, None)
@@ -223,7 +223,7 @@ def test_rows_with_their_issues(program: Module, tmp_path: Path) -> None:
     issues = {(i.tab, i.row, i.field): (i.kind, i.message) for i in data.issues}
     assert issues[("Exercises", 4, None)] == ("left_out", "same id as row 3: the row is left out")
     assert issues[("Exercises", 5, "id")] == ("left_out", "no id: the row is left out")
-    assert issues[("Exercises", 6, "session")] == ("value", "'C' is not one of: A, B")
+    assert issues[("Exercises", 6, "session")] == ("value", "'C' is not one of: Warm-up, A, B")
     assert issues[("Exercises", 6, RETIRED)][0] == "value"
     assert issues[("Exercises", 6, "name")] == ("required", "required, but empty")
     assert not [i for i in data.issues if i.tab == "Drills"]
@@ -284,7 +284,7 @@ def test_write_problems(program: Module, tmp_path: Path) -> None:
         write.add_reference_row("nothing", {"id": "x"})
     with pytest.raises(WriteConflict, match="name has changed since it was read"):
         write.update_reference_row("tracks", "T1", {"name": "New"}, {"name": "Old"})
-    with pytest.raises(WriteError, match="'C' is not one of: A, B"):
+    with pytest.raises(WriteError, match="'C' is not one of: Warm-up, A, B"):
         write.add_reference_row("exercises", {"id": "A1", "name": "x", "session": "C"})
 
 
@@ -304,7 +304,7 @@ def client(program: Module, tmp_path: Path) -> Iterator[TestClient]:
 
 def test_the_tables_of_a_module_in_the_api(client: TestClient) -> None:
     body = client.get("/api/modules/program/reference").json()
-    exercises, tracks, _ = body["tables"]
+    exercises, tracks, _, _ = body["tables"]
     assert exercises == {
         "name": "exercises",
         "label": "Exercises",

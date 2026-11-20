@@ -26,7 +26,7 @@ reference:
     fields:
       id: {type: text, help: "A short code, like A1"}
       name: {type: text, required: true}
-      session: {type: choice, choices: [A, B]}
+      session: {type: choice, choices: [Warm-up, A, B]}  # the warm-up comes in both
       load_rule: {type: text, label: Load rule}
     per_week: {name: prescription, type: text}  # W1…W6: "3×10", "Skip"
   tracks:
@@ -36,6 +36,14 @@ reference:
     fields:
       id: {type: text}
       name: {type: text, required: true}
+  measures:                     # retested now and then, all in one form (D-115)
+    label: Measures
+    tab: Measures
+    key: id
+    fields:
+      id: {type: text}
+      name: {type: text, required: true}
+      unit: {type: text}
   drills:
     label: Drills
     tab: Drills
@@ -74,7 +82,6 @@ entities:
     label: Exercise log
     tab: Exercise log
     key: [date, exercise]
-    parent: {entity: session, key: [date]}
     fields:
       date: {type: date, required: true}
       exercise: {type: ref, reference: exercises, required: true}
@@ -84,6 +91,32 @@ entities:
       prescribed: "reference.exercises[exercise].prescription[program.week]"
       skipped_by_plan: "prescribed == 'Skip'"
 
+  retest:                       # one row per measure, logged together (D-115)
+    label: Retest
+    tab: Retests
+    key: [date, measure]
+    fields:
+      date: {type: date, required: true}
+      measure: {type: ref, reference: measures, required: true}
+      checkpoint: {type: choice, choices: [Start, Middle, End]}
+      value: {type: number}
+  drill_try:                    # many tries a day, the drill and level kept (D-115)
+    label: Drill try
+    tab: Drill tries
+    key: [date, try_no]
+    fields:
+      date: {type: date, required: true}
+      try_no: {type: integer, min: 1, default: next}
+      drill: {type: ref, reference: drills, required: true}
+      level: {type: choice, choices: [L1, L2, L3]}
+      wobble: {type: scale, scale: sore, label: Wobble}
+      notes: {type: text}
+
 forms:
-  session: {entity: session, children: [{entity: exercise_log, repeat: true}]}
+  session: {entity: session}
+  # the exercises of a session, one row each, saved together (D-115)
+  session_a: {entity: exercise_log, batch_over: {reference: exercises, where: {session: [Warm-up, A]}}}
+  session_b: {entity: exercise_log, batch_over: {reference: exercises, where: {session: [Warm-up, B]}}}
+  retest: {entity: retest, batch_over: measures, keep_fields: [checkpoint]}
+  drill_tries: {entity: drill_try, repeat: true, keep_fields: [drill, level]}
   next_morning: {entity: session, phase: next_day}

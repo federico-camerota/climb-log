@@ -200,6 +200,10 @@ module and dashboard, fear rules, module and dashboard, combined recommendation,
   `+`, `from_map`) prefills a new record in the app from the other module's same-day record
   (several: the form asks which), checked against the app config; Today lists `phase: next_day`
   forms for the last three days until filled.
+- Batch and repeated forms. → done (D-115, #135): `batch_over` (a table, or a table with a
+  `where` filter) logs a row per reference row in one all-or-nothing save, empty rows skipped;
+  `keep_fields` typed once for a batch, or kept by "Save and add another" in a repeated form;
+  Today counts a batch as one item ("Session a · 7 of 9"). No pre-generated rows in the sheet.
 - `shoulder.yaml` + importer (plan, exercise log, check-ins, retests); review-flag rule;
   program grid, weekly dashboard, retests view; next-morning reminder.
 - `fear-of-falling.yaml` + importer (fear map, ladder, falls, 20Q, weekly review);

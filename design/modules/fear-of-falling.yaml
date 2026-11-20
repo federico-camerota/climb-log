@@ -94,8 +94,9 @@ entities:
     tab: fear_map_scores
     id_prefix: fm
     date_field: date
+    key: [date, scenario]            # one row per scenario a day (batch form, D-115)
     fields:
-      date: {type: date}
+      date: {type: date, required: true}
       checkpoint: {type: choice, choices: [W0, W8, W12]}
       scenario: {type: ref, reference: scenarios}
       score: {type: scale, scale: fear}
@@ -138,7 +139,7 @@ aggregates:                         # replaces the manual "Progress" section 1
 forms:
   falls:    {entity: fall, repeat: true, keep_fields: [date, session_kind, rung, level]}
   q20:      {entity: q20, phase: post}
-  fear_map: {entity: fear_map_score, batch_over: scenarios}
+  fear_map: {entity: fear_map_score, batch_over: scenarios, keep_fields: [checkpoint]}
   weekly_review: {entity: weekly_review, due: "end_of_program_week"}
 
 views:

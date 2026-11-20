@@ -72,7 +72,7 @@ def test_records_dated_by_a_week_match_the_app(load: LoadYaml, text: str, seed: 
     [
         ROOT / "modules" / "finger-strength.yaml",
         ROOT / "modules" / "journal.yaml",
-        ROOT / "scripts" / "demo-program.yaml",  # lookups in a child entity (D-113)
+        ROOT / "scripts" / "demo-program.yaml",  # reference lookups (D-113), batch entities (D-115)
     ],
     ids=str,
 )

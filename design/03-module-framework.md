@@ -551,6 +551,38 @@ form for the records of the last three days whose next-morning fields are still 
 ("Next morning · Check-in of Tue 17"), the latest first; after that they show only in the
 record's own form.
 
+**Batch forms** (`batch_over`, D-115) log one record per row of a reference table at once: the
+exercises of a session, every retest measure.
+```yaml
+forms:
+  session_a: {entity: exercise_log, batch_over: {reference: exercises, where: {session: [Primer, A]}}}
+  retest:    {entity: retest, batch_over: retest_measures, keep_fields: [checkpoint]}
+```
+- `batch_over: <table>` takes every row of the table; `{reference: <table>, where: {<field>:
+  [values]}}` the rows whose field has one of the values. Rows still in use only: a retired row
+  shows only when the day already has its record. The form's entity has exactly one `ref` field
+  to the table, part of its key, and each row fills it; it is no child entity (a child's rows
+  are logged in its parent's form) and has no numbered key part (`default: next`). A batch form
+  has no `repeat`, `children`, `phase` or `sections`.
+- The other key parts (the date) are asked once by the Log page, and **`keep_fields`** are
+  typed once above the rows. Each row shows its label ("A1 · Wall slides"), this week's
+  per-week value ("Prescription W3: 3×10") and its record of the day, if any; the day's other
+  records of the entity are listed apart ("Also logged that day").
+- One Save writes every row in **one save, all or none** (`POST …/{entity}/batch`): new rows
+  and changed ones, each checked as a single write would be; a refusal names the row and
+  nothing is written. A **row left empty is skipped**: to log "not done", type it (a quality
+  "Skipped"). Nothing is pre-generated in the sheet: rows are typed there with the `ref`
+  dropdown (D-113).
+- On **Today** a batch form stays an entry form until something is logged; then it is one item
+  counted by rows, "Session a · 7 of 9", done when every row has its record and each record is
+  done. When two batch forms share rows (the primer of sessions A and B), a form is listed for
+  a record of its own rows; for shared rows alone, each form that has them.
+
+In a **repeated form** (`repeat: true`, D-107), `keep_fields` are kept by "Save and add another":
+the next record starts with their values (a fall's date, session, rung and level), its number
+blank (the next one). The Log page lists the day's records of the form ("On this day: Drill try
+1 · 2"). `keep_fields` needs `repeat` or `batch_over`.
+
 A form whose entity is **dated by a week** (`date_field` of type `week`: a training plan,
 D-110) is never due. Today lists that entity's records of the day's week instead: today's first
 (the day is a choice field of `Mon`…`Sun`), then by day, those without a day ("any day") last,
@@ -774,7 +806,7 @@ problem (unknown scale, key field that does not exist), e.g.
 - Blocks of later milestones (`reference`, `aggregates`, `rules`) are accepted as
   they are until their issue adds the checks; `program` is checked (D-109); `forms` (D-100: entity, sections, phase, child
   forms and their `copy_previous`; `repeat: true`, D-107: many records a day, Today offers one
-  more after them; M5's `batch_over`, `keep_fields`, `due` accepted as they are), `views` (D-083, D-091) and `recommendation` (D-076) are checked.
+  more after them; `batch_over` and `keep_fields`, D-115; M5's `due` accepted as it is), `views` (D-083, D-091) and `recommendation` (D-076) are checked.
   Templates, split and child entities are checked (§2.1b), and so are derived fields (§2.2),
   except the deferred ones.
 

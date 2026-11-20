@@ -39,6 +39,10 @@ interface Props {
   // a new record whose key number was left blank (`default: next`, a meal) was saved: its key,
   // number included, so the page can show it (D-107)
   onCreated?: (key: Values) => void;
+  // a repeated form (D-115): "Save and add another" saves, then asks for the next record with
+  // the `keep_fields` values (`kept`, as the API has them) and says what was saved
+  kept?: Values;
+  onAnother?: (kept: Values, saved: string) => void;
 }
 
 /** A module form for one record (06-ui Log): created the first time it is saved (the pre-session
@@ -109,6 +113,8 @@ function Editor({
   onSaved,
   onReload,
   issues = [],
+  kept,
+  onAnother,
 }: EditorProps) {
   const groups = formGroups(entity, form);
   const fields = groups.flatMap((group) => group.fields);
@@ -126,6 +132,14 @@ function Editor({
   const only = read === null && sources.length === 1 ? sources[0] : undefined;
   if (only !== undefined) {
     for (const [name, value] of Object.entries(only.values)) {
+      const field = entity.fields[name];
+      if (field !== undefined && name in initial)
+        initial[name] = toInput(field, scale(name), value);
+    }
+  }
+  // the next of a repeated form starts with the kept fields' values (D-115)
+  if (read === null && kept !== undefined) {
+    for (const [name, value] of Object.entries(kept)) {
       const field = entity.fields[name];
       if (field !== undefined && name in initial)
         initial[name] = toInput(field, scale(name), value);
@@ -202,9 +216,10 @@ function Editor({
     setPrefilledFrom(`${source.module} · ${source.label}`);
   };
 
+  const another = useRef(false); // "Save and add another" was pressed
   const queryClient = useQueryClient();
   const save = useMutation({
-    mutationFn: async (values: Record<string, InputValue>): Promise<Written> => {
+    mutationFn: async ({ values }: Saving): Promise<Written> => {
       const changed = shownFields.filter(
         ([name, field]) => !unchanged(field, read?.[name], values[name] ?? null),
       );
@@ -231,9 +246,22 @@ function Editor({
       if (fresh === null) throw new Error("The record is gone: reload the page");
       return fresh;
     },
-    onSuccess: (written) => {
+    onSuccess: (written, { values, next }) => {
       dropDraft(draftKey);
-      onSaved(written);
+      if (next && onAnother !== undefined) {
+        const keptValues = Object.fromEntries(
+          fields
+            .filter(([name]) => (form.keep_fields ?? []).includes(name))
+            .map(([name, field]) => [name, toApi(field, values[name] ?? null)]),
+        );
+        const number = keyOf(entity)
+          .slice(1)
+          .map((name) => asText(written.record.values[name] ?? null))
+          .join(" ");
+        onAnother(keptValues, `${entity.label ?? form.entity} ${number}`.trim());
+      } else {
+        onSaved(written);
+      }
       queryClient.setQueryData(["record", module.id, form.entity, recordKey], written);
       void queryClient.invalidateQueries({ queryKey: ["records", module.id, form.entity] });
       for (const child of form.children ?? []) {
@@ -259,7 +287,7 @@ function Editor({
       shownFields.every(([name, field]) => unchanged(field, read?.[name], values[name] ?? null)) &&
       !blocks.some((block) => block.dirty());
     setNothing(read !== null && same);
-    if (!(read !== null && same)) save.mutate(values);
+    if (!(read !== null && same)) save.mutate({ values, next: another.current });
   }
   const error = save.error;
   const conflict = error instanceof ApiError && error.status === 409;
@@ -376,13 +404,39 @@ function Editor({
         )}
         {nothing && <Text c="dimmed">Nothing changed.</Text>}
         <Group>
-          <Button type="submit" loading={save.isPending} disabled={offline}>
+          <Button
+            type="submit"
+            loading={save.isPending && !save.variables.next}
+            disabled={offline}
+            onClick={() => {
+              another.current = false;
+            }}
+          >
             {read === null ? "Save" : "Save changes"}
           </Button>
+          {onAnother !== undefined && (
+            <Button
+              type="submit"
+              variant="light"
+              loading={save.isPending && save.variables.next}
+              disabled={offline}
+              onClick={() => {
+                another.current = true;
+              }}
+            >
+              Save and add another
+            </Button>
+          )}
         </Group>
       </Stack>
     </form>
   );
+}
+
+/** What a save sends: the form's values, and whether the next record follows (D-115). */
+interface Saving {
+  values: Record<string, InputValue>;
+  next: boolean;
 }
 
 /** A field's distinct values in the records, newest first (the records come in sheet order). */
