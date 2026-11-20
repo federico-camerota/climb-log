@@ -15,6 +15,7 @@ const FINGERS: ModuleInfo = {
   version: 1,
   kind: "journal",
   problems: [],
+  notes: [],
   module_schema: {
     scales: {
       rpe: { min: 1, max: 10, direction: "neutral" },

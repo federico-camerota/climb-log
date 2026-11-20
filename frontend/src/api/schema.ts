@@ -290,6 +290,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/modules/{module}/{entity}/prefill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Prefill
+         * @description The other modules' records of `date` that prefill the entity's `from:` fields (D-114):
+         *     the form starts with their values (editable); nothing is written.
+         */
+        get: operations["prefill_api_modules__module___entity__prefill_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/modules/{module}/{entity}/record": {
         parameters: {
             query?: never;
@@ -993,6 +1014,11 @@ export interface components {
             /** Name */
             name?: string | null;
             /**
+             * Notes
+             * @default []
+             */
+            notes: string[];
+            /**
              * Problems
              * @default []
              */
@@ -1229,6 +1255,30 @@ export interface components {
             sources: components["schemas"]["SourceInfo"][];
             /** Target */
             target: string;
+        };
+        /** Prefill */
+        Prefill: {
+            /** Notes */
+            notes: string[];
+            /** Sources */
+            sources: components["schemas"]["PrefillSource"][];
+        };
+        /** PrefillSource */
+        PrefillSource: {
+            /** Entity */
+            entity: string;
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            };
+            /** Label */
+            label: string;
+            /** Module */
+            module: string;
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
         };
         /** Pyramid */
         Pyramid: {
@@ -2549,6 +2599,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Hidden"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prefill_api_modules__module___entity__prefill_get: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header?: never;
+            path: {
+                module: string;
+                entity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Prefill"];
                 };
             };
             /** @description Validation Error */

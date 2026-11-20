@@ -187,7 +187,8 @@ class BaseField(Strict):
     section: str | None = None
     tags: list[Key] = []
     since: dt.date | None = None
-    from_: str | None = Field(default=None, alias="from")  # prefilled from another module
+    from_: str | None = Field(default=None, alias="from")  # prefilled from another module (D-114)
+    from_map: dict[str, str] = {}  # the other module's value (parts joined by " · ") → this one
     visible_if: str | None = None  # condition on other fields, checked in checks.py
     retired: bool = False  # hidden from forms; column and data kept (§3)
     renamed_from: Key | None = None

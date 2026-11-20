@@ -10,6 +10,7 @@ import {
   getHealth,
   getMetrics,
   getModules,
+  getPrefill,
   getRecommendation,
   getRecord,
   getRecords,
@@ -47,6 +48,15 @@ export function useRuns(module: string, date?: string, enabled = true) {
   return useQuery({
     queryKey: ["runs", module, date ?? "today"],
     queryFn: () => getRuns(module, date),
+    enabled,
+  });
+}
+
+/** What prefills an entity's `from:` fields on a day (D-114). */
+export function usePrefill(module: string, entity: string, date: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["prefill", module, entity, date],
+    queryFn: () => getPrefill(module, entity, date),
     enabled,
   });
 }

@@ -19,6 +19,13 @@ function ModuleCard({ module }: { module: ModuleInfo }) {
         {module.kind != null && ` · ${module.kind}`}
       </Text>
       {ok && module.kind === "program" && <ProgramRuns module={module.id} />}
+      {module.notes.length > 0 && (
+        <List size="sm" c="orange">
+          {module.notes.map((note) => (
+            <List.Item key={note}>{note}</List.Item>
+          ))}
+        </List>
+      )}
       {module.problems.length > 0 && (
         <List size="sm" c="red">
           {module.problems.map((problem) => (

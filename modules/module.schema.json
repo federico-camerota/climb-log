@@ -385,6 +385,14 @@
           "default": null,
           "title": "From"
         },
+        "from_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "From Map",
+          "type": "object"
+        },
         "visible_if": {
           "anyOf": [
             {
@@ -628,6 +636,14 @@
           "default": null,
           "title": "From"
         },
+        "from_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "From Map",
+          "type": "object"
+        },
         "visible_if": {
           "anyOf": [
             {
@@ -810,6 +826,14 @@
           "default": null,
           "title": "From"
         },
+        "from_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "From Map",
+          "type": "object"
+        },
         "visible_if": {
           "anyOf": [
             {
@@ -954,6 +978,14 @@
           ],
           "default": null,
           "title": "From"
+        },
+        "from_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "From Map",
+          "type": "object"
         },
         "visible_if": {
           "anyOf": [
@@ -1467,6 +1499,14 @@
           ],
           "default": null,
           "title": "From"
+        },
+        "from_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "From Map",
+          "type": "object"
         },
         "visible_if": {
           "anyOf": [
@@ -2226,6 +2266,14 @@
           "default": null,
           "title": "From"
         },
+        "from_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "From Map",
+          "type": "object"
+        },
         "visible_if": {
           "anyOf": [
             {
@@ -2379,6 +2427,14 @@
           ],
           "default": null,
           "title": "From"
+        },
+        "from_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "From Map",
+          "type": "object"
         },
         "visible_if": {
           "anyOf": [
@@ -2750,6 +2806,14 @@
           ],
           "default": null,
           "title": "From"
+        },
+        "from_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "From Map",
+          "type": "object"
         },
         "visible_if": {
           "anyOf": [
@@ -3159,6 +3223,14 @@
           "default": null,
           "title": "From"
         },
+        "from_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "From Map",
+          "type": "object"
+        },
         "visible_if": {
           "anyOf": [
             {
@@ -3442,6 +3514,14 @@
           ],
           "default": null,
           "title": "From"
+        },
+        "from_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "From Map",
+          "type": "object"
         },
         "visible_if": {
           "anyOf": [
@@ -4399,6 +4479,14 @@
           ],
           "default": null,
           "title": "From"
+        },
+        "from_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "From Map",
+          "type": "object"
         },
         "visible_if": {
           "anyOf": [

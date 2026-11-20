@@ -14,7 +14,7 @@ describe("Settings", () => {
       "/api/modules": {
         modules: [
           module("journal", "Climbing journal", ["session"]),
-          { id: "broken", problems: ["broken.yaml:3:1: unknown key 'feilds'"] },
+          { id: "broken", problems: ["broken.yaml:3:1: unknown key 'feilds'"], notes: [] },
         ],
         problems: ["modules.old: the definition file doesn't exist"],
       },

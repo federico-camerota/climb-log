@@ -43,6 +43,7 @@ export function module(id: string, name: string, entities: string[]): ModuleInfo
     version: 1,
     kind: "journal",
     problems: [],
+    notes: [],
     module_schema: { entities: Object.fromEntries(entities.map((e) => [e, { fields: {} }])) },
   };
 }
@@ -79,6 +80,7 @@ export const DIARY: ModuleInfo = {
   version: 1,
   kind: "journal",
   problems: [],
+  notes: [],
   module_schema: {
     scales: {
       s10: { min: 1, max: 10, direction: "higher_better" },

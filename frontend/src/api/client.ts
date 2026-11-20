@@ -45,6 +45,8 @@ export type DueForm = Schemas["DueForm"];
 export type RunList = Schemas["RunList"];
 export type RunInfo = Schemas["RunInfo"];
 export type ReferenceList = Schemas["ReferenceList"];
+export type Prefill = Schemas["Prefill"];
+export type PrefillSource = Schemas["PrefillSource"];
 export type ReferenceTableInfo = Schemas["ReferenceTableInfo"];
 export type ReferenceTableRows = Schemas["ReferenceTableRows"];
 export type ReferenceRow = Schemas["ReferenceRow"];
@@ -195,6 +197,11 @@ export function startRun(module: string, startWeek: string): Promise<RunList> {
   return send<RunList>("POST", `/api/modules/${encodeURIComponent(module)}/runs`, {
     start_week: startWeek,
   });
+}
+
+/** The other modules' records of a day that prefill an entity's `from:` fields (D-114). */
+export function getPrefill(module: string, entity: string, date: string): Promise<Prefill> {
+  return getJson<Prefill>(`${entityPath(module, entity)}/prefill?date=${encodeURIComponent(date)}`);
 }
 
 /** The names of a module's reference tables, in YAML order (D-112). */

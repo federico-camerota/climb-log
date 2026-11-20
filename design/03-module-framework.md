@@ -125,7 +125,8 @@ Common field options: `label`, `help`, `required`, `default`, `phase` (`pre`, `p
 `next_day`, `any`; drives the Today flow), `section` (form grouping), `retired: true`,
 `renamed_from: old_key`, `suggest_from_history` (a text field's form suggests the values
 typed before, e.g. venues), `optional: true` (a field you may
-leave blank: its form still counts as done on Today, D-080; not with `required`).
+leave blank: its form still counts as done on Today, D-080; not with `required`), `from:` and
+`from_map` (prefilled from another module, §2.6, D-114).
 `default` is what a blank cell means. `default: next` on an integer key field (set numbers)
 makes a blank cell the row's position among the rows with the same other key parts, in sheet
 order (D-050); it needs other key parts and an entity on one tab. A record added in the app
@@ -527,9 +528,28 @@ The **Today** page asks each active module "what is due for this date?" and buil
 flow. For example: Journal pre-session, then Shoulder primer checkbox, then (after climbing)
 Journal post-session, Fear falls for today, and Shoulder check-in. The next morning a
 reminder card asks for "pain next morning" (`phase: next_day`).
-**Shared fields** avoid duplicate entry: a field may declare
-`from: journal.session.hardest_grade` and is prefilled (editable) from the same-day record
-of another module.
+**Shared fields** avoid duplicate entry (D-022, D-114): a field may declare
+`from: journal.session.hardest_grade` (another module's `module:` id, entity and field) and is
+prefilled, editable, from that module's record of the same day. `from: journal.session.setting+session_type`
+joins several fields with " · " ("Indoor · Climbing", blank parts left out), and `from_map`
+turns that text into this field's value (`{"Indoor · Climbing": Climbing indoor, …}`). A value
+the field can't take prefills nothing: not mapped, not one of its choices, a grade of another
+system (a Font `6B+` is no French `6b+`), a non-whole number for an integer.
+- Only the app's forms prefill (no sheet formula: the other module is another spreadsheet).
+  On the Log page a **new** record starts with the values of the other module's one record that
+  day ("Prefilled from journal · Session 1 · Climbing indoor · 6c (editable)"); with **two or
+  more**, nothing is prefilled until one is picked ("Prefill from", or left blank). A record
+  that already exists (typed in the sheet) offers "Fill the blank fields from", which fills
+  only its blank `from:` fields; nothing is written until it is saved.
+- The module file is checked for the syntax; whether that module is configured, with that
+  entity and those fields, is checked against the app config: a problem switches off that
+  field's prefill (a note in Settings and in the form), the module still loads.
+
+**Next-morning fields** (`phase: next_day`, D-114) are filled the morning after: the day's own
+forms don't count them, and a form with `phase: next_day` holds only them. Today lists that
+form for the records of the last three days whose next-morning fields are still blank
+("Next morning · Check-in of Tue 17"), the latest first; after that they show only in the
+record's own form.
 
 A form whose entity is **dated by a week** (`date_field` of type `week`: a training plan,
 D-110) is never due. Today lists that entity's records of the day's week instead: today's first

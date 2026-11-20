@@ -7,6 +7,13 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- Fields with `from: <module>.<entity>.<field>` start with the value of another module's record
+  of the same day in the app's forms, editable: several fields can be joined (`a+b`) and
+  translated with `from_map`. With two records that day the form asks which; a record typed in
+  the sheet offers to fill its blank fields. Nothing is prefilled in the sheet. Fields with
+  `phase: next_day` are asked for on Today the morning after ("Next morning · Check-in of Tue
+  17"), for up to three days, and don't count as missing on the day itself. The demo program
+  shows both (#134, D-114).
 - `ref` fields point at a reference table's rows: forms show a select of the rows in use
   ("A3 · Wall slides", storing `A3`), the sheet a dropdown of the keys still offered that grows
   with the table (a hidden helper column on each reference tab), and a key no row has is a data
