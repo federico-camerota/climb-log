@@ -15,6 +15,7 @@ from conftest import LoadYaml
 from formula_module import (
     MODULE,
     PROGRAM_MODULE,
+    REF_MODULE,
     WEEK_MODULE,
     WEEK_PROGRAM_MODULE,
     WINDOW_MODULE,
@@ -54,6 +55,12 @@ def test_program_weeks_match_the_app(load: LoadYaml, seed: int) -> None:
     assert check(load(PROGRAM_MODULE), seed) == []
 
 
+@pytest.mark.parametrize("seed", [1, 2, 3])
+def test_reference_lookups_match_the_app(load: LoadYaml, seed: int) -> None:
+    # refs typed by hand (case, spaces, unknown, deleted), retired rows, per-week columns
+    assert check(load(REF_MODULE), seed) == []
+
+
 @pytest.mark.parametrize("text", [WEEK_MODULE, WEEK_PROGRAM_MODULE], ids=["plain", "program"])
 @pytest.mark.parametrize("seed", [1, 2])
 def test_records_dated_by_a_week_match_the_app(load: LoadYaml, text: str, seed: int) -> None:
@@ -61,7 +68,13 @@ def test_records_dated_by_a_week_match_the_app(load: LoadYaml, text: str, seed: 
 
 
 @pytest.mark.parametrize(
-    "file", [ROOT / "modules" / "finger-strength.yaml", ROOT / "modules" / "journal.yaml"], ids=str
+    "file",
+    [
+        ROOT / "modules" / "finger-strength.yaml",
+        ROOT / "modules" / "journal.yaml",
+        ROOT / "scripts" / "demo-program.yaml",  # lookups in a child entity (D-113)
+    ],
+    ids=str,
 )
 @pytest.mark.parametrize("seed", [1, 2])
 def test_modules_match_the_app(file: Path, seed: int) -> None:

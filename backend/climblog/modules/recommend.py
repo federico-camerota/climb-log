@@ -99,6 +99,9 @@ class _Records:
             return None
         return self.runs.value(self.module.program, name, day)
 
+    def reference(self, table: str, key: Value, column: str) -> Value:
+        return None  # the recommendation's values can't read reference tables (D-113)
+
     def _timeline(self, entity: str) -> Timeline:
         if entity not in self.timelines:
             rows = self.tables.get(entity, ())

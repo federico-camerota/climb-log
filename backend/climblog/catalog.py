@@ -105,7 +105,7 @@ class Catalog:
         module = entry.module
         data = load_data(module, entry.repo.pinned())  # one look at the source
         tables = {name: e.records for name, e in data.entities.items()}
-        derived = compute_module(module, tables, data.settings, data.runs)
+        derived = compute_module(module, tables, data.settings, data.runs, data.reference_rows())
         tabs = set(module.entities[entity].tab_fields())
         found = data.entities[entity]
         return EntityRecords(
@@ -216,7 +216,7 @@ class Catalog:
         module = entry.module
         data = load_data(module, entry.repo.pinned())
         tables = {name: e.records for name, e in data.entities.items()}
-        derived = compute_module(module, tables, data.settings, data.runs)
+        derived = compute_module(module, tables, data.settings, data.runs, data.reference_rows())
         full = {
             name: [{**row, **values} for row, values in zip(rows, derived[name], strict=True)]
             for name, rows in tables.items()

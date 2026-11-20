@@ -243,3 +243,65 @@ program:
     '      days_on: "days_between(week_of, week_of)"\n      phase: "program.phase"\n'
     '      light: "program.is_light_week"',
 )
+
+# Reference tables (D-112, D-113): records name a row by its key and read its columns, this
+# program week's prescription included, also through a second table (a lookup of a lookup).
+# The parity generator types each table's rows R1…R6 (one retired, one deleted, one a duplicate
+# key) and refs to them as typed by hand: other case, spaces around, unknown keys, blanks.
+REF_MODULE = """\
+module: test_refs
+name: Test refs
+version: 1
+kind: program
+program:
+  weeks: 4
+  phases:
+    - {name: Base, weeks: [1, 2]}
+reference:
+  groups:
+    tab: Groups
+    key: id
+    fields:
+      id: {type: text}
+      title: {type: text}
+  items:
+    tab: Items
+    key: id
+    fields:
+      id: {type: text}
+      name: {type: text}
+      size: {type: number, min: 0, max: 10}
+      kind: {type: choice, choices: [A, B]}
+      heavy: {type: bool}
+      group: {type: ref, reference: groups}
+    per_week: {name: dose, type: number}
+  notes:
+    tab: Notes
+    key: id
+    fields:
+      id: {type: text}
+      note: {type: text}
+    per_week: {name: plan}
+entities:
+  log:
+    label: Log
+    tab: Log
+    key: [date]
+    fields:
+      date: {type: date, required: true}
+      item: {type: ref, reference: items}
+      note_id: {type: ref, reference: notes}
+      reps: {type: integer, min: 0, max: 30}
+    derived:
+      name: "reference.items[item].name"
+      double: "reference.items[item].size * 2"
+      kind_a: "reference.items[item].kind == 'A'"
+      heavy: "reference.items[item].heavy"
+      gone: "reference.items[item].retired"
+      dose: "reference.items[item].dose[program.week]"
+      dose_left: "reference.items[item].dose[program.week] - reps"
+      dose_w2: "reference.items[item].dose[2]"
+      group_title: "reference.groups[reference.items[item].group].title"
+      plan: "reference.notes[note_id].plan[program.week]"
+      skip: "reference.notes[note_id].plan[program.week] == 'Skip'"
+"""

@@ -242,6 +242,7 @@ function Editor({
       {group.fields.map(([name, field]) => (
         <FieldInput
           key={name}
+          module={module.id}
           name={name}
           field={field}
           scale={scale(name)}

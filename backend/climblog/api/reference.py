@@ -26,6 +26,7 @@ from climblog.catalog import Catalog, Entry
 from climblog.expr import Value
 from climblog.modules.reference import (
     RETIRED,
+    display_field,
     per_week_label,
     reference_columns,
     reference_weeks,
@@ -41,6 +42,7 @@ class ReferenceTableInfo(BaseModel):
     label: str
     tab: str
     key: str  # the key column
+    display: str | None  # the column a form shows next to the key ("A3 · Wall slides", D-113)
     columns: list[str]  # every column in sheet order: key, fields, w1…wN, retired
     week_columns: list[str]  # the per-week columns, w1…wN (none without `per_week`)
     per_week_label: str | None  # what each week's column holds ("Prescription")
@@ -144,6 +146,7 @@ def _info(entry: Entry, name: str) -> ReferenceTableInfo:
         label=table_label(name, table),
         tab=table.tab,
         key=table.key,
+        display=display_field(table),
         columns=list(reference_columns(module, name)),
         week_columns=table.week_columns(reference_weeks(module)),
         per_week_label=per_week_label(table),

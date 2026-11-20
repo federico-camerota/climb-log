@@ -25,6 +25,7 @@ from climblog.expr.nodes import (
     ExprError,
     FieldRef,
     Fields,
+    Index,
     Kind,
     Last,
     Levels,
@@ -35,6 +36,7 @@ from climblog.expr.nodes import (
     ParentRef,
     Prev,
     ProgramRef,
+    RefLookup,
     Setting,
     Unary,
     ValueType,
@@ -68,6 +70,17 @@ class NameInfo:
 
 
 @dataclass(frozen=True)
+class RefTable:
+    """What `reference.<table>[key]…` can read (D-113): the key's type, every column by name,
+    and the per-week columns' name and value."""
+
+    key: ValueType
+    columns: Mapping[str, NameInfo]
+    per_week: str | None = None
+    week: NameInfo | None = None
+
+
+@dataclass(frozen=True)
 class Env:
     """The names an expression can use."""
 
@@ -81,6 +94,7 @@ class Env:
     entities: Mapping[str, Mapping[str, NameInfo]] = field(default_factory=dict)
     # A program module's phase names (D-109); None: no `program.<name>`.
     program: tuple[str, ...] | None = None
+    reference: Mapping[str, RefTable] = field(default_factory=dict)  # the reference tables
 
 
 @dataclass(frozen=True)
@@ -92,6 +106,9 @@ class Checked:
     kind: Kind
     names: frozenset[str]  # fields and derived values it reads
     settings: frozenset[str]
+
+
+REFERENCE_FORMS = "reference.<table>[key].<column> or reference.<table>[key].<per_week>[week]"
 
 
 def prepare(source: str, env: Env) -> Checked:
@@ -141,10 +158,24 @@ class _Checker:
             case Attr(obj=Name(name="program"), name=name):
                 kind = self.program(node, name)
                 return ProgramRef(node.at, name, self.env.date_field), kind
+            case Attr(obj=Index(obj=Attr(obj=Name(name="reference"), name=table), index=key)):
+                return self.reference(node, table, key, node.name, None)
+            case Index(
+                obj=Attr(
+                    obj=Index(obj=Attr(obj=Name(name="reference"), name=table), index=key),
+                    name=column,
+                ),
+                index=week,
+            ):
+                return self.reference(node, table, key, column, week)
+            case Attr(obj=Name(name="reference")) | Index(obj=Attr(obj=Name(name="reference"))):
+                raise ExprError(REFERENCE_FORMS, node.at)
+            case Index():
+                raise ExprError(f"indexing (`x[...]`) is only valid as {REFERENCE_FORMS}", node.at)
             case Attr():
                 raise ExprError(
-                    "`x.y` is only valid as settings.<name>, parent.<name>, program.<name> or "
-                    "children(<entity>).<name>",
+                    "`x.y` is only valid as settings.<name>, parent.<name>, program.<name>, "
+                    "children(<entity>).<name> or reference.<table>[key].<column>",
                     node.at,
                 )
             case ListNode():
@@ -340,6 +371,33 @@ class _Checker:
             hint = _suggest(name, list(self.env.parent))
             raise ExprError(f"the parent has no field '{name}'{hint}", node.at)
         return _kind(info)
+
+    def reference(
+        self, node: Node, table: str, key: Node, column: str, week: Node | None
+    ) -> tuple[Node, Kind]:
+        """`reference.<table>[key].<column>` or `….<per_week>[week]` (D-113)."""
+        found = self.env.reference.get(table)
+        if found is None:
+            hint = _suggest(table, list(self.env.reference)) or (
+                f" (known: {', '.join(self.env.reference)})" if self.env.reference else ""
+            )
+            raise ExprError(f"no reference table '{table}'{hint}", node.at)
+        key_node, _ = self.single(key, (found.key,), f"the key of reference.{table}")
+        if week is not None:
+            if column != found.per_week or found.week is None:
+                what = f"'{found.per_week}'" if found.per_week else "none"
+                raise ExprError(
+                    f"reference.{table} has no per-week column '{column}' (per week: {what})",
+                    node.at,
+                )
+            week_node, _ = self.single(week, ("number",), "a week")
+            return RefLookup(node.at, table, key_node, column, week_node), _kind(found.week)
+        info = found.columns.get(column)
+        if info is None:
+            per_week = f"; {found.per_week} is per week: [week]" if found.per_week else ""
+            hint = _suggest(column, list(found.columns))
+            raise ExprError(f"reference.{table} has no column '{column}'{hint}{per_week}", node.at)
+        return RefLookup(node.at, table, key_node, column), _kind(info)
 
     def program(self, node: Node, name: str) -> Kind:
         if self.env.program is None:

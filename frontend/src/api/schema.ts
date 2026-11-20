@@ -1360,6 +1360,8 @@ export interface components {
         ReferenceTableInfo: {
             /** Columns */
             columns: string[];
+            /** Display */
+            display: string | null;
             /** Key */
             key: string;
             /** Label */

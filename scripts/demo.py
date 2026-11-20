@@ -299,21 +299,42 @@ def fingers(rng: random.Random, start: dt.date, end: dt.date) -> list[tuple[str,
 
 
 def program(rng: random.Random, start: dt.date, end: dt.date) -> list[tuple[str, dict[str, Any]]]:
-    """The demo program's sessions: A on Mondays, B on Thursdays, now and then skipped."""
+    """The demo program's sessions: A on Mondays, B on Thursdays, now and then skipped, each
+    with its exercises done as the week's prescription (now and then less)."""
     records: list[tuple[str, dict[str, Any]]] = []
+    monday = start - dt.timedelta(days=start.weekday())  # week 1 of the run
     for offset in range((end - start).days + 1):
         day = start + dt.timedelta(days=offset)
         if day.weekday() not in (0, 3) or rng.random() < 0.15:
             continue
+        session = "A" if day.weekday() == 0 else "B"
         values: dict[str, Any] = {
             "date": day.isoformat(),
-            "session": "A" if day.weekday() == 0 else "B",
+            "session": session,
             "minutes": rng.choice([20, 25, 25, 30]),
         }
         if rng.random() < 0.3:
             values["notes"] = "[ESEMPIO] Felt loose after the warm-up."
         records.append(("session", values))
+        week = (day - monday).days // 7 + 1
+        for i, (key, _, of, _) in enumerate(EXERCISES):
+            if of != session or key == "A3":  # A3 is retired
+                continue
+            planned = prescription(i, week)
+            if planned in ("Skip", None):
+                continue
+            done = planned if rng.random() < 0.8 else "2×8"
+            records.append(
+                ("exercise_log", {"date": day.isoformat(), "exercise": key, "done": done})
+            )
     return records
+
+
+def prescription(i: int, week: int) -> str | None:
+    """Exercise i's prescription in a program week (none past the sixth)."""
+    if not 1 <= week <= len(PRESCRIPTIONS):
+        return None
+    return "Skip" if week == 3 and i % 3 == 2 else PRESCRIPTIONS[week - 1]
 
 
 # The demo program's reference tables (D-112): six exercises with a prescription per week
@@ -339,12 +360,10 @@ DRILLS = [
 def program_setup(writer: RecordWriter, start: dt.date) -> None:
     """A run from the start's week, and the reference rows, typed as in the app."""
     writer.start_run(week_text(start))
-    weeks = range(1, 7)
+    weeks = range(1, len(PRESCRIPTIONS) + 1)
     for i, (key, name, session, rule) in enumerate(EXERCISES):
         values: dict[str, Any] = {"id": key, "name": name, "session": session, "load_rule": rule}
-        values |= {
-            f"w{w}": "Skip" if w == 3 and i % 3 == 2 else PRESCRIPTIONS[w - 1] for w in weeks
-        }
+        values |= {f"w{w}": prescription(i, w) for w in weeks}
         writer.add_reference_row("exercises", values)
     writer.update_reference_row("exercises", "A3", {"retired": True})
     for key, name in TRACKS:

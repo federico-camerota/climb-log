@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# ruff: noqa: RUF001, RUF003  (prescriptions are written with ×, as in "3×10")
 """Formula parity (03 §2.2b): the sheet formulas, recalculated by LibreOffice or computed by
 Google Sheets, must give what the app computes, on fictional workbooks generated from a seed
 (D-034).
@@ -34,6 +35,7 @@ from climblog.modules import Module
 from climblog.modules.compute import compute_module
 from climblog.modules.formulas import formula_columns
 from climblog.modules.program import RUNS_TAB, week_text
+from climblog.modules.reference import RETIRED, reference_columns
 from climblog.modules.schema import (
     BaseField,
     BoolField,
@@ -43,6 +45,7 @@ from climblog.modules.schema import (
     NumberField,
     NumericScale,
     OrdinalScale,
+    RefField,
     ScaleField,
     TextField,
 )
@@ -194,6 +197,8 @@ def typed_rows(
     rng = random.Random(seed)
     rows = _records(module, rng, records, start)
     typed: dict[str, list[dict[str, Any]]] = {}
+    for name, table in (module.reference or {}).items():
+        typed[table.tab] = _reference_rows(module, name, rng)
     for name, entity in module.entities.items():
         keys = set(entity.key or [])
         for tab, names in entity.tab_fields().items():
@@ -206,6 +211,39 @@ def typed_rows(
                     continue  # a section not filled in
                 tab_rows.append({k: _cell(v, entity.fields[k]) for k, v in values.items()})
     return rows, typed
+
+
+# Reference rows (D-112): keys R1…R6, then rows the app leaves out or reads specially.
+REF_KEYS = ["R1", "R2", "R3", "R4", "R5", "R6"]
+# Refs as typed by hand (D-113): other case and spaces match; ZZ is no row; R7 is deleted.
+TYPED_REFS = ["R1", "r2", " R3 ", "R4", "R5", "R6", "ZZ", "R7"]
+
+
+def _reference_rows(module: Module, name: str, rng: random.Random) -> list[dict[str, Any]]:
+    """A table's rows as typed: R1…R6 with random values (R5 retired), R7 deleted, and a second
+    `r1` (a duplicate key, left out: the first wins in the app and in MATCH)."""
+    columns = reference_columns(module, name)
+    rows: list[dict[str, Any]] = []
+    for key in [*REF_KEYS, "R7", "r1"]:
+        values: dict[str, Any] = {}
+        for column, field in columns.items():
+            if column == RETIRED:
+                continue
+            if column.startswith("w") and column[1:].isdigit():
+                choices: list[Any] = (
+                    ["3×10", "Skip", None, "2"]
+                    if isinstance(field, TextField)
+                    else [1, 2.5, None, 8]
+                )
+                values[column] = rng.choice(choices)
+            else:
+                values[column] = _value(module, field, rng)
+        table = (module.reference or {})[name]
+        values[table.key] = key
+        values[RETIRED] = "Yes" if key == "R5" else rng.choice([None, "No"])
+        values["deleted"] = "x" if key == "R7" else None
+        rows.append({k: _cell(v, columns.get(k)) for k, v in values.items()})
+    return rows
 
 
 def _records(
@@ -321,6 +359,8 @@ def _value(module: Module, field: BaseField, rng: random.Random) -> Value:
             return "; ".join(rng.sample(field.choices, k=1))
         case TextField():
             return " ".join(rng.sample(WORDS, k=2))
+    if isinstance(field, RefField):
+        return rng.choice(TYPED_REFS)
     if getattr(field, "type", None) == "grade":
         return rng.choice(["6a", "6b+", "7a", "5"])
     if getattr(field, "type", None) == "duration":
@@ -357,7 +397,7 @@ def compare(
     value differs from what the app computes from `repo`."""
     data = load_data(module, repo)
     tables = {name: e.records for name, e in data.entities.items()}
-    derived = compute_module(module, tables, data.settings, data.runs)
+    derived = compute_module(module, tables, data.settings, data.runs, data.reference_rows())
     placed, _ = formula_columns(module)
     found = []
     for name, entity_data in data.entities.items():

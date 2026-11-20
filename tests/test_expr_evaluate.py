@@ -216,6 +216,9 @@ class FakeRelated:
     def program(self, name: str, day: dt.date | None) -> Value:
         return None
 
+    def reference(self, table: str, key: Value, column: str) -> Value:
+        return None
+
 
 @pytest.mark.parametrize(
     ("source", "expected"),

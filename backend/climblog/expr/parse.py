@@ -17,6 +17,7 @@ from climblog.expr.nodes import (
     Compare,
     Cond,
     ExprError,
+    Index,
     ListNode,
     Literal,
     Name,
@@ -86,6 +87,10 @@ class _Converter:
                 return Name(at, name)
             case ast.Attribute(value=obj, attr=name):
                 return Attr(at, self.node(obj), name)
+            case ast.Subscript(value=obj, slice=index) if not isinstance(
+                index, ast.Slice | ast.Tuple
+            ):
+                return Index(at, self.node(obj), self.node(index))
             case ast.UnaryOp(op=ast.USub(), operand=operand):
                 return Unary(at, "-", self.node(operand))
             case ast.UnaryOp(op=ast.Not(), operand=operand):

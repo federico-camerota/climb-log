@@ -62,7 +62,7 @@ def test_positions_count_characters_not_bytes() -> None:
     # "è" is two bytes in UTF-8; the position of `x` must still be its character index.
     assert parse("'è' == x") == Compare(0, "==", Literal(0, "è"), Name(7, "x"))
     with pytest.raises(ExprError) as error:
-        parse("'più' == x[0]")
+        parse("'più' == x[0:1]")
     assert error.value.at == 9
 
 
@@ -76,7 +76,8 @@ def test_positions_count_characters_not_bytes() -> None:
         ("2 ** 3", "`**` is not allowed", 0),
         ("a % 2", "`%` is not allowed", 0),
         ("x in y", "`in` / `is` is not allowed", 0),
-        ("x[0]", "indexing (`x[...]`) is not allowed", 0),
+        ("x[0:1]", "indexing (`x[...]`) is not allowed", 0),  # `x[0]` parses; `check` limits it
+        ("x[0, 1]", "indexing (`x[...]`) is not allowed", 0),
         ("[1, 2]", "a list or tuple is not allowed", 0),
         ("a, b", "a list or tuple is not allowed", 0),
         ("None", "there is no blank literal; use notnull(x)", 0),

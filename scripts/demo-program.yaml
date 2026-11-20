@@ -53,6 +53,19 @@ entities:
       session: {type: choice, choices: [A, B]}
       minutes: {type: number, min: 0, max: 180, unit: min}
       notes: {type: text, multiline: true}
+  exercise_log:                 # what was done of each exercise, read against the plan (D-113)
+    label: Exercise log
+    tab: Exercise log
+    key: [date, exercise]
+    parent: {entity: session, key: [date]}
+    fields:
+      date: {type: date, required: true}
+      exercise: {type: ref, reference: exercises, required: true}
+      done: {type: text, help: "As done, like 3×10"}
+    derived:
+      name: "reference.exercises[exercise].name"
+      prescribed: "reference.exercises[exercise].prescription[program.week]"
+      skipped_by_plan: "prescribed == 'Skip'"
 
 forms:
-  session: {entity: session}
+  session: {entity: session, children: [{entity: exercise_log, repeat: true}]}

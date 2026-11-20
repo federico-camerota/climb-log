@@ -24,6 +24,7 @@ export interface FieldDef {
   retired?: boolean;
   visible_if?: string; // shown only while this condition holds (the backend says, D-099)
   suggest_from_history?: boolean; // a text field suggests the values typed before
+  reference?: string; // a ref field's reference table (D-113)
 }
 
 export interface ScaleDef {

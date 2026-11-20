@@ -32,6 +32,7 @@ from climblog.expr.nodes import (
     ParentRef,
     Prev,
     ProgramRef,
+    RefLookup,
     Setting,
     Unary,
     Value,
@@ -76,6 +77,10 @@ class Related(Protocol):
         """`program.<name>` (run, week, phase, is_light_week) of a day; blank without a run."""
         ...
 
+    def reference(self, table: str, key: Value, column: str) -> Value:
+        """A column of the reference row with this key (D-113); blank if there is none."""
+        ...
+
 
 class _Alone:
     """A record on its own: no previous record, no parent, no children."""
@@ -98,6 +103,9 @@ class _Alone:
         return []
 
     def program(self, name: str, day: dt.date | None) -> Value:
+        return None
+
+    def reference(self, table: str, key: Value, column: str) -> Value:
         return None
 
 
@@ -163,6 +171,15 @@ class _Evaluator:
             case ProgramRef(name=name, date_field=date_field):
                 day = self.values.get(date_field)
                 return self.related.program(name, day if isinstance(day, dt.date) else None)
+            case RefLookup(table=table, key=key, column=column, week=None):
+                return self.related.reference(table, self.one(key), column)
+            case RefLookup(table=table, key=key, week=Node() as week):
+                number = self.one(week)
+                if not isinstance(number, int | float) or isinstance(number, bool):
+                    return None
+                if number != int(number) or number < 1:  # a week is a whole number from 1
+                    return None
+                return self.related.reference(table, self.one(key), f"w{int(number)}")
             case Children(entity=entity, field=None):
                 return [True for _ in self.related.children(entity)]  # one item per row
             case Children(entity=entity, field=str() as name):

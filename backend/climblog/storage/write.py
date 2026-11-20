@@ -15,8 +15,16 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 
 from climblog.expr import Value
 from climblog.modules.program import RUNS_TAB, Run, parse_week, week_text
-from climblog.modules.reference import clean_key, reference_columns, table_label
-from climblog.modules.schema import NEXT, BaseField, DateField, Entity, Module, ReferenceTable
+from climblog.modules.reference import clean_key, match_key, reference_columns, table_label
+from climblog.modules.schema import (
+    NEXT,
+    BaseField,
+    DateField,
+    Entity,
+    Module,
+    ReferenceTable,
+    RefField,
+)
 from climblog.storage.base import (
     Append,
     Edit,
@@ -90,6 +98,7 @@ class RecordWriter:
         ent = self._entity(entity)
         record = self._check(ent, values)
         data = load_data(self.module, self.repo)
+        record = self._known_refs(ent.fields, record, data)
         key = self._complete_key(ent, record, (entity, data))
         record.update(zip(_key(ent), key, strict=True))
         self._check_free(ent, key)
@@ -107,7 +116,7 @@ class RecordWriter:
         added: dict[str, list[dict[str, Value]]] = {}
         for entity, values in records:
             ent = self._entity(entity)
-            record = self._check(ent, values)
+            record = self._known_refs(ent.fields, self._check(ent, values), data)
             batch = [k for e, k in taken if e == entity]
             key = self._complete_key(ent, record, (entity, data), batch)
             record.update(zip(_key(ent), key, strict=True))
@@ -157,7 +166,7 @@ class RecordWriter:
     def add_reference_row(self, table: str, values: Mapping[str, Value]) -> Value:
         """A new row of a reference table (D-112), and its key, which must be new."""
         tab, key, columns = self._reference(table)
-        row = self._check_columns(table, columns, values)
+        row = self._known_refs(columns, self._check_columns(table, columns, values))
         row[key] = clean_key(row.get(key))
         if row[key] is None:
             raise WriteError(f"no {key}: a row needs one", key)
@@ -186,7 +195,7 @@ class RecordWriter:
         key, which can't change (records point at it). A row changed in the sheet since it was
         read, or a value of `expected` that no longer holds, is a conflict."""
         tab, key, columns = self._reference(table)
-        changes = self._check_columns(table, columns, values)
+        changes = self._known_refs(columns, self._check_columns(table, columns, values))
         wanted = clean_key(self._check_columns(table, columns, {key: key_value}).get(key))
         found = read_reference(self.module, table, self.repo, [])
         index = found.find(wanted)
@@ -202,7 +211,7 @@ class RecordWriter:
                         f"{name} has changed since it was read (now {_show(current.get(name))}):"
                         " reload the table and try again"
                     )
-        if key in changes and clean_key(changes[key]) != wanted:
+        if key in changes and match_key(changes[key]) != match_key(wanted):
             raise WriteError(f"{key} can't be changed: records may point at it", key)
         cells = {name: _cell(v, columns[name]) for name, v in changes.items() if name != key}
         if cells:
@@ -210,6 +219,34 @@ class RecordWriter:
             as_read = self._row(tab, number)
             self.repo.apply([Update(tab, number, self._stamped(tab, cells, self._now()), as_read)])
         return wanted
+
+    def _known_refs(
+        self,
+        fields: Mapping[str, object],
+        values: Mapping[str, Value],
+        data: ModuleData | None = None,
+    ) -> dict[str, Value]:
+        """`ref` values must name a row of their table (D-113), a retired one included; each
+        is written as the table spells its key (`a3` → `A3`)."""
+        checked = dict(values)
+        problems: list[tuple[str, str]] = []
+        for name, value in values.items():
+            field = fields.get(name)
+            if not isinstance(field, RefField) or value is None:
+                continue
+            table = (self.module.reference or {})[field.reference]
+            if data is not None and field.reference in data.reference:
+                rows = data.reference[field.reference]
+            else:
+                rows = read_reference(self.module, field.reference, self.repo, [])
+            index = rows.find(value)
+            if index is None:
+                problems.append((name, f"{name}: {_show(value)} is not a row of {table.tab}"))
+            else:
+                checked[name] = rows.rows[index][table.key]
+        if problems:
+            raise WriteError(problems[0][1], problems[0][0], problems)
+        return checked
 
     def _table(self, name: str) -> ReferenceTable:
         tables = self.module.reference or {}
@@ -247,7 +284,8 @@ class RecordWriter:
             if row.cells.get(DELETED) not in (None, ""):
                 continue
             try:
-                if clean_key(parse_cell(self.module, columns[key], row.cells.get(key))) == value:
+                found = parse_cell(self.module, columns[key], row.cells.get(key))
+                if match_key(found) == match_key(value):
                     return True
             except CellError:
                 continue
@@ -277,6 +315,7 @@ class RecordWriter:
         ent = self._entity(entity)
         changes = self._check(ent, values)
         data = load_data(self.module, self.repo)
+        changes = self._known_refs(ent.fields, changes, data)
         record, places = self._find(entity, key, data)
         if expected is not None:
             for name, value in self._check(ent, expected).items():

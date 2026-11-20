@@ -14,7 +14,8 @@ done, released as v0.4.0 (`07-roadmap.md`, D-086–D-098). The journal additions
 before M5 are done (hardest send, more body parts, a protein log; D-105–D-107). M5, the program
 modules with a training plan (D-103), is in progress: the program block with its runs (D-109)
 and the training plan (D-110) are done; before going on, the journal got an illness score and
-sick days (D-111); then the reference tables and the Program page (D-112).
+sick days (D-111); then the reference tables and the Program page (D-112), and `ref` fields
+with lookups like this week's prescription (D-113).
 Last updated 2026-11-20.
 
 ## Read in this order

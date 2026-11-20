@@ -335,6 +335,7 @@ function RowEditor({
             />
           ) : (
             <FieldInput
+              module={module}
               key={c}
               name={c}
               field={defs[c] ?? { type: "text" }}
@@ -352,6 +353,7 @@ function RowEditor({
             <SimpleGrid cols={{ base: 2, sm: 3 }}>
               {info.week_columns.map((c, i) => (
                 <FieldInput
+                  module={module}
                   key={c}
                   name={c}
                   field={{ ...(defs[c] ?? { type: "text" }), label: `W${String(i + 1)}` }}

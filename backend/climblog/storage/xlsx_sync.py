@@ -9,7 +9,7 @@ dropdowns always match the YAML; rules on other columns are kept.
 """
 
 import datetime as dt
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 from openpyxl.cell.cell import Cell, MergedCell
 from openpyxl.comments import Comment
@@ -24,7 +24,7 @@ from openpyxl.worksheet.cell_range import CellRange, MultiCellRange
 from openpyxl.worksheet.datavalidation import DataValidation, DataValidationList
 from openpyxl.worksheet.worksheet import Worksheet
 
-from climblog.modules.formulas import XLSX, week_rule_formula
+from climblog.modules.formulas import XLSX, sheet_name, week_rule_formula
 from climblog.storage.base import AUTO, FIRST_DATA_ROW, StorageError
 from climblog.storage.cells import RawCell
 from climblog.storage.grid import formula_rows_end
@@ -37,12 +37,16 @@ from climblog.storage.layout import (
     DateRule,
     ListRule,
     RangeRule,
+    RefRule,
     TabLayout,
     WeekRule,
     WorkbookLayout,
 )
 
 LAST_ROW = 1_048_576  # validation and colours cover the whole column below the headers
+# A `ref` dropdown lists a reference tab's keys down to this row (Excel lists blank cells too).
+REF_LIST_ROWS = 2_000
+Where = Callable[[str, str], str | None]  # (tab, column key) → its letter, if the tab has it
 KEY_NOTE = (
     "Row 2 holds the field keys the app matches on. Do not edit this row; "
     "labels in row 1 can be reworded freely."
@@ -70,7 +74,14 @@ def apply_layout(
         else:
             _create_tab(workbook, tab)
             done.append(f"created tab '{tab.name}'")
-        _rewrite_rules(_sheet(workbook, tab.name), tab)
+
+    def where(tab: str, key: str) -> str | None:
+        """A column's letter on another tab (`ref` dropdowns, D-113), once every tab exists."""
+        found = _keys(workbook[tab]).get(key) if tab in workbook.sheetnames else None
+        return None if found is None else get_column_letter(found)
+
+    for tab in layout.tabs:
+        _rewrite_rules(_sheet(workbook, tab.name), tab, where)
     done += _settings(workbook, layout)
     done += _write_formulas(workbook, layout)
     done += _report(workbook, layout)
@@ -138,7 +149,7 @@ def _header(sheet: Worksheet, column: int, spec: ColumnSpec) -> None:
                 cell.number_format = spec.number_format
 
 
-def _rewrite_rules(sheet: Worksheet, tab: TabLayout) -> None:
+def _rewrite_rules(sheet: Worksheet, tab: TabLayout, where: Where) -> None:
     """Validation and scale colours for the module's columns, replacing the old ones there."""
     keys = _keys(sheet)
     columns = {keys[spec.key]: spec for spec in tab.columns if spec.key in keys}
@@ -162,7 +173,7 @@ def _rewrite_rules(sheet: Worksheet, tab: TabLayout) -> None:
 
     for i, spec in sorted(columns.items()):
         cells = f"{get_column_letter(i)}{FIRST_DATA_ROW}:{get_column_letter(i)}{LAST_ROW}"
-        validation = _validation(spec, f"{get_column_letter(i)}{FIRST_DATA_ROW}")
+        validation = _validation(spec, f"{get_column_letter(i)}{FIRST_DATA_ROW}", where)
         if validation is not None:
             validation.add(cells)
             sheet.add_data_validation(validation)
@@ -192,10 +203,18 @@ def _rewrite_rules(sheet: Worksheet, tab: TabLayout) -> None:
             )
 
 
-def _validation(spec: ColumnSpec, first: str) -> DataValidation | None:
-    """The column's rule; `first` is its first data cell, which a custom formula is written for."""
+def _validation(spec: ColumnSpec, first: str, where: Where) -> DataValidation | None:
+    """The column's rule; `first` is its first data cell, which a custom formula is written for;
+    `where` finds a column on another tab."""
     rule = spec.validation
     match rule:
+        case RefRule(tab=tab, column=column):
+            letter = where(tab, column)
+            if letter is None:
+                return None
+            cells = f"{sheet_name(tab)}!${letter}${FIRST_DATA_ROW}:${letter}${REF_LIST_ROWS}"
+            validation = DataValidation("list", formula1=cells)
+            validation.errorStyle = "warning"  # a retired key typed by hand stays
         case ListRule():
             values = ",".join(rule.values)
             if len(values) > 255:  # Excel's limit for a list typed in the rule

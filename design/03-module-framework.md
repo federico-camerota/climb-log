@@ -118,7 +118,7 @@ entities:
 | `text` | text | input / textarea | `multiline`; Records' search covers every text field |
 | `grade` | text | text (e.g. `6b+`), parsed on save | `systems: [french, font, gym]`; the system is auto-detected among them (D-017) and parsed to a numeric index (D-047): French `6a` = 30, one step per letter or `+`; Font (Fontainebleau, D-105) the same steps in upper case, `6A` = 30, never compared with French; in a field allowing both, the case of the letter decides (`6b+` French, `6B+` Font); gym = the number; a slash grade `6a/6a+` sits halfway. `uiaa`, `yds`, `v` are not supported yet (load error) |
 | `duration` | minutes (number) | text: minutes or h:mm (D-077) | |
-| `ref` | id/key text | lookup select (M5) | references a reference-table key (e.g. ladder rung `A3`) |
+| `ref` | id/key text | select of the table's rows, "A3 · Wall slides" (D-113) | a reference-table key (e.g. ladder rung `A3`): `reference: rungs` |
 | `percent` | number 0–100 | text with a decimal keyboard | |
 
 Common field options: `label`, `help`, `required`, `default`, `phase` (`pre`, `post`,
@@ -187,7 +187,14 @@ an allow-list; no `eval`; code in `climblog/expr/`, D-043):
   write `a < b and b < c`); `and/or/not`; `x if cond else y`; numbers, `'text'`, `True`/`False`
 - field references (`pain_during`), `settings.x`; other records: `prev(x, n)`, `parent.x`,
   `children(e)` / `children(e).x`, `last(e.x, before=d)` (§2.3); in a program module
-  `program.run`, `program.week`, `program.phase`, `program.is_light_week` (§2.4, D-109)
+  `program.run`, `program.week`, `program.phase`, `program.is_light_week` (§2.4, D-109);
+  reference rows (§2.5, D-113): `reference.exercises[exercise_id].name` (a column of the row
+  with that key) and `reference.exercises[exercise_id].prescription[program.week]` (a per-week
+  column: `w<week>`). The key is any text expression (a number for an integer key), usually
+  a `ref` field; lookups nest (`reference.tracks[reference.rungs[rung].track].name`). Blank
+  when the key is blank or no row has it, or the week is not a whole number with a column;
+  a retired row is read as any other. `[...]` is valid nowhere else. Not in the
+  recommendation or the summary (their values have no record to point from).
 - functions: `mean(...)`, `min(...)`, `max(...)`, `sum(...)`, `count(...)` (aggregates; the
   first four take `missing_as=`), `round(x, n)` (halves away from zero, like the sheets),
   `concat(...)`, `flip(x)` (maps a scale value to its "higher is better" orientation:
@@ -241,8 +248,7 @@ wellbeing_pre_status:
   Comparing a status with a label that is not in its list is an error (`overall_status == 'LOWW'`).
 - An entry can read other derived values; they are computed first (the order follows what
   each entry reads, not the YAML order). A cycle is an error.
-- **Deferred until their issue**: entries using `reference.` (M5), `plugin:`
-  entries, `per_reference_group`, and `fields(...)`
+- **Deferred until their issue**: `plugin:` entries, `per_reference_group`, and `fields(...)`
   in an entity with fields from a reference table (`template_from_reference`, M5). They are
   accepted but neither checked nor computed, and so is every entry that reads one of them.
 
@@ -281,7 +287,10 @@ column** in the sheet:
   `bands→IFS/nested IF`, `when→IFS`, `worst_of→` a nested IF over the status order,
   `all_present→COUNT(...)=n`, `weekday→TEXT/WEEKDAY`, `days_between→` subtraction,
   `prev(x)→` lookup of the row with the latest earlier date (`MAXIFS` + `INDEX/MATCH`),
-  references to another section tab of a split entity → `INDEX/MATCH` on the key.
+  references to another section tab of a split entity → `INDEX/MATCH` on the key,
+  `reference.t[k].c` → `INDEX/MATCH` on the reference tab's hidden `auto:key` column (MATCH
+  ignores case, the key is trimmed), and a per-week column found by its row-2 key
+  (`MATCH("w"&week, 2:2)`), so it holds wherever sync put it (D-113).
   Missing-value semantics are compiled as `IF(cell="", …)`, as in the legacy formulas.
 - Target dialect: the common subset of **Google Sheets and Excel/LibreOffice**
   (no `LET`/`LAMBDA`, no ARRAYFORMULA), with per-row formulas.
@@ -469,6 +478,7 @@ reference:
     label: Exercises              # optional; the table's name in words otherwise
     tab: Plan
     key: id                       # one text or integer field, typed by hand ("A3")
+    display: name                 # optional: shown next to the key; default the first text field
     fields:
       id: {type: text}
       name: {type: text, required: true}
@@ -489,12 +499,23 @@ is seeded from the YAML, which is public (D-037).
 - Every table gets a **`retired`** column (Yes/No): a retired row is kept, so the records that
   point at it still read it, but it is no longer offered for new ones (the `ref` dropdowns,
   #133). The app never deletes a row (the sheet still can), and a row's **key can't change in
-  the app**: records point at it. A key is matched without the spaces around it.
+  the app**: records point at it. A key is matched **without the spaces around it and in any
+  case** (`a3 ` is `A3`), as the sheet's MATCH and dropdowns do (D-113, amends D-112).
 - On read, a row without a key, or with the key of a row above, is left out (a data issue), as
-  is a bad cell (the row loads without it); a required field left empty is an issue too.
-- `ref` fields point at a table by name (`reference: exercises`); checking them against the
-  rows, their dropdowns and `reference.exercises[exercise_id].prescription[program.week]` in
-  expressions come with #133. `template_from_reference` and `per_reference_group` stay deferred.
+  is a bad cell (the row loads without it); a required field left empty is an issue too, and a
+  blank cell reads as the field's `default`.
+- `ref` fields (D-113) point at a table by name (`reference: exercises`), on records and in
+  other tables. A value that no row has (a deleted one included) is a data issue and reads
+  blank, as a bad choice; a retired row's key is fine. The app refuses such a value on write
+  and stores a key as the table spells it (`a1` → `A1`). A form shows a select of the rows in
+  use, "A3 · Wall slides" (the key and the `display` field), plus the record's own key if its
+  row is retired.
+- In the sheet, each reference tab has two hidden formula columns: `auto:key` (the trimmed key
+  of every row not deleted, for lookups) and `auto:choice` (the key again unless the row is
+  retired). Every `ref` column gets a dropdown of `auto:choice` down the whole column, so rows
+  added later appear and retired ones drop out; another value only gets a warning, so a
+  retired key typed by hand stays.
+- `template_from_reference` and `per_reference_group` stay deferred (#138).
 
 ### 2.6 Forms and the Today flow
 ```yaml

@@ -17,6 +17,7 @@ from climblog.expr import Value
 from climblog.modules.checks import derived_plan
 from climblog.modules.derived import DerivedPlan, compute
 from climblog.modules.program import NO_RUNS, Runs
+from climblog.modules.reference import match_key
 from climblog.modules.schema import Entity, Module
 
 Row = Mapping[str, Value]
@@ -28,25 +29,44 @@ def compute_module(
     tables: Mapping[str, Table],
     settings: Mapping[str, Value],
     runs: Runs = NO_RUNS,
+    reference: Mapping[str, Table] | None = None,
 ) -> dict[str, list[dict[str, Value]]]:
     """The derived values of every row of every entity, in the rows' order.
 
     `tables[entity]` holds the stored values of its rows (a missing entity has none);
-    `settings` holds every setting of the module; `runs` the runs of a program module (D-109).
-    Deferred entries are left out.
+    `settings` holds every setting of the module; `runs` the runs of a program module (D-109);
+    `reference[table]` the rows of each reference table (D-113). Deferred entries are left out.
     """
+    lookup = References(module, reference or {})
     order = sorted(module.entities, key=lambda name: module.entities[name].parent is None)
     full: dict[str, list[dict[str, Value]]] = {}  # stored and derived values of each row
     result: dict[str, list[dict[str, Value]]] = {}
     for name in order:  # children first
         entity = module.entities[name]
         rows = tables.get(name, ())
-        table = _Table(module, name, entity, rows, tables, full, runs)
+        table = _Table(module, name, entity, rows, tables, full, runs, lookup)
         plan = derived_plan(module, name)
         derived = table.run(plan, settings)
         full[name] = [{**row, **values} for row, values in zip(rows, derived, strict=True)]
         result[name] = derived
     return result
+
+
+class References:
+    """The reference tables' rows by key, as `reference.<table>[key]` finds them (D-113): keys
+    compared trimmed and in any case, a retired row found too."""
+
+    def __init__(self, module: Module, tables: Mapping[str, Table]) -> None:
+        self.rows: dict[str, dict[Value, Row]] = {}
+        for name, table in (module.reference or {}).items():
+            found: dict[Value, Row] = {}
+            for row in tables.get(name, ()):
+                found.setdefault(match_key(row.get(table.key)), row)
+            self.rows[name] = found
+
+    def value(self, table: str, key: Value, column: str) -> Value:
+        row = self.rows.get(table, {}).get(match_key(key))
+        return None if row is None or match_key(key) is None else row.get(column)
 
 
 class Timeline:
@@ -94,9 +114,11 @@ class _Table:
         tables: Mapping[str, Table],
         full: Mapping[str, list[dict[str, Value]]],
         runs: Runs = NO_RUNS,
+        lookup: "References | None" = None,
     ) -> None:
         self.module = module
         self.runs = runs
+        self.lookup = lookup or References(module, {})
         self.entity = entity
         self.rows = rows
         self.tables = tables
@@ -156,6 +178,9 @@ class _Table:
         if self.module.program is None:
             return None
         return self.runs.value(self.module.program, name, day)
+
+    def reference(self, table: str, key: Value, column: str) -> Value:
+        return self.lookup.value(table, key, column)
 
     def timeline(self, entity: str) -> "Timeline":
         if entity not in self.timelines:
