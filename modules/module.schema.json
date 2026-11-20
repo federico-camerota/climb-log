@@ -224,6 +224,48 @@
       "title": "BarsWidget",
       "type": "object"
     },
+    "BatchOver": {
+      "additionalProperties": false,
+      "description": "`batch_over: {reference: exercises, where: {session: [Primer, A]}}` (D-115): one row of\nthe form per reference row still in use whose fields have one of the listed values.",
+      "properties": {
+        "reference": {
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Reference",
+          "type": "string"
+        },
+        "where": {
+          "default": {},
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "type": "array"
+            }
+          },
+          "title": "Where",
+          "type": "object"
+        }
+      },
+      "required": [
+        "reference"
+      ],
+      "title": "BatchOver",
+      "type": "object"
+    },
     "BodyHeatmapWidget": {
       "additionalProperties": false,
       "description": "A template's fields (e.g. body parts) by week: each cell the week's mean, per source\n(before and after sessions, rest days).",
@@ -1370,7 +1412,11 @@
         "batch_over": {
           "anyOf": [
             {
+              "pattern": "^[a-z][a-z0-9_]*$",
               "type": "string"
+            },
+            {
+              "$ref": "#/$defs/BatchOver"
             },
             {
               "type": "null"

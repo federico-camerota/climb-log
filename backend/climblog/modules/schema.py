@@ -1078,6 +1078,14 @@ class ChildForm(Strict):
     copy_previous: list[Key] = []
 
 
+class BatchOver(Strict):
+    """`batch_over: {reference: exercises, where: {session: [Primer, A]}}` (D-115): one row of
+    the form per reference row still in use whose fields have one of the listed values."""
+
+    reference: Key
+    where: dict[Key, list[str | int | float | bool]] = {}
+
+
 class FormModel(Strict):
     """A form of the Log page (06-ui, D-077): the fields of an entity, in a phase (pre, post),
     or of some sections; and child rows."""
@@ -1087,10 +1095,17 @@ class FormModel(Strict):
     sections: list[Key] | None = None
     children: list[ChildForm] = []
     repeat: bool = False  # many records a day (meals): Today offers one more after them (D-107)
-    # program modules (M5): accepted as they are until their issue adds the checks
-    batch_over: str | None = None
+    # one row per reference row (D-115): a table's name, or a table with a filter
+    batch_over: Key | BatchOver | None = None
+    # the fields typed once for a batch, or kept by "Save and add another" (D-115)
     keep_fields: list[Key] = []
-    due: str | None = None
+    due: str | None = None  # M5 (#138): accepted as it is until its issue adds the checks
+
+    def batch(self) -> BatchOver | None:
+        """`batch_over` as a table and its filter."""
+        if isinstance(self.batch_over, str):
+            return BatchOver(reference=self.batch_over)
+        return self.batch_over
 
 
 class Module(Strict):

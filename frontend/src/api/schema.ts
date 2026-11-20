@@ -139,6 +139,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/modules/{module}/forms/{form}/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Batch Rows
+         * @description One query parameter per shared key field, e.g. ?date=2026-11-18
+         */
+        get: operations["batch_rows_api_modules__module__forms__form__batch_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/modules/{module}/reference": {
         parameters: {
             query?: never;
@@ -263,6 +283,27 @@ export interface paths {
          * @description Add a record.
          */
         post: operations["add_record_api_modules__module___entity__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/modules/{module}/{entity}/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Batch
+         * @description A batch form's rows in one save, all or none (D-115). A problem names its row by
+         *     `index`: the new rows first, then the changed ones.
+         */
+        post: operations["save_batch_api_modules__module___entity__batch_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -485,6 +526,80 @@ export interface components {
              * @enum {string}
              */
             widget: "bars";
+        };
+        /** BatchChange */
+        BatchChange: {
+            /** Expected */
+            expected?: {
+                [key: string]: unknown;
+            } | null;
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            };
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
+        };
+        /** BatchRow */
+        BatchRow: {
+            /** Hint */
+            hint: string | null;
+            /** Key */
+            key: unknown;
+            /** Label */
+            label: string;
+            record: components["schemas"]["Record"] | null;
+            /** Retired */
+            retired: boolean;
+        };
+        /** BatchRows */
+        BatchRows: {
+            /** As Of */
+            as_of: string | null;
+            /** Entity */
+            entity: string;
+            /** Field */
+            field: string;
+            /** Form */
+            form: string;
+            /** Issues */
+            issues: components["schemas"]["Issue"][];
+            /** Module */
+            module: string;
+            /** Offline */
+            offline: boolean;
+            /** Others */
+            others: components["schemas"]["Record"][];
+            /** Rows */
+            rows: components["schemas"]["BatchRow"][];
+            /** Shared */
+            shared: string[];
+            /** Table */
+            table: string;
+        };
+        /** BatchWrite */
+        BatchWrite: {
+            /**
+             * Changed
+             * @default []
+             */
+            changed: components["schemas"]["BatchChange"][];
+            /**
+             * New
+             * @default []
+             */
+            new: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** BatchWritten */
+        BatchWritten: {
+            /** Keys */
+            keys: {
+                [key: string]: unknown;
+            }[];
         };
         /** BodyHeatmapData */
         BodyHeatmapData: {
@@ -1876,6 +1991,8 @@ export interface components {
         WriteProblem: {
             /** Field */
             field?: string | null;
+            /** Index */
+            index?: number | null;
             /** Message */
             message: string;
             /**
@@ -2100,6 +2217,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModuleList"];
+                };
+            };
+        };
+    };
+    batch_rows_api_modules__module__forms__form__batch_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module: string;
+                form: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchRows"];
+                };
+            };
+            /** @description No such module or batch form */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -2527,6 +2683,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Written"];
+                };
+            };
+            /** @description No such module, entity or record */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The key is taken, the record changed since it was read, or the module doesn't load */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description An unknown field or a bad value */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook is open in Excel or LibreOffice */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+            /** @description The workbook can't be reached: offline, read-only */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProblem"];
+                };
+            };
+        };
+    };
+    save_batch_api_modules__module___entity__batch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                module: string;
+                entity: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchWritten"];
                 };
             };
             /** @description No such module, entity or record */

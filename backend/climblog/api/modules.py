@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from climblog.catalog import Catalog, EntityRecords, Entry, served
 from climblog.expr import Value
+from climblog.modules.batch import key_parts
 from climblog.modules.program import Runs as ProgramRuns
 from climblog.modules.program import week_text
 from climblog.modules.schema import BaseField, DateField
@@ -101,6 +102,7 @@ class WriteProblem(BaseModel):
     message: str  # the first problem's, when there are several
     field: str | None = None  # the (first) field at fault, when there is one
     problems: list[FieldProblem] = []  # every field at fault, e.g. two bad values (D-079)
+    index: int | None = None  # a batch's row at fault: new rows first, then changed (D-115)
 
 
 _WRITE_ERRORS: dict[int | str, dict[str, Any]] = {
@@ -365,6 +367,116 @@ def prefill(request: Request, module: str, entity: str, date: dt.date) -> Prefil
     )
 
 
+# ---- Batch forms (D-115) ----
+
+
+class BatchRow(BaseModel):
+    key: Any  # the reference row's key ("A1")
+    label: str  # "A1 · Wall slides"
+    hint: str | None  # "Prescription W3: 3x10"
+    retired: bool  # listed only because the day has its record
+    record: Record | None  # its record of the day, if logged
+
+
+class BatchRows(BaseModel):
+    module: str
+    form: str
+    entity: str
+    field: str  # the entity's ref field each row fills
+    table: str
+    shared: list[str]  # typed once for the batch: the date (and other key parts), keep_fields
+    rows: list[BatchRow]
+    others: list[Record]  # the day's records of the entity that are no row of the batch
+    issues: list[Issue]
+    as_of: dt.datetime | None
+    offline: bool
+
+
+@router.get(
+    "/modules/{module}/forms/{form}/batch",
+    responses={404: {"description": "No such module or batch form"}},
+    description="One query parameter per shared key field, e.g. ?date=2026-11-18",
+)
+def batch_rows(request: Request, module: str, form: str) -> BatchRows:
+    """A batch form's rows (D-115): one per reference row in its filter still in use, each
+    with its record of the day if there is one, and the day's records outside the batch."""
+    current = catalog(request)
+    entry = current.entries.get(module)
+    found = None if entry is None or entry.module is None else entry.module.forms or {}
+    if entry is None or found is None or form not in found or found[form].batch() is None:
+        raise HTTPException(404, f"module '{module}' has no batch form '{form}'")
+    assert entry.module is not None
+    model = found[form]
+    entity = entry.module.entities[model.entity]
+    key: dict[str, Value] = {}
+    for part in key_parts(entry.module, model):
+        raw = request.query_params.get(part)
+        field = entity.fields[part]
+        assert isinstance(field, BaseField)
+        try:
+            key[part] = None if raw in (None, "") else parse_cell(entry.module, field, raw)
+        except CellError as error:
+            raise HTTPException(422, f"{part}: {error}") from None
+    try:
+        batch, data = current.batch(entry, form, key)
+    except StorageError as error:
+        raise HTTPException(503, str(error)) from None
+    weeks = _weeks(entry, model.entity)
+    return BatchRows(
+        module=module,
+        form=form,
+        entity=model.entity,
+        field=batch.field,
+        table=batch.table,
+        shared=batch.shared,
+        rows=[
+            BatchRow(
+                key=_json(row.key),
+                label=row.label,
+                hint=row.hint,
+                retired=row.retired,
+                record=None if row.record is None else _record(data, row.record, weeks),
+            )
+            for row in batch.rows
+        ],
+        others=[_record(data, i, weeks) for i in batch.others],
+        issues=[_issue(i) for i in data.issues],
+        as_of=data.as_of,
+        offline=data.offline,
+    )
+
+
+class BatchChange(BaseModel):
+    key: dict[str, Any]  # the stored record's key
+    values: dict[str, Any]  # the fields to change; null clears one
+    expected: dict[str, Any] | None = None  # as read: a 409 when one has changed since
+
+
+class BatchWrite(BaseModel):
+    new: list[dict[str, Any]] = []  # new records, as `POST …/{entity}`
+    changed: list[BatchChange] = []
+
+
+class BatchWritten(BaseModel):
+    keys: list[dict[str, Any]]  # every record written, new ones first
+
+
+@router.post("/modules/{module}/{entity}/batch", responses=_WRITE_ERRORS)
+def save_batch(request: Request, module: str, entity: str, body: BatchWrite) -> BatchWritten:
+    """A batch form's rows in one save, all or none (D-115). A problem names its row by
+    `index`: the new rows first, then the changed ones."""
+    current = catalog(request)
+    entry = _entry(current, module, entity)
+    assert entry.module is not None
+    parts = entry.module.entities[entity].key or []
+    changed = [(c.key, c.values, c.expected or {}) for c in body.changed]
+    with entry.lock, _write_errors():
+        keys = _writer(entry).save_batch(entity, body.new, changed)
+    return BatchWritten(
+        keys=[{p: _json(v) for p, v in zip(parts, key, strict=True)} for key in keys]
+    )
+
+
 def _json(value: Value) -> Any:
     return value.isoformat() if isinstance(value, dt.date | dt.time) else value
 
@@ -440,7 +552,7 @@ def _problem(status: int, error: StorageError) -> HTTPException:
     field = error.field if isinstance(error, WriteError) else None
     found = error.problems if isinstance(error, WriteError) else []
     problems = [FieldProblem(field=name, message=text) for name, text in found]
-    problem = WriteProblem(message=str(error), field=field, problems=problems)
+    problem = WriteProblem(message=str(error), field=field, problems=problems, index=error.index)
     return HTTPException(status, problem.model_dump())
 
 

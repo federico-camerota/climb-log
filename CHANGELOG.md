@@ -7,6 +7,14 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- Batch forms: `batch_over: <table>` (or `{reference: <table>, where: {<field>: [values]}}`)
+  logs one record per reference row at once, such as a session's exercises or every retest
+  measure. Each row shows this week's prescription and the day's record if any; one Save
+  writes every typed row together, all or none, and rows left empty are skipped. Today counts
+  the batch as one item ("Session a · 7 of 9"). In a repeated form, `keep_fields` are kept by
+  the new "Save and add another" button, and the Log page lists the day's records. The demo
+  program gets session A and B batches, a retest of its measures and repeated drill tries; its
+  exercise log is no longer a child of the session (#135, D-115).
 - Fields with `from: <module>.<entity>.<field>` start with the value of another module's record
   of the same day in the app's forms, editable: several fields can be joined (`a+b`) and
   translated with `from_map`. With two records that day the form asks which; a record typed in

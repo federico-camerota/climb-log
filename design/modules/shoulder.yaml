@@ -98,6 +98,7 @@ entities:
     tab: exercise_log
     id_prefix: ex
     date_field: date
+    key: [date, exercise_id]               # one row per exercise a day (batch form, D-115)
     fields:
       date:        {type: date, required: true}
       exercise_id: {type: ref, reference: exercises}
@@ -116,6 +117,7 @@ entities:
     tab: retests
     id_prefix: rt
     date_field: date
+    key: [date, measure_id]               # one row per measure a day (batch form, D-115)
     fields:
       date:       {type: date, required: true}
       checkpoint: {type: choice, choices: [Start, End W4, End W8, End W12]}
@@ -125,9 +127,10 @@ entities:
 
 forms:
   checkin:      {entity: checkin}
-  session_a:    {entity: exercise_log, batch_over: "exercises where session in [Primer, A]"}
-  session_b:    {entity: exercise_log, batch_over: "exercises where session in [Primer, B]"}
-  retest:       {entity: retest, batch_over: retest_measures}
+  # one row per exercise of the session, saved together (D-115); #136 settles the keys
+  session_a:    {entity: exercise_log, batch_over: {reference: exercises, where: {session: [Primer, A]}}}
+  session_b:    {entity: exercise_log, batch_over: {reference: exercises, where: {session: [Primer, B]}}}
+  retest:       {entity: retest, batch_over: retest_measures, keep_fields: [date, checkpoint]}
 
 views:
   overview:

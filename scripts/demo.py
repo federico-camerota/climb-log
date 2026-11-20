@@ -17,7 +17,8 @@ Writes a folder with a workbook per module and an app config pointing to them:
   their sets and slowly rising loads.
 - `demo-program.xlsx`: a fictional six-week program (`scripts/demo-program.yaml`): one run from
   the first week, two sessions a week, and its reference tables (exercises with a prescription
-  per week, one of them retired; tracks and their drills), to show the Program page (D-112).
+  per week, one of them retired; tracks and their drills), to show the Program page (D-112);
+  each session's exercises, two retests of its measures and a few drill tries (D-115).
 - `config.toml`: the four modules, with backups and snapshots inside the folder, so serving
   the demo never touches the app's real data folders.
 
@@ -320,7 +321,7 @@ def program(rng: random.Random, start: dt.date, end: dt.date) -> list[tuple[str,
         records.append(("session", values))
         week = (day - monday).days // 7 + 1
         for i, (key, _, of, _) in enumerate(EXERCISES):
-            if of != session or key == "A3":  # A3 is retired
+            if of not in (session, "Warm-up") or key == "A3":  # A3 is retired
                 continue
             planned = prescription(i, week)
             if planned in ("Skip", None):
@@ -329,6 +330,17 @@ def program(rng: random.Random, start: dt.date, end: dt.date) -> list[tuple[str,
             records.append(
                 ("exercise_log", {"date": day.isoformat(), "exercise": key, "done": done})
             )
+        if day.weekday() == 3:  # a few drill tries after session B, the drill and level kept
+            drill, level = rng.choice(DRILLS)[0], rng.choice(["L1", "L2"])
+            for _ in range(rng.randint(2, 4)):
+                values = {"date": day.isoformat(), "drill": drill, "level": level}
+                records.append(("drill_try", values | {"wobble": rng.choice([1, 2, 3, 4])}))
+    for checkpoint, day in (("Start", start), ("Middle", start + dt.timedelta(weeks=3))):
+        if day <= end:  # the measures retested together (D-115)
+            for i, (key, _, _) in enumerate(MEASURES):
+                value = 20 + 5 * i + (6 if checkpoint == "Middle" else 0) + rng.randint(0, 3)
+                retest = {"measure": key, "checkpoint": checkpoint, "value": value}
+                records.append(("retest", {"date": day.isoformat()} | retest))
     return records
 
 
@@ -349,7 +361,9 @@ EXERCISES = [
     ("B1", "[ESEMPIO] Hip airplanes", "B", "Hold a support at first"),
     ("B2", "[ESEMPIO] Cossack squats", "B", "Depth before load"),
     ("B3", "[ESEMPIO] Ankle rocks", "B", None),
+    ("W1", "[ESEMPIO] Arm circles", "Warm-up", None),  # in both sessions
 ]
+MEASURES = [("M1", "[ESEMPIO] Single-leg stand", "s"), ("M2", "[ESEMPIO] Overhead reach", "cm")]
 TRACKS = [("T1", "[ESEMPIO] Balance"), ("T2", "[ESEMPIO] Reach")]
 DRILLS = [
     ("D1", "T1", 1, "[ESEMPIO] Stand on one foot, eyes open"),
@@ -368,6 +382,8 @@ def program_setup(writer: RecordWriter, start: dt.date) -> None:
         values |= {f"w{w}": prescription(i, w) for w in weeks}
         writer.add_reference_row("exercises", values)
     writer.update_reference_row("exercises", "A3", {"retired": True})
+    for key, name, unit in MEASURES:
+        writer.add_reference_row("measures", {"id": key, "name": name, "unit": unit})
     for key, name in TRACKS:
         writer.add_reference_row("tracks", {"id": key, "name": name})
     for key, track, order, text in DRILLS:

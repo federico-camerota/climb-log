@@ -10,6 +10,7 @@ import {
   getHealth,
   getMetrics,
   getModules,
+  getBatch,
   getPrefill,
   getRecommendation,
   getRecord,
@@ -58,6 +59,14 @@ export function usePrefill(module: string, entity: string, date: string, enabled
     queryKey: ["prefill", module, entity, date],
     queryFn: () => getPrefill(module, entity, date),
     enabled,
+  });
+}
+
+/** A batch form's rows for the shared key values (D-115). */
+export function useBatch(module: string, form: string, key: Values) {
+  return useQuery({
+    queryKey: ["batch", module, form, key],
+    queryFn: () => getBatch(module, form, key),
   });
 }
 

@@ -63,11 +63,35 @@ export interface ChildFormDef {
   copy_previous?: string[];
 }
 
+/** `batch_over: {reference, where}` (D-115): one row per reference row in the filter. */
+export interface BatchOverDef {
+  reference: string;
+  where?: Record<string, unknown[]>;
+}
+
 export interface FormDef {
   entity: string;
   phase?: string;
   sections?: string[];
   children?: ChildFormDef[];
+  repeat?: boolean; // many records a day: "Save and add another" (D-107, D-115)
+  batch_over?: string | BatchOverDef; // a table's name, or a table and a filter (D-115)
+  keep_fields?: string[]; // typed once for a batch, or kept for the next record (D-115)
+}
+
+/** A batch form's table (D-115); undefined for any other form. */
+export function batchTable(form: FormDef): string | undefined {
+  const over = form.batch_over;
+  return typeof over === "string" ? over : over?.reference;
+}
+
+/** The entity's ref field a batch form's rows fill: the one to its table. */
+export function batchField(entity: EntityDef, form: FormDef): string | undefined {
+  const table = batchTable(form);
+  if (table === undefined) return undefined;
+  return Object.entries(entity.fields).find(
+    ([, field]) => field.type === "ref" && field.reference === table && field.retired !== true,
+  )?.[0];
 }
 
 interface Schema {

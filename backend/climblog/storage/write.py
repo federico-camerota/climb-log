@@ -312,9 +312,66 @@ class RecordWriter:
         one; a row changed in the sheet since it was read is a conflict, and so is a field of
         `expected` (the values as the caller read them) that no longer holds. Key fields can't
         change."""
+        data = load_data(self.module, self.repo)
+        edits, found = self._changes(entity, key, values, expected, data, self._now())
+        if edits:
+            self.repo.apply(edits)
+        return found
+
+    def save_batch(
+        self,
+        entity: str,
+        new: Sequence[Mapping[str, Value]],
+        changed: Sequence[tuple[Mapping[str, Value], Mapping[str, Value], Mapping[str, Value]]],
+    ) -> list[Key]:
+        """A batch form's rows (D-115) in one save, all or none: new records (as `add`, checked
+        against the workbook and each other) and changes to stored ones, `(key, values,
+        expected)` (as `update`). The keys, new ones first. A row's problem says which row it
+        is (`WriteError.index`: new rows first, then the changed ones)."""
+        ent = self._entity(entity)
+        data = load_data(self.module, self.repo)
+        now = self._now()
+        edits: list[Edit] = []
+        keys: list[Key] = []
+        for index, values in enumerate(new):
+            try:
+                record = self._known_refs(ent.fields, self._check(ent, values), data)
+                key = self._complete_key(ent, record, (entity, data))
+                record.update(zip(_key(ent), key, strict=True))
+                if key in keys:
+                    described = describe_key(_key(ent), key)
+                    raise KeyTaken(f"{ent.label} {described} is in the batch twice")
+                self._check_free(ent, key)
+                self._check_parent(ent, record, data)
+            except (WriteError, WriteConflict) as error:
+                error.index = index
+                raise
+            keys.append(key)
+            edits += self._appends(ent, record, now)
+        for index, (key_values, values, expected) in enumerate(changed, start=len(new)):
+            try:
+                found, done = self._changes(entity, key_values, values, expected, data, now)
+            except (WriteError, WriteConflict) as error:
+                error.index = index
+                raise
+            edits += found
+            keys.append(done)
+        if edits:
+            self.repo.apply(edits)
+        return keys
+
+    def _changes(
+        self,
+        entity: str,
+        key: Mapping[str, Value],
+        values: Mapping[str, Value],
+        expected: Mapping[str, Value] | None,
+        data: ModuleData,
+        now: dt.datetime,
+    ) -> tuple[list[Edit], Key]:
+        """`update`'s edits, and the record's key."""
         ent = self._entity(entity)
         changes = self._check(ent, values)
-        data = load_data(self.module, self.repo)
         changes = self._known_refs(ent.fields, changes, data)
         record, places = self._find(entity, key, data)
         if expected is not None:
@@ -331,7 +388,6 @@ class RecordWriter:
                 )
         self._check_parent(ent, record | changes, data)
 
-        now = self._now()
         edits: list[Edit] = []
         for tab, fields in ent.tab_fields().items():
             cells = {
@@ -347,9 +403,7 @@ class RecordWriter:
             else:
                 keys = {part: _cell(record[part], ent.fields[part]) for part in _key(ent)}
                 edits.append(Append(tab, self._stamped(tab, keys | cells, now)))
-        if edits:
-            self.repo.apply(edits)
-        return tuple(record.get(part) for part in _key(ent))
+        return edits, tuple(record.get(part) for part in _key(ent))
 
     def delete_row(self, entity: str, tab: str, row: int) -> None:
         """Soft delete a row that is no record (D-082): one the loader leaves out (no key, a

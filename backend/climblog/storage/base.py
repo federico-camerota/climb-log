@@ -63,6 +63,8 @@ Edit = Append | Update
 class StorageError(Exception):
     """The workbook cannot be read (missing file, broken header row, …)."""
 
+    index: int | None = None  # the row of a batch at fault (`RecordWriter.save_batch`, D-115)
+
 
 class TableNotFound(StorageError):
     """The workbook has no tab of that name."""
