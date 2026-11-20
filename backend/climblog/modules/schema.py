@@ -352,6 +352,32 @@ ModuleField = Annotated[
 ]
 
 
+# ---- Reference tables (03-module-framework.md §2.5, D-112) ----
+
+
+class PerWeek(Strict):
+    """`per_week: {name: prescription, type: text}`: one column per program week, `w1`…`wN`."""
+
+    name: Key
+    type: Literal["text", "number", "integer"] = "text"
+    label: str | None = None
+
+
+class ReferenceTable(Strict):
+    """Rows a program reads (exercises, ladder rungs, questions): one tab, one row per key,
+    typed in the sheet or the app; no date. A row can be retired (its `retired` column)."""
+
+    label: str | None = None
+    tab: str
+    key: Key  # one text or integer field, typed by hand (`A3`)
+    fields: dict[Key, ModuleField] = Field(min_length=1)
+    per_week: PerWeek | None = None  # program modules only: columns w1..wN
+
+    def week_columns(self, weeks: int) -> list[str]:
+        """The per-week columns' keys, `w1`…`wN`; none without `per_week`."""
+        return [f"w{n}" for n in range(1, weeks + 1)] if self.per_week is not None else []
+
+
 # ---- Derived fields (03-module-framework.md §2.2, D-044) ----
 # Expressions are strings here; `derived.py` checks them against the entity's fields.
 
@@ -1081,7 +1107,7 @@ class Module(Strict):
     entities: dict[Key, Entity] = Field(min_length=1)
     templates: dict[Key, dict[Key, ModuleField]] = {}
     program: Program | None = None  # kind: program only (D-109)
-    reference: Unchecked | None = None  # M5
+    reference: dict[Key, ReferenceTable] | None = None  # D-112
     forms: dict[Key, FormModel] | None = None
     views: dict[Key, list[Widget]] | None = None  # D-083
     aggregates: Unchecked | None = None  # M5

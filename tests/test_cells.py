@@ -21,7 +21,7 @@ scales:
   s10: {min: 1, max: 10, direction: higher_better}
   freq: {type: ordinal, choices: [Rarely, Sometimes, Often], direction: lower_better}
 reference:
-  rungs: {}
+  rungs: {tab: Rungs, key: id, fields: {id: {type: text}}}
 entities:
   log:
     label: Log

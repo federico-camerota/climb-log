@@ -8,6 +8,7 @@ run on the module as written, so every problem has a path that exists in the YAM
 `expand_templates` runs only once they pass.
 """
 
+import re
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
@@ -49,6 +50,7 @@ from climblog.modules.schema import (
     TableWidget,
     TemplateUse,
     TextFeedWidget,
+    TextField,
     TrainingLoadWidget,
     WeekbarsWidget,
     YamlPath,
@@ -109,6 +111,14 @@ def cross_check(module: Module) -> list[Problem]:
             other = tabs.setdefault(tab.casefold(), (e_name, tab_at))[0]
             if other != e_name:
                 problems.append(Problem(tab_at, f"tab '{tab}' is already used by entity '{other}'"))
+    for r_name, table in (module.reference or {}).items():
+        tab_at = ("reference", r_name, "tab")
+        problems += _check_tab_name(table.tab, tab_at)
+        if table.tab.casefold() in tabs:
+            other = tabs[table.tab.casefold()][0]
+            problems.append(Problem(tab_at, f"tab '{table.tab}' is already used by '{other}'"))
+        tabs.setdefault(table.tab.casefold(), (r_name, tab_at))
+        problems += _reference(module, r_name)
     _, found = _recommendation(module)
     problems += found
     from climblog.modules.summary import summary_problems  # it imports us
@@ -124,8 +134,10 @@ def _program(module: Module) -> list[Problem]:
     """A program module has a `program:` block, and only it; `run` and `week` are its."""
     from climblog.modules.program import AUTO_COLUMNS  # it imports the schema
 
-    if "runs" in module.entities:  # `/api/modules/{module}/runs` is the runs (D-109)
-        return [Problem(("entities", "runs"), "'runs' is a reserved name: rename the entity")]
+    for reserved in ("runs", "reference"):  # `/api/modules/{module}/runs`, …/reference
+        if reserved in module.entities:
+            message = f"'{reserved}' is a reserved name: rename the entity"
+            return [Problem(("entities", reserved), message)]
     if module.kind == "program" and module.program is None:
         return [Problem(("program",), "a program module needs a program: block (its weeks)")]
     if module.kind != "program" and module.program is not None:
@@ -147,6 +159,51 @@ def _program(module: Module) -> list[Problem]:
                 problems.append(
                     Problem(("views", view, i, "group"), "program_week needs a program: block")
                 )
+    return problems
+
+
+def _reference(module: Module, name: str) -> list[Problem]:
+    """A reference table (03 §2.5, D-112): fields typed in one cell, a text or integer key
+    among them, per-week columns only in a program module."""
+    from climblog.modules.reference import FIELD_TYPES, RETIRED
+
+    table = (module.reference or {})[name]
+    at: YamlPath = ("reference", name)
+    problems: list[Problem] = []
+    week_key = re.compile(r"^w\d+$")
+    for f_name, field in table.fields.items():
+        f_at: YamlPath = (*at, "fields", f_name)
+        if not isinstance(field, FIELD_TYPES):
+            problems.append(
+                Problem(f_at, "a reference table's fields are text, choice, number, bool or ref")
+            )
+            continue
+        if f_name in RESERVED_FIELDS | {RETIRED}:
+            problems.append(Problem(f_at, f"'{f_name}' is a column the app adds: rename it"))
+        if table.per_week is not None and week_key.match(f_name):
+            problems.append(Problem(f_at, f"'{f_name}' is a per-week column's name: rename it"))
+        for option in ("section", "since", "from_", "visible_if"):
+            if getattr(field, option) is not None:
+                shown = option.rstrip("_")
+                problems.append(Problem((*f_at, shown), f"a reference field has no `{shown}`"))
+        if field.phase != "any" or field.optional:
+            problems.append(Problem(f_at, "a reference field has no phase and is never optional"))
+        if isinstance(field, RefField) and field.reference == name:
+            problems.append(Problem((*f_at, "reference"), "a table can't refer to itself"))
+        problems += _check_field(module, field, f_at)
+    key = table.fields.get(table.key)
+    if key is None:
+        problems.append(Problem((*at, "key"), f"the key '{table.key}' is not one of the fields"))
+    elif not (
+        isinstance(key, TextField) or (isinstance(key, NumberField) and key.type == "integer")
+    ):
+        problems.append(Problem((*at, "key"), "the key must be a text or integer field"))
+    elif key.retired:
+        problems.append(Problem((*at, "key"), "the key can't be retired"))
+    if table.per_week is not None and module.program is None:
+        problems.append(
+            Problem((*at, "per_week"), "per_week columns need a program: block (its weeks)")
+        )
     return problems
 
 

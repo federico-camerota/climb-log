@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 
 from climblog.expr import Value
 from climblog.modules.program import NO_RUNS, RUNS_TAB, Run, Runs, parse_week
+from climblog.modules.reference import RETIRED, clean_key, reference_columns
 from climblog.modules.schema import (
     NEXT,
     BaseField,
@@ -53,11 +54,25 @@ class EntityData:
 
 
 @dataclass
+class ReferenceRows:
+    """A reference table's rows (D-112), in sheet order, and the sheet row of each."""
+
+    key: str  # the key field
+    rows: list[dict[str, Value]] = field(default_factory=list)
+    places: list[int] = field(default_factory=list)
+
+    def find(self, key: Value) -> int | None:
+        """The index of the row with this key."""
+        return next((i for i, row in enumerate(self.rows) if row.get(self.key) == key), None)
+
+
+@dataclass
 class ModuleData:
     settings: dict[str, Value]
     entities: dict[str, EntityData]
     issues: list[DataIssue]
     runs: Runs = NO_RUNS  # a program module's runs (D-109)
+    reference: dict[str, ReferenceRows] = field(default_factory=dict)  # D-112
 
 
 def load_data(module: Module, repo: Repository) -> ModuleData:
@@ -70,7 +85,71 @@ def load_data(module: Module, repo: Repository) -> ModuleData:
     _report_orphan_children(module, entities, issues)
     if module.program is not None:
         _report_before_runs(module, entities, runs, issues)
-    return ModuleData(settings, entities, issues, runs)
+    reference = {
+        name: read_reference(module, name, repo, issues) for name in module.reference or {}
+    }
+    return ModuleData(settings, entities, issues, runs, reference)
+
+
+def read_reference(
+    module: Module, name: str, repo: Repository, issues: list[DataIssue]
+) -> ReferenceRows:
+    """A reference table's rows (D-112): every column read by its type; a row without a key, or
+    with the key of a row above, is left out (a data issue); `retired` blank reads No."""
+    table_def = (module.reference or {})[name]
+    columns = reference_columns(module, name)
+    found = ReferenceRows(table_def.key)
+    try:
+        table = repo.read_table(table_def.tab)
+    except TableNotFound:
+        issues.append(DataIssue(table_def.tab, None, None, "the tab is missing", "tab"))
+        return found
+    for missing in (c for c in columns if c not in table.columns):
+        if missing != RETIRED and not columns[missing].retired:
+            issues.append(
+                DataIssue(table_def.tab, None, missing, "the column is missing", "column")
+            )
+    key = table_def.key
+    first_row: dict[Value, int] = {}
+    for row in table.rows:
+        if not _blank(row.cells.get(DELETED)):
+            continue
+        values: dict[str, Value] = {}
+        row_issues: list[DataIssue] = []
+        for name_, column in columns.items():
+            raw = row.cells.get(name_)
+            try:
+                value = parse_cell(module, column, raw)
+            except CellError as error:
+                row_issues.append(
+                    DataIssue(table_def.tab, row.number, name_, error.message, "value", raw)
+                )
+                value = None
+            values[name_] = value
+        values[RETIRED] = values[RETIRED] is True
+        values[key] = clean_key(values[key])
+        if values[key] is None:
+            if not any(i.field == key for i in row_issues):
+                message = f"no {key}: the row is left out"
+                row_issues.append(DataIssue(table_def.tab, row.number, key, message, "left_out"))
+            issues.extend(row_issues)
+            continue
+        if values[key] in first_row:
+            message = f"same {key} as row {first_row[values[key]]}: the row is left out"
+            row_issues.append(DataIssue(table_def.tab, row.number, None, message, "left_out"))
+            issues.extend(row_issues)
+            continue
+        first_row[values[key]] = row.number
+        bad = {i.field for i in row_issues}
+        row_issues += [
+            DataIssue(table_def.tab, row.number, f, "required, but empty", "required")
+            for f, column in columns.items()
+            if column.required and values.get(f) is None and f not in bad
+        ]
+        issues.extend(row_issues)
+        found.rows.append(values)
+        found.places.append(row.number)
+    return found
 
 
 def read_runs(repo: Repository, issues: list[DataIssue]) -> Runs:

@@ -466,17 +466,35 @@ widgets group by program week (`weekbars` with `group: program_week`, §2.7), an
 ```yaml
 reference:
   exercises:
-    tab: plan
-    key: id
+    label: Exercises              # optional; the table's name in words otherwise
+    tab: Plan
+    key: id                       # one text or integer field, typed by hand ("A3")
     fields:
       id: {type: text}
-      name: {type: text}
+      name: {type: text, required: true}
       session: {type: choice, choices: [Primer, A, B]}
       load_rule: {type: text}
-    per_week: prescription        # adds columns w1..wN of type text
+    per_week: {name: prescription, type: text}   # adds columns w1..wN (N: the program's weeks)
 ```
-They are seeded by the importer (or from a `seed:` block / CSV) and editable in the app
-or the sheet. Entities refer to them with `ref` fields (`exercise_id`, `rung`).
+A reference table holds the rows a program reads: exercises × weeks, ladder rungs, fear-map
+scenarios, the 20 questions (D-112). It has no date: one row per key, in its own tab, typed in
+the sheet or added and edited in the app (the **Program** page, 06-ui); the current programs'
+rows come from their importers (#136, #139), and a new program's are typed or pasted. Nothing
+is seeded from the YAML, which is public (D-037).
+- Fields are text, choice, number/integer, bool or `ref` (a table may refer to another one, as
+  rungs to their tracks); none has a `section`, `phase`, `since`, `from` or `visible_if`, and
+  `required`, `default`, `retired` and `renamed_from` work as for records.
+- `per_week` (program modules only) adds one column per program week, `w1`…`wN`, of type text
+  (default), number or integer.
+- Every table gets a **`retired`** column (Yes/No): a retired row is kept, so the records that
+  point at it still read it, but it is no longer offered for new ones (the `ref` dropdowns,
+  #133). The app never deletes a row (the sheet still can), and a row's **key can't change in
+  the app**: records point at it. A key is matched without the spaces around it.
+- On read, a row without a key, or with the key of a row above, is left out (a data issue), as
+  is a bad cell (the row loads without it); a required field left empty is an issue too.
+- `ref` fields point at a table by name (`reference: exercises`); checking them against the
+  rows, their dropdowns and `reference.exercises[exercise_id].prescription[program.week]` in
+  expressions come with #133. `template_from_reference` and `per_reference_group` stay deferred.
 
 ### 2.6 Forms and the Today flow
 ```yaml

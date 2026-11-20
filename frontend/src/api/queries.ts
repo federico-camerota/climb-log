@@ -13,6 +13,7 @@ import {
   getRecommendation,
   getRecord,
   getRecords,
+  getReferenceRows,
   getRuns,
   getToday,
   getView,
@@ -47,6 +48,14 @@ export function useRuns(module: string, date?: string, enabled = true) {
     queryKey: ["runs", module, date ?? "today"],
     queryFn: () => getRuns(module, date),
     enabled,
+  });
+}
+
+/** A reference table's rows and issues (D-112). */
+export function useReferenceRows(module: string, table: string) {
+  return useQuery({
+    queryKey: ["reference", module, table],
+    queryFn: () => getReferenceRows(module, table),
   });
 }
 

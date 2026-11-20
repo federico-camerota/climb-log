@@ -23,6 +23,11 @@
     number or week (`2027-W53`: 2027 has 52) is a data issue and left out, and so is a second
     run starting in the same week (the formulas take the first); a deleted row counts for
     neither. Every dated tab gets `auto:run` and `auto:week` columns.
+  - A **reference table** (D-112) gets its own tab, laid out as a data tab: its key (blue),
+    its fields, the per-week columns `w1`…`wN` (row 1 `W1` and the column's label, formatted
+    as text unless numbers) and `retired` (Yes/No dropdown), all in violet, then
+    `updated_at` and `deleted`. No formula columns. A choice gets its dropdown; a `ref` column
+    is plain text until #133. A blank `retired` reads No.
   - A **week** column (a field of type `week`, D-110: a planned session's week) holds text
     `2026-W47`, formatted as text, with the same validation as the Runs tab's start week. The
     app writes it as text (on Google as a raw string, so it is never read as a date) and reads
@@ -362,7 +367,7 @@ How each type is read (D-046); blank and whitespace-only cells are blank:
 | bool | Yes/No, Y/N, TRUE/FALSE, Sì/Si, 1/0, any case | anything else |
 | text | anything, kept raw (§3b) | never |
 | grade | French `6b+` (stored lower case), Font `6B+` (stored upper case; in a field allowing both, the case decides, D-105) or a gym number, as the field's `systems` allow; close slash grades `6a/6a+` | anything else, e.g. `5+`, a bare `6` in a French-only field (D-047), or `6b/6B` (two systems) |
-| ref | text, trimmed | (references are checked in M5) |
+| ref | text, trimmed | (references are checked against their table in #133) |
 
 - A **required** field left empty is a data issue, unless the field is hidden by its
   `visible_if` or the row is dated before the field's `since:`.

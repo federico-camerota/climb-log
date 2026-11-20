@@ -25,6 +25,7 @@ from climblog.modules.formulas import (
     summary_formulas,
 )
 from climblog.modules.program import RUNS_TAB
+from climblog.modules.reference import RETIRED, reference_columns, reference_weeks
 from climblog.modules.schema import (
     BaseField,
     BoolField,
@@ -51,7 +52,7 @@ RANGE_DASH = "\u2013"  # en dash between a scale's min and max in labels
 EARLIEST_DATE = dt.date(1990, 1, 1)  # date validation: anything typed as a real date passes
 
 # Header colours by group (row 1 fill, row 2 pale tint), as in the mock-ups.
-Group = Literal["key", "pre", "post", "any", "auto", "system"]
+Group = Literal["key", "pre", "post", "any", "auto", "system", "reference"]
 GROUP_COLOURS: dict[Group, tuple[str, str]] = {
     "key": ("BDD7EE", "DDEBF7"),  # blue
     "pre": ("C6E0B4", "E2EFDA"),  # green: before the session
@@ -59,6 +60,7 @@ GROUP_COLOURS: dict[Group, tuple[str, str]] = {
     "any": ("FFE699", "FFF2CC"),  # yellow: common fields
     "auto": ("BFBFBF", "E7E6E6"),  # grey: AUTOMATIC, formulas (D-018)
     "system": ("E7E6E6", "F2F2F2"),  # light grey: filled by the app
+    "reference": ("D9D2E9", "EDE9F5"),  # violet: a reference table's columns (D-112)
 }
 _PHASE_GROUP: dict[Phase, Group] = {"pre": "pre", "post": "post", "next_day": "post", "any": "any"}
 
@@ -175,6 +177,7 @@ def workbook_layout(module: Module) -> WorkbookLayout:
     ]
     if module.program is not None:
         tabs.append(runs_tab(placed))
+    tabs += [reference_tab(module, name) for name in module.reference or {}]
     settings = tuple(
         SettingRow(key, setting.default, setting.label or "")
         for key, setting in module.settings.items()
@@ -339,6 +342,31 @@ def runs_tab(placed: Sequence[FormulaColumn]) -> TabLayout:
             *(_system(name) for name in SYSTEM_COLUMNS),
         ),
     )
+
+
+def reference_tab(module: Module, name: str) -> TabLayout:
+    """A reference table's tab (D-112): the key, the fields, the per-week columns and
+    `retired`, all typed by hand, then the system columns."""
+    table = (module.reference or {})[name]
+    columns = []
+    for key, field in reference_columns(module, name).items():
+        is_week = table.per_week is not None and key in table.week_columns(reference_weeks(module))
+        old = field.renamed_from
+        columns.append(
+            ColumnSpec(
+                key=key,
+                label=label(module, key, field),
+                group="key" if key == table.key else "reference",
+                validation=_validation(module, field),
+                number_format=_number_format(field),
+                width=12 if is_week else 8 if key == RETIRED else _width(field),
+                renamed_from=old,
+                old_label=label(module, old, field) if old else None,
+                retired=field.retired,
+            )
+        )
+    columns += [_system(name) for name in SYSTEM_COLUMNS]
+    return TabLayout(table.tab, tuple(columns))
 
 
 def _column(

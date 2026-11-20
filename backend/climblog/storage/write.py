@@ -15,7 +15,8 @@ from collections.abc import Callable, Collection, Mapping, Sequence
 
 from climblog.expr import Value
 from climblog.modules.program import RUNS_TAB, Run, parse_week, week_text
-from climblog.modules.schema import NEXT, BaseField, DateField, Entity, Module
+from climblog.modules.reference import clean_key, reference_columns, table_label
+from climblog.modules.schema import NEXT, BaseField, DateField, Entity, Module, ReferenceTable
 from climblog.storage.base import (
     Append,
     Edit,
@@ -26,7 +27,15 @@ from climblog.storage.base import (
     WriteConflict,
 )
 from climblog.storage.cells import CellError, RawCell, parse_cell
-from climblog.storage.load import DELETED, Key, ModuleData, describe_key, load_data, read_runs
+from climblog.storage.load import (
+    DELETED,
+    Key,
+    ModuleData,
+    describe_key,
+    load_data,
+    read_reference,
+    read_runs,
+)
 
 UPDATED_AT = "updated_at"
 # Rows that are no record, which the app can soft delete on their own (D-082).
@@ -144,6 +153,105 @@ class RecordWriter:
             ) from None
         self.repo.apply([Append(RUNS_TAB, stamped)])
         return run
+
+    def add_reference_row(self, table: str, values: Mapping[str, Value]) -> Value:
+        """A new row of a reference table (D-112), and its key, which must be new."""
+        tab, key, columns = self._reference(table)
+        row = self._check_columns(table, columns, values)
+        row[key] = clean_key(row.get(key))
+        if row[key] is None:
+            raise WriteError(f"no {key}: a row needs one", key)
+        if self._key_in_sheet(tab, key, columns, row[key]):
+            name = table_label(table, self._table(table))
+            raise KeyTaken(f"{name}: {row[key]} is already there", key)
+        cells = {name: _cell(value, columns[name]) for name, value in row.items()}
+        try:
+            stamped = self._stamped(tab, cells, self._now())
+        except TableNotFound:
+            raise WriteError(
+                f"the workbook has no {tab} tab yet: run "
+                f"`climblog check {self.module.module} --apply`"
+            ) from None
+        self.repo.apply([Append(tab, stamped)])
+        return row[key]
+
+    def update_reference_row(
+        self,
+        table: str,
+        key_value: Value,
+        values: Mapping[str, Value],
+        expected: Mapping[str, Value] | None = None,
+    ) -> Value:
+        """New values for some columns of a reference row (retiring it included), found by its
+        key, which can't change (records point at it). A row changed in the sheet since it was
+        read, or a value of `expected` that no longer holds, is a conflict."""
+        tab, key, columns = self._reference(table)
+        changes = self._check_columns(table, columns, values)
+        wanted = clean_key(self._check_columns(table, columns, {key: key_value}).get(key))
+        found = read_reference(self.module, table, self.repo, [])
+        index = found.find(wanted)
+        if index is None:
+            raise RecordNotFound(
+                f"no row {_show(wanted)} in {table_label(table, self._table(table))}"
+            )
+        current = found.rows[index]
+        if expected is not None:
+            for name, value in self._check_columns(table, columns, expected).items():
+                if current.get(name) != value:
+                    raise WriteConflict(
+                        f"{name} has changed since it was read (now {_show(current.get(name))}):"
+                        " reload the table and try again"
+                    )
+        if key in changes and clean_key(changes[key]) != wanted:
+            raise WriteError(f"{key} can't be changed: records may point at it", key)
+        cells = {name: _cell(v, columns[name]) for name, v in changes.items() if name != key}
+        if cells:
+            number = found.places[index]
+            as_read = self._row(tab, number)
+            self.repo.apply([Update(tab, number, self._stamped(tab, cells, self._now()), as_read)])
+        return wanted
+
+    def _table(self, name: str) -> ReferenceTable:
+        tables = self.module.reference or {}
+        if name not in tables:
+            raise WriteError(f"no reference table '{name}' in module {self.module.module}")
+        return tables[name]
+
+    def _reference(self, name: str) -> tuple[str, str, dict[str, BaseField]]:
+        table = self._table(name)
+        return table.tab, table.key, reference_columns(self.module, name)
+
+    def _check_columns(
+        self, table: str, columns: Mapping[str, BaseField], values: Mapping[str, Value]
+    ) -> dict[str, Value]:
+        """The values as the sheet would read them back, as `_check` for a record."""
+        unknown = [name for name in values if name not in columns]
+        problems = [(name, f"{table} has no column {name}") for name in unknown]
+        checked: dict[str, Value] = {}
+        for name, value in values.items():
+            if name in unknown:
+                continue
+            try:
+                checked[name] = parse_cell(self.module, columns[name], _cell(value))
+            except CellError as error:
+                problems.append((name, f"{name}: {error.message}"))
+        if problems:
+            raise WriteError(problems[0][1], problems[0][0], problems)
+        return checked
+
+    def _key_in_sheet(
+        self, tab: str, key: str, columns: Mapping[str, BaseField], value: Value
+    ) -> bool:
+        """A row, left out or not, already has the key: a new one would be left out instead."""
+        for row in self.repo.read_table(tab).rows:
+            if row.cells.get(DELETED) not in (None, ""):
+                continue
+            try:
+                if clean_key(parse_cell(self.module, columns[key], row.cells.get(key))) == value:
+                    return True
+            except CellError:
+                continue
+        return False
 
     def _appends(self, ent: Entity, record: Mapping[str, Value], now: dt.datetime) -> list[Edit]:
         """A new record's rows: its main tab, and each section tab it has values for."""
