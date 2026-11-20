@@ -266,6 +266,7 @@ function ChildEditor({
               {fields.map(([field, def_]) => (
                 <FieldInput
                   key={field}
+                  module={module.id}
                   name={field}
                   field={def_}
                   scale={scale(def_)}

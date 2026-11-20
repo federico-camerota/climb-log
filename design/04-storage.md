@@ -26,8 +26,14 @@
   - A **reference table** (D-112) gets its own tab, laid out as a data tab: its key (blue),
     its fields, the per-week columns `w1`…`wN` (row 1 `W1` and the column's label, formatted
     as text unless numbers) and `retired` (Yes/No dropdown), all in violet, then
-    `updated_at` and `deleted`. No formula columns. A choice gets its dropdown; a `ref` column
-    is plain text until #133. A blank `retired` reads No.
+    two hidden formula columns, `auto:key` (the trimmed key, blank on a deleted row) and
+    `auto:choice` (the key unless retired) (D-113), then `updated_at` and `deleted`. A choice
+    gets its dropdown. A blank `retired` reads No.
+  - A **`ref` column** (on a data tab or a reference tab) gets a dropdown of its table's
+    `auto:choice` column (D-113): on Google "list from a range" `Tab!$M$3:$M`, open-ended; in
+    `.xlsx` rows 3–2000. It warns, it doesn't reject, so a retired key typed by hand stays.
+    Validation rules are written once every tab exists, so the range is found wherever the
+    reference tab's columns are.
   - A **week** column (a field of type `week`, D-110: a planned session's week) holds text
     `2026-W47`, formatted as text, with the same validation as the Runs tab's start week. The
     app writes it as text (on Google as a raw string, so it is never read as a date) and reads
@@ -367,7 +373,7 @@ How each type is read (D-046); blank and whitespace-only cells are blank:
 | bool | Yes/No, Y/N, TRUE/FALSE, Sì/Si, 1/0, any case | anything else |
 | text | anything, kept raw (§3b) | never |
 | grade | French `6b+` (stored lower case), Font `6B+` (stored upper case; in a field allowing both, the case decides, D-105) or a gym number, as the field's `systems` allow; close slash grades `6a/6a+` | anything else, e.g. `5+`, a bare `6` in a French-only field (D-047), or `6b/6B` (two systems) |
-| ref | text, trimmed | (references are checked against their table in #133) |
+| ref | text, trimmed | no row of its table has it (any case; a deleted row doesn't count, a retired one does; D-113) |
 
 - A **required** field left empty is a data issue, unless the field is hidden by its
   `visible_if` or the row is dated before the field's `since:`.

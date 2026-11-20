@@ -5,8 +5,8 @@
 settings and the derived values it reads, in dependency order, and returns a `DerivedPlan`.
 `compute` runs the plan on one record.
 
-Entries that need what later issues add (the program, reference tables and the fields made
-from them, plugins) are deferred: accepted, but neither checked nor computed, and so is every
+Entries that need what later issues add (the fields made from reference tables, plugins)
+are deferred: accepted, but neither checked nor computed, and so is every
 entry that reads one of them. Values from other records come from a `Related`
 (`modules/compute.py` computes whole tables).
 """
@@ -46,8 +46,8 @@ from climblog.modules.schema import (
     YamlPath,
 )
 
-# Names that only a later M5 issue (reference tables) gives meaning to.
-LATER_NAMES = frozenset({"reference"})
+# Names that only a later M5 issue gives meaning to (`reference.` came with #133, D-113).
+LATER_NAMES: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)

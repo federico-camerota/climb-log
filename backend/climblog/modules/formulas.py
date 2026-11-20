@@ -40,6 +40,7 @@ from climblog.expr.nodes import (
     ParentRef,
     Prev,
     ProgramRef,
+    RefLookup,
     Setting,
     Unary,
     Window,
@@ -47,6 +48,7 @@ from climblog.expr.nodes import (
 from climblog.modules.checks import derived_plan, recommendation_plan
 from climblog.modules.derived import BandsStep, ExprStep, MapStep, Step, WhenStep
 from climblog.modules.program import RUNS_TAB
+from climblog.modules.reference import CHOICE_HELPER, KEY_HELPER, RETIRED, reference_columns
 from climblog.modules.schema import (
     NEXT,
     BandsDerived,
@@ -61,6 +63,8 @@ from climblog.modules.schema import (
     NumberField,
     OrdinalScale,
     PluginDerived,
+    ReferenceTable,
+    TextField,
     WhenDerived,
 )
 from climblog.modules.summary import summary_plan
@@ -144,6 +148,11 @@ def formula_columns(module: Module) -> tuple[list[FormulaColumn], list[AppOnly]]
         app_only += missing
     if module.program is not None:
         columns.append(FormulaColumn(RUNS_TAB, RUNS_START, "Start\n(Monday)", "DD/MM/YYYY"))
+    for table in (module.reference or {}).values():  # lookups and dropdowns (D-113)
+        columns.append(FormulaColumn(table.tab, KEY_HELPER, "key (auto, hidden)", "@", hidden=True))
+        columns.append(
+            FormulaColumn(table.tab, CHOICE_HELPER, "offered (auto, hidden)", "@", hidden=True)
+        )
     return columns, app_only
 
 
@@ -161,7 +170,28 @@ def compile_formulas(
         result.update(_Entity(module, e_name, plans, columns, dialect).formulas())
     if module.program is not None and RUNS_TAB in columns:
         result[(RUNS_TAB, RUNS_START)] = Template(run_start_formula(columns[RUNS_TAB]))
+    for table in (module.reference or {}).values():
+        if table.tab in columns:
+            result.update(_reference_helpers(table, columns[table.tab]))
     return result
+
+
+def _reference_helpers(
+    table: ReferenceTable, columns: Mapping[str, int]
+) -> dict[tuple[str, str], Template]:
+    """A reference tab's hidden columns (D-113): the key as lookups match it (trimmed text,
+    blank on a deleted row), and the key again when the row is offered (not retired), which
+    `ref` dropdowns list."""
+    tab = table.tab
+    key = _ref(tab, columns, table.key, tab)
+    deleted = _ref(tab, columns, DELETED, tab)
+    field = table.fields[table.key]
+    plain = key if getattr(field, "type", "text") == "integer" else f"TRIM({key})"
+    found = f'IF(OR({key}="",{deleted}<>""),"",{plain})'
+    helper = _ref(tab, columns, KEY_HELPER, tab)
+    retired = _truthy(_ref(tab, columns, RETIRED, tab))
+    offered = f'IF(OR({helper}="",{retired}),"",{helper})'
+    return {(tab, KEY_HELPER): Template(found), (tab, CHOICE_HELPER): Template(offered)}
 
 
 def run_start_formula(columns: Mapping[str, int]) -> str:
@@ -204,6 +234,15 @@ def default_columns(module: Module) -> dict[str, dict[str, int]]:
             tabs[tab] = {key: i for i, key in enumerate(keys, start=1)}
     if module.program is not None:
         tabs[RUNS_TAB] = {key: i for i, key in enumerate(RUNS_COLUMNS, start=1)}
+    return tabs | default_columns_of_reference(module)
+
+
+def default_columns_of_reference(module: Module) -> dict[str, dict[str, int]]:
+    """Where a reference tab's columns are in a workbook made by schema sync."""
+    tabs: dict[str, dict[str, int]] = {}
+    for name, table in (module.reference or {}).items():
+        keys = [*reference_columns(module, name), KEY_HELPER, CHOICE_HELPER, "updated_at", DELETED]
+        tabs[table.tab] = {key: i for i, key in enumerate(keys, start=1)}
     return tabs
 
 
@@ -315,6 +354,7 @@ class _Plans:
                 self.dry[tab] = {key: i for i, key in enumerate(keys, start=1)}
         if module.program is not None:
             self.dry[RUNS_TAB] = {key: i for i, key in enumerate(RUNS_COLUMNS, start=1)}
+        self.dry |= default_columns_of_reference(module)
 
 
 @dataclass(frozen=True)
@@ -743,6 +783,9 @@ class _Compiler:
                 return self.program(name, self.value(date_field))
             case Last(entity=entity, field=name, before=before, inclusive=inclusive, n=n):
                 return self.last(entity, name, self.node(before), inclusive, n)
+            case RefLookup(table=table, key=key, column=column, week=week):
+                found = None if week is None else self.node(week)
+                return self.reference(table, self.node(key), column, found)
             case Call():
                 return self.call(node)
             case Fields() | Children() | Window():  # pragma: no cover - lists only in calls
@@ -859,6 +902,36 @@ class _Compiler:
             assert isinstance(field, BaseField)
             return _field_value(field, found)
         return self._derived(name, found)
+
+    def reference(self, name: str, key: F, column: str, week: F | None) -> F:
+        """`reference.<table>[key].<column>` (D-113): the row whose `auto:key` matches the key
+        (trimmed; MATCH ignores case, as the app); `….<per_week>[week]` takes the column whose
+        row-2 key is `w<week>`, wherever sync put it. Blank when the key is blank or not there,
+        or the cell is."""
+        table = (self.module.reference or {})[name]
+        tab = table.tab
+        integer = getattr(table.fields[table.key], "type", "text") == "integer"
+        own = key.core if integer else f"TRIM({key.core})"
+        match = f"MATCH({own},{self.column(tab, KEY_HELPER)},0)"
+        if week is None:
+            field = reference_columns(self.module, name)[column]
+            cell = self.index(tab, column, match)
+        else:
+            assert table.per_week is not None  # `check`
+            columns = self.columns_of(tab)
+            area = f"{_sheet(tab)}!$A:${get_column_letter(max(columns.values()))}"
+            pick = f'MATCH("w"&{_wrap(week.core)},{_sheet(tab)}!$2:$2,0)'
+            found = f"INDEX({area},{match},{pick})"
+            text = f'IFERROR(IF({found}="","",{found}),"")'
+            cell = F(text, f'{text}=""', empty=True)
+            per_week = table.week_columns(1)[0]  # any per-week column: they share a type
+            field = reference_columns(self.module, name).get(per_week) or TextField(type="text")
+        value = _field_value(field, cell)
+        missing = f"ISNA({match})"  # no row with the key: blank, not the column's default
+        test = _either(key.test, None if week is None else week.test, missing, value.test)
+        if test == value.test:
+            return value
+        return F(value.core, test, value.type)
 
     def parent(self, name: str) -> F:
         link = self.entity.parent
@@ -1286,6 +1359,9 @@ def _sheet(tab: str) -> str:
     if _BARE_SHEET.match(tab) and not _LOOKS_LIKE_CELL.match(tab):
         return tab
     return "'" + tab.replace("'", "''") + "'"
+
+
+sheet_name = _sheet  # for the sync backends: a tab as a formula or a rule names it
 
 
 _BARE_SHEET = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")

@@ -70,6 +70,15 @@ class Attr(Node):
 
 
 @dataclass(frozen=True)
+class Index(Node):
+    """`obj[index]`: only in `reference.<table>[key]` and `….<per_week>[week]`; `check` turns
+    those into a `RefLookup`."""
+
+    obj: Node
+    index: Node
+
+
+@dataclass(frozen=True)
 class ListNode(Node):
     """`[a, b]`: only as a selector value in `fields(section=[a, b])`."""
 
@@ -169,6 +178,17 @@ class ProgramRef(Node):
 
     name: str  # run | week | phase | is_light_week
     date_field: str
+
+
+@dataclass(frozen=True)
+class RefLookup(Node):
+    """`reference.<table>[key].<column>`, or `….<per_week>[week]` (column `w<week>`): a column
+    of the reference row with that key (D-113); blank when there is none."""
+
+    table: str
+    key: Node
+    column: str  # a field of the table, or its per-week name with `week`
+    week: Node | None = None
 
 
 @dataclass(frozen=True)

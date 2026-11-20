@@ -191,6 +191,11 @@ module and dashboard, fear rules, module and dashboard, combined recommendation,
   one key, `per_week` columns, a `retired` column), a tab each by schema sync, rows read with
   their data issues, added and changed (never re-keyed or deleted) through the API, and the
   **Program** page; the fictional demo program shows them.
+- `ref` fields and prescriptions. → done (D-113, #133): `ref` values checked against their
+  table (unknown keys are data issues and refused on write; keys in any case), a select
+  "A3 · Wall slides" in forms, dropdowns in the sheet from a hidden column of the keys still
+  offered, and `reference.<table>[key].<column>` / `….<per_week>[week]` in expressions and
+  sheet formulas (parity on LibreOffice); the demo program logs its exercises against the plan.
 - `shoulder.yaml` + importer (plan, exercise log, check-ins, retests); review-flag rule;
   program grid, weekly dashboard, retests view; next-morning reminder.
 - `fear-of-falling.yaml` + importer (fear map, ladder, falls, 20Q, weekly review);

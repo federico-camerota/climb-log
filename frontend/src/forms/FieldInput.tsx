@@ -2,10 +2,12 @@
 import { Autocomplete, ColorSwatch, Group, Select, Text, Textarea, TextInput } from "@mantine/core";
 import { DateInput, TimeInput } from "@mantine/dates";
 
+import { RefSelect } from "./RefSelect";
 import { fieldLabel, gradeHint, type FieldDef, type ScaleDef } from "./schema";
 import { isScale, scaleColour, scaleSteps, type InputValue } from "./values";
 
 interface Props {
+  module?: string; // the module, for a ref field's reference rows (D-113)
   name: string;
   field: FieldDef;
   scale?: ScaleDef;
@@ -16,7 +18,16 @@ interface Props {
 }
 
 /** The input for one field, by its type (03 §2.6, 06-ui Log). Notes are Italian (D-024). */
-export function FieldInput({ name, field, scale, value, onChange, error, suggestions }: Props) {
+export function FieldInput({
+  module,
+  name,
+  field,
+  scale,
+  value,
+  onChange,
+  error,
+  suggestions,
+}: Props) {
   const label = fieldLabel(name, field, scale);
   const common = { label, description: field.help, error, required: field.required === true };
   const text = typeof value === "string" ? value : "";
@@ -31,6 +42,11 @@ export function FieldInput({ name, field, scale, value, onChange, error, suggest
         value={typeof value === "number" ? value : null}
         onChange={onChange}
       />
+    );
+  }
+  if (field.type === "ref" && module !== undefined && field.reference !== undefined) {
+    return (
+      <RefSelect {...common} module={module} table={field.reference} value={text} onChange={set} />
     );
   }
   switch (field.type) {

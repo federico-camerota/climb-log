@@ -25,7 +25,7 @@ from climblog.modules.formulas import (
     summary_formulas,
 )
 from climblog.modules.program import RUNS_TAB
-from climblog.modules.reference import RETIRED, reference_columns, reference_weeks
+from climblog.modules.reference import CHOICE_HELPER, RETIRED, reference_columns, reference_weeks
 from climblog.modules.schema import (
     BaseField,
     BoolField,
@@ -37,6 +37,7 @@ from climblog.modules.schema import (
     OrdinalScale,
     Phase,
     ReferenceTemplateUse,
+    RefField,
     ScaleField,
     TextField,
 )
@@ -88,7 +89,17 @@ class WeekRule:
     """An ISO week typed as text, `2026-W42` (a program run's start, D-109)."""
 
 
-Validation = ListRule | RangeRule | DateRule | WeekRule
+@dataclass(frozen=True)
+class RefRule:
+    """A `ref` column's dropdown (D-113): the keys a reference tab still offers (its hidden
+    `auto:choice` column), however many rows it grows to. Other values only get a warning, so
+    a retired key typed by hand stays."""
+
+    tab: str
+    column: str = CHOICE_HELPER
+
+
+Validation = ListRule | RangeRule | DateRule | WeekRule | RefRule
 
 
 @dataclass(frozen=True)
@@ -177,7 +188,7 @@ def workbook_layout(module: Module) -> WorkbookLayout:
     ]
     if module.program is not None:
         tabs.append(runs_tab(placed))
-    tabs += [reference_tab(module, name) for name in module.reference or {}]
+    tabs += [reference_tab(module, name, placed) for name in module.reference or {}]
     settings = tuple(
         SettingRow(key, setting.default, setting.label or "")
         for key, setting in module.settings.items()
@@ -344,9 +355,10 @@ def runs_tab(placed: Sequence[FormulaColumn]) -> TabLayout:
     )
 
 
-def reference_tab(module: Module, name: str) -> TabLayout:
+def reference_tab(module: Module, name: str, placed: Sequence[FormulaColumn]) -> TabLayout:
     """A reference table's tab (D-112): the key, the fields, the per-week columns and
-    `retired`, all typed by hand, then the system columns."""
+    `retired`, all typed by hand, then its hidden formula columns (D-113) and the system
+    columns."""
     table = (module.reference or {})[name]
     columns = []
     for key, field in reference_columns(module, name).items():
@@ -365,6 +377,7 @@ def reference_tab(module: Module, name: str) -> TabLayout:
                 retired=field.retired,
             )
         )
+    columns += [_formula(c) for c in placed if c.tab == table.tab]
     columns += [_system(name) for name in SYSTEM_COLUMNS]
     return TabLayout(table.tab, tuple(columns))
 
@@ -449,6 +462,8 @@ def _validation(module: Module, field: BaseField) -> Validation | None:
             return DateRule("time")
         case DateField(type="week"):
             return WeekRule()
+        case RefField():
+            return RefRule((module.reference or {})[field.reference].tab)
     return None
 
 

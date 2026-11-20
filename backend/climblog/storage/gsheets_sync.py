@@ -11,12 +11,12 @@ protection, so an edit there asks first (04 §1).
 """
 
 import datetime as dt
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 
 from openpyxl.utils import get_column_letter
 
-from climblog.modules.formulas import GOOGLE, normalize, week_rule_formula
+from climblog.modules.formulas import GOOGLE, normalize, sheet_name, week_rule_formula
 from climblog.storage.base import AUTO, FIRST_DATA_ROW
 from climblog.storage.cells import RawCell
 from climblog.storage.google_client import Json
@@ -37,6 +37,7 @@ from climblog.storage.layout import (
     DateRule,
     ListRule,
     RangeRule,
+    RefRule,
     ReportCell,
     TabLayout,
     WeekRule,
@@ -61,6 +62,8 @@ def sync_requests(
     done: list[str] = []
     for tab in layout.tabs:
         done += sync.data_tab(tab)
+    for tab in layout.tabs:  # once every tab exists: a `ref` dropdown reads another (D-113)
+        sync.rules(tab)
     done += sync.settings(layout)
     done += sync.formulas(layout)
     done += sync.report(layout)
@@ -145,9 +148,18 @@ class _Sync:
             self._heights(tab)
             self._update(tab, 2, 0, {"note": KEY_NOTE}, "note")
             done.append(f"created tab '{layout.name}'")
+        return done
+
+    def rules(self, layout: TabLayout) -> None:
+        """Validation, colours and protection of a data tab's module columns."""
+        tab = self.tabs[layout.name]
         self._rewrite_rules(tab, layout)
         self._protect(tab, layout)
-        return done
+
+    def where(self, tab: str, key: str) -> str | None:
+        """A column's letter on another tab, if it has the column."""
+        found = self.tabs[tab].keys().get(key) if tab in self.tabs else None
+        return None if found is None else get_column_letter(found + 1)
 
     def _update_tab(self, tab: _Tab, layout: TabLayout) -> list[str]:
         done = []
@@ -282,7 +294,7 @@ class _Sync:
                 )
         for i, spec in sorted(specs.items()):
             cells = _columns(tab, i, i + 1)
-            validation = _validation(spec, i, self.comma)
+            validation = _validation(spec, i, self.comma, self.where)
             body: Json = {"range": cells}
             if validation is not None:
                 body["rule"] = validation
@@ -675,12 +687,24 @@ def google_format(number_format: str | None) -> Json | None:
     return {"type": "NUMBER", "pattern": number_format}
 
 
-def _validation(spec: ColumnSpec, column: int, comma: bool) -> Json | None:
+def _validation(
+    spec: ColumnSpec,
+    column: int,
+    comma: bool,
+    where: Callable[[str, str], str | None] = lambda tab, key: None,
+) -> Json | None:
     """The API's rule for a column; numbers and formulas written as the sheet's locale reads
-    them (`comma`: decimal commas and `;`)."""
+    them (`comma`: decimal commas and `;`); `where` finds a column on another tab."""
     rule = spec.validation
     cell = f"{get_column_letter(column + 1)}{FIRST_DATA_ROW}"
     match rule:
+        case RefRule(tab=tab, column=key):
+            letter = where(tab, key)
+            if letter is None:
+                return None
+            cells = f"={sheet_name(tab)}!${letter}${FIRST_DATA_ROW}:${letter}"  # grows down
+            condition = {"type": "ONE_OF_RANGE", "values": [{"userEnteredValue": cells}]}
+            return {"condition": condition, "strict": False, "showCustomUi": True}
         case ListRule():
             values = [{"userEnteredValue": value} for value in rule.values]
             condition = {"type": "ONE_OF_LIST", "values": values}

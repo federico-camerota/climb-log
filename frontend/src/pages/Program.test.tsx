@@ -39,6 +39,7 @@ const EXERCISES = {
   label: "Exercises",
   tab: "Exercises",
   key: "id",
+  display: "name",
   columns: ["id", "name", "session", "w1", "w2", "w3", "retired"],
   week_columns: ["w1", "w2", "w3"],
   per_week_label: "Prescription",

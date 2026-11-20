@@ -3252,6 +3252,19 @@
           "title": "Key",
           "type": "string"
         },
+        "display": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display"
+        },
         "fields": {
           "minProperties": 1,
           "patternProperties": {

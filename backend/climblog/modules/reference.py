@@ -19,6 +19,10 @@ from climblog.modules.schema import (
 )
 
 RETIRED = "retired"  # a reference row no longer offered (Yes), kept for old records
+# Hidden formula columns of a reference tab (D-113): every row's key as matched (trimmed, blank
+# when deleted), for lookups; and the keys still offered (not retired), for `ref` dropdowns.
+KEY_HELPER = "auto:key"
+CHOICE_HELPER = "auto:choice"
 # Field types a reference table can have: what is typed by hand in one cell.
 FIELD_TYPES = (TextField, ChoiceField, NumberField, BoolField, RefField)
 
@@ -44,6 +48,23 @@ def reference_columns(module: Module, name: str) -> dict[str, BaseField]:
                 columns[key] = NumberField(type=per_week.type, label=label)
     columns[RETIRED] = BoolField(type="bool", label="Retired", default=False)
     return columns
+
+
+def match_key(value: Value) -> Value:
+    """A key as compared (D-113): text trimmed and in any case, as the sheet's MATCH and
+    dropdowns compare it (`a3 ` is `A3`); blank as None."""
+    found = clean_key(value)
+    return found.casefold() if isinstance(found, str) else found
+
+
+def display_field(table: ReferenceTable) -> str | None:
+    """The field a form shows next to the key ("A3 · Wall slides"): `display`, or the first
+    text field after the key."""
+    if table.display is not None:
+        return table.display
+    return next(
+        (n for n, f in table.fields.items() if n != table.key and isinstance(f, TextField)), None
+    )
 
 
 def clean_key(value: Value) -> Value:

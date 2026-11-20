@@ -370,6 +370,7 @@ class ReferenceTable(Strict):
     label: str | None = None
     tab: str
     key: Key  # one text or integer field, typed by hand (`A3`)
+    display: Key | None = None  # shown next to the key in forms; default: the first text field
     fields: dict[Key, ModuleField] = Field(min_length=1)
     per_week: PerWeek | None = None  # program modules only: columns w1..wN
 

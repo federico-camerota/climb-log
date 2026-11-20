@@ -7,6 +7,13 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- `ref` fields point at a reference table's rows: forms show a select of the rows in use
+  ("A3 · Wall slides", storing `A3`), the sheet a dropdown of the keys still offered that grows
+  with the table (a hidden helper column on each reference tab), and a key no row has is a data
+  issue (refused when saved from the app). Keys match in any case and without the spaces around
+  them. Derived values can read a row: `reference.exercises[exercise].name`, and this week's
+  prescription with `reference.exercises[exercise].prescription[program.week]`, the same in the
+  sheet's formulas. The demo program gets an exercise log read against its plan (#133, D-113).
 - Reference tables: a module's `reference:` block is now checked and each table gets its own
   tab (key, fields, a column per program week with `per_week`, and `retired`), so a program's
   exercises, rungs or questions can be typed in the sheet or kept in the app. The new

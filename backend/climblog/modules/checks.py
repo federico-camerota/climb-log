@@ -13,7 +13,7 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 
-from climblog.expr import Checked, Env, ExprError, FieldMeta, NameInfo, prepare
+from climblog.expr import Checked, Env, ExprError, FieldMeta, NameInfo, RefTable, prepare
 from climblog.expr.nodes import ValueType
 from climblog.grades import SUPPORTED
 from climblog.modules.derived import DerivedPlan, check_derived
@@ -200,6 +200,10 @@ def _reference(module: Module, name: str) -> list[Problem]:
         problems.append(Problem((*at, "key"), "the key must be a text or integer field"))
     elif key.retired:
         problems.append(Problem((*at, "key"), "the key can't be retired"))
+    if table.display is not None and table.display not in table.fields:
+        problems.append(
+            Problem((*at, "display"), f"the display '{table.display}' is not one of the fields")
+        )
     if table.per_week is not None and module.program is None:
         problems.append(
             Problem((*at, "per_week"), "per_week columns need a program: block (its weeks)")
@@ -363,31 +367,61 @@ def _check_entity(module: Module, e_name: str, entity: Entity) -> list[Problem]:
 
 
 def expression_env(module: Module, fields: Mapping[str, Any], date_field: str) -> Env:
-    """What expressions in an entity can use: its stored fields (as written) and the settings."""
-    names: dict[str, NameInfo] = {}
-    for key, field in fields.items():
-        if not isinstance(field, BaseField):
-            continue
-        scale = module.scales.get(field.scale) if isinstance(field, ScaleField) else None
-        choices = None
-        if isinstance(field, ChoiceField) and not field.allow_other:
-            ordinal = module.scales.get(field.scale) if field.scale else None
-            choices = field.choices or (
-                ordinal.choices if isinstance(ordinal, OrdinalScale) else None
-            )
-        names[key] = NameInfo(
-            _VALUE_TYPES.get(field.type, "text"),
-            scale=(scale.min, scale.max) if isinstance(scale, NumericScale) else None,
-            lower_better=scale.direction == "lower_better"
-            if isinstance(scale, NumericScale)
-            else None,
-            choices=tuple(choices) if choices else None,
-            field=FieldMeta(
-                field.type, field.section, tuple(field.tags), field.since, field.retired
-            ),
-        )
+    """What expressions in an entity can use: its stored fields (as written), the settings and
+    the reference tables' columns (D-113)."""
+    names = {
+        key: _name_info(module, field)
+        for key, field in fields.items()
+        if isinstance(field, BaseField)
+    }
     settings = {key: _VALUE_TYPES[s.type] for key, s in module.settings.items()}
-    return Env(names, settings, date_field, program=_phases(module))
+    return Env(names, settings, date_field, program=_phases(module), reference=_ref_tables(module))
+
+
+def _name_info(module: Module, field: BaseField) -> NameInfo:
+    scale = module.scales.get(field.scale) if isinstance(field, ScaleField) else None
+    choices = None
+    if isinstance(field, ChoiceField) and not field.allow_other:
+        ordinal = module.scales.get(field.scale) if field.scale else None
+        choices = field.choices or (ordinal.choices if isinstance(ordinal, OrdinalScale) else None)
+    return NameInfo(
+        _VALUE_TYPES.get(getattr(field, "type", "text"), "text"),
+        scale=(scale.min, scale.max) if isinstance(scale, NumericScale) else None,
+        lower_better=scale.direction == "lower_better" if isinstance(scale, NumericScale) else None,
+        choices=tuple(choices) if choices else None,
+        field=FieldMeta(
+            getattr(field, "type", "text"),
+            field.section,
+            tuple(field.tags),
+            field.since,
+            field.retired,
+        ),
+    )
+
+
+def _ref_tables(module: Module) -> dict[str, RefTable]:
+    """Each reference table as expressions read it: its key's type, every column (the
+    per-week ones under their name), checked tables only (a broken one is reported apart)."""
+    from climblog.modules.reference import RETIRED, reference_columns
+
+    found: dict[str, RefTable] = {}
+    for name, table in (module.reference or {}).items():
+        key = table.fields.get(table.key)
+        if not isinstance(key, BaseField):
+            continue
+        columns = {
+            column: _name_info(module, field)
+            for column, field in reference_columns(module, name).items()
+            if column not in table.week_columns(module.program.weeks if module.program else 0)
+        }
+        columns[RETIRED] = NameInfo("bool")
+        week = None
+        if table.per_week is not None:
+            week = NameInfo("text" if table.per_week.type == "text" else "number")
+        per_week = table.per_week.name if table.per_week is not None else None
+        key_type = _VALUE_TYPES.get(getattr(key, "type", "text"), "text")
+        found[name] = RefTable(key_type, columns, per_week, week)
+    return found
 
 
 def _phases(module: Module) -> tuple[str, ...] | None:

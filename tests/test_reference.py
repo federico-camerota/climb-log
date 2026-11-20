@@ -30,7 +30,7 @@ from climblog.storage import (
     workbook_layout,
 )
 from climblog.storage.base import Append, WriteConflict
-from climblog.storage.layout import ListRule, RangeRule
+from climblog.storage.layout import ListRule, RangeRule, RefRule
 from climblog.storage.write import KeyTaken, RecordNotFound, RecordWriter, WriteError
 
 CONTRACT = "sync"  # the round trip runs on every backend
@@ -155,6 +155,8 @@ def test_the_tab_of_a_table(program: Module) -> None:
         "load_rule",
         *WEEKS,
         RETIRED,
+        "auto:key",  # hidden: lookups and dropdowns (D-113)
+        "auto:choice",
         "updated_at",
         "deleted",
     ]
@@ -166,8 +168,10 @@ def test_the_tab_of_a_table(program: Module) -> None:
     assert columns[RETIRED].validation == ListRule(("Yes", "No"))
     drills = {c.key: c for c in tabs["Drills"].columns}
     assert drills["order"].validation == RangeRule("whole", 1, None)
-    assert drills["track"].validation is None  # a dropdown of the tracks comes with #133
-    assert not any(c.formula for c in tabs["Exercises"].columns)
+    assert drills["track"].validation == RefRule("Tracks")  # the tracks still offered
+    formulas = [c.key for c in tabs["Exercises"].columns if c.formula]
+    assert formulas == ["auto:key", "auto:choice"]
+    assert all(columns[k].hidden for k in formulas)
 
 
 def test_a_table_round_trip(program: Module, backend: Backend) -> None:
@@ -176,7 +180,15 @@ def test_a_table_round_trip(program: Module, backend: Backend) -> None:
     sync_module(program, repo)
     assert check_schema(program, repo) == []
     labels, keys = backend.cells(repo, "Tracks")[:2]
-    assert list(keys[:5]) == ["id", "name", RETIRED, "updated_at", "deleted"]
+    assert list(keys[:7]) == [
+        "id",
+        "name",
+        RETIRED,
+        "auto:key",
+        "auto:choice",
+        "updated_at",
+        "deleted",
+    ]
     assert labels[0] == "Id"
     repo.apply([Append("Tracks", {"id": "T1", "name": "Balance"})])  # typed in the sheet
     writer(program, repo).add_reference_row("tracks", {"id": "T2", "name": "Reach"})
@@ -199,6 +211,7 @@ def test_rows_with_their_issues(program: Module, tmp_path: Path) -> None:
             Append("Exercises", {"name": "No key"}),
             Append("Exercises", {"id": "A2", "session": "C", RETIRED: "maybe"}),
             Append("Exercises", {"id": "A3", "name": "Gone", "deleted": "x"}),
+            Append("Tracks", {"id": "T1", "name": "Balance"}),
             Append("Drills", {"id": "D1", "track": " T1 ", "order": 2}),
         ]
     )
@@ -297,6 +310,7 @@ def test_the_tables_of_a_module_in_the_api(client: TestClient) -> None:
         "label": "Exercises",
         "tab": "Exercises",
         "key": "id",
+        "display": "name",
         "columns": ["id", "name", "session", "load_rule", *WEEKS, RETIRED],
         "week_columns": WEEKS,
         "per_week_label": "Prescription",

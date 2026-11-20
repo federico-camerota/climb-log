@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 
 from climblog.expr import Value
 from climblog.modules.program import NO_RUNS, RUNS_TAB, Run, Runs, parse_week
-from climblog.modules.reference import RETIRED, clean_key, reference_columns
+from climblog.modules.reference import RETIRED, clean_key, match_key, reference_columns
 from climblog.modules.schema import (
     NEXT,
     BaseField,
@@ -24,6 +24,7 @@ from climblog.modules.schema import (
     Entity,
     Module,
     NumberField,
+    RefField,
     Setting,
     TextField,
 )
@@ -63,7 +64,12 @@ class ReferenceRows:
 
     def find(self, key: Value) -> int | None:
         """The index of the row with this key."""
-        return next((i for i, row in enumerate(self.rows) if row.get(self.key) == key), None)
+        wanted = match_key(key)
+        if wanted is None:
+            return None
+        return next(
+            (i for i, row in enumerate(self.rows) if match_key(row.get(self.key)) == wanted), None
+        )
 
 
 @dataclass
@@ -73,6 +79,10 @@ class ModuleData:
     issues: list[DataIssue]
     runs: Runs = NO_RUNS  # a program module's runs (D-109)
     reference: dict[str, ReferenceRows] = field(default_factory=dict)  # D-112
+
+    def reference_rows(self) -> dict[str, list[dict[str, Value]]]:
+        """Each reference table's rows, for `compute_module` (D-113)."""
+        return {name: found.rows for name, found in self.reference.items()}
 
 
 def load_data(module: Module, repo: Repository) -> ModuleData:
@@ -88,7 +98,48 @@ def load_data(module: Module, repo: Repository) -> ModuleData:
     reference = {
         name: read_reference(module, name, repo, issues) for name in module.reference or {}
     }
+    _report_unknown_refs(module, entities, reference, issues)
     return ModuleData(settings, entities, issues, runs, reference)
+
+
+def _report_unknown_refs(
+    module: Module,
+    entities: Mapping[str, EntityData],
+    reference: Mapping[str, ReferenceRows],
+    issues: list[DataIssue],
+) -> None:
+    """A `ref` value that is no row of its table (D-113): a data issue, and the value reads
+    blank, as a bad choice does. Keys match trimmed and in any case; a retired row counts."""
+
+    def unknown(field: RefField, value: Value) -> str | None:
+        found = reference.get(field.reference)
+        if value is None or found is None or found.find(value) is not None:
+            return None
+        tab = (module.reference or {})[field.reference].tab
+        return f"{_show(value)} is not a row of {tab}"
+
+    for name, entity in module.entities.items():
+        data = entities[name]
+        tabs = entity.tab_fields()
+        for record, places in zip(data.records, data.places, strict=True):
+            for f_name, f_def in entity.fields.items():
+                if not isinstance(f_def, RefField):
+                    continue
+                message = unknown(f_def, record.get(f_name))
+                if message is None:
+                    continue
+                tab = next((t for t, names in tabs.items() if f_name in names), entity.main_tab)
+                issue = DataIssue(tab, places.get(tab), f_name, message, "value", record[f_name])
+                issues.append(issue)
+                record[f_name] = None
+    for name, table in (module.reference or {}).items():
+        found = reference[name]
+        for row, number in zip(found.rows, found.places, strict=True):
+            for f_name, f_def in table.fields.items():
+                if isinstance(f_def, RefField) and (message := unknown(f_def, row.get(f_name))):
+                    issue = DataIssue(table.tab, number, f_name, message, "value", row[f_name])
+                    issues.append(issue)
+                    row[f_name] = None
 
 
 def read_reference(
@@ -126,6 +177,10 @@ def read_reference(
                 )
                 value = None
             values[name_] = value
+        bad = {i.field for i in row_issues}
+        for name_, column in columns.items():  # blank reads as the default, as for records
+            if values[name_] is None and column.default is not None and name_ not in bad:
+                values[name_] = parse_cell(module, column, column.default)
         values[RETIRED] = values[RETIRED] is True
         values[key] = clean_key(values[key])
         if values[key] is None:
@@ -134,12 +189,13 @@ def read_reference(
                 row_issues.append(DataIssue(table_def.tab, row.number, key, message, "left_out"))
             issues.extend(row_issues)
             continue
-        if values[key] in first_row:
-            message = f"same {key} as row {first_row[values[key]]}: the row is left out"
+        matched = match_key(values[key])
+        if matched in first_row:
+            message = f"same {key} as row {first_row[matched]}: the row is left out"
             row_issues.append(DataIssue(table_def.tab, row.number, None, message, "left_out"))
             issues.extend(row_issues)
             continue
-        first_row[values[key]] = row.number
+        first_row[matched] = row.number
         bad = {i.field for i in row_issues}
         row_issues += [
             DataIssue(table_def.tab, row.number, f, "required, but empty", "required")
@@ -428,6 +484,10 @@ def _report_orphan_children(
                         "orphan_child",
                     )
                 )
+
+
+def _show(value: Value) -> str:
+    return repr(value) if isinstance(value, str) else str(value)
 
 
 def describe_key(parts: list[str], key: Key) -> str:
