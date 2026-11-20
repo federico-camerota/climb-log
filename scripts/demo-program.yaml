@@ -8,6 +8,9 @@ version: 1
 kind: program
 description: A fictional six-week mobility block, to show reference tables.
 
+scales:
+  sore: {min: 0, max: 10, direction: lower_better}
+
 program:
   weeks: 6
   phases:
@@ -52,7 +55,21 @@ entities:
       date: {type: date, required: true}
       session: {type: choice, choices: [A, B]}
       minutes: {type: number, min: 0, max: 180, unit: min}
+      # prefilled from the same day's journal session in the app's form (D-114)
+      activity:
+        type: choice
+        choices: [Climbing indoor, Climbing outdoor, Hangboard, Other]
+        from: journal.session.setting+session_type
+        from_map:
+          "Indoor · Climbing": Climbing indoor
+          "Home wall · Climbing": Climbing indoor
+          "Outdoor · Climbing": Climbing outdoor
+          "Indoor · Hangboard": Hangboard
+          "Home wall · Hangboard": Hangboard
+      hardest_grade: {type: grade, systems: [french, font, gym], from: journal.session.hardest_grade}
       notes: {type: text, multiline: true}
+      # asked on Today the morning after (D-114)
+      soreness_next_am: {type: scale, scale: sore, label: Soreness next morning, phase: next_day}
   exercise_log:                 # what was done of each exercise, read against the plan (D-113)
     label: Exercise log
     tab: Exercise log
@@ -69,3 +86,4 @@ entities:
 
 forms:
   session: {entity: session, children: [{entity: exercise_log, repeat: true}]}
+  next_morning: {entity: session, phase: next_day}

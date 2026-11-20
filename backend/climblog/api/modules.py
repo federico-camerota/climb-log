@@ -43,6 +43,7 @@ class ModuleInfo(BaseModel):
     kind: str | None = None
     description: str | None = None
     problems: list[str] = []  # why the YAML didn't load (then no schema)
+    notes: list[str] = []  # what works partly: a `from:` the app config can't serve (D-114)
     module_schema: dict[str, Any] | None = None  # the module YAML as JSON
 
 
@@ -86,7 +87,7 @@ def catalog(request: Request) -> Catalog:
 def list_modules(request: Request) -> ModuleList:
     current = catalog(request)
     return ModuleList(
-        modules=[_info(entry) for entry in current.entries.values()],
+        modules=[_info(current, entry) for entry in current.entries.values()],
         problems=current.problems,
     )
 
@@ -329,6 +330,45 @@ def adopt_row(request: Request, module: str, entity: str, tab: str, row: int) ->
     return _written(current, entry, entity, key)
 
 
+class PrefillSource(BaseModel):
+    module: str  # the other module's `module:` id
+    entity: str
+    label: str  # "Session 2 · Climbing indoor · 7a"
+    key: dict[str, Any]
+    values: dict[str, Any]  # this entity's field → the value it would start with
+
+
+class Prefill(BaseModel):
+    sources: list[PrefillSource]  # one: prefill it; several: the form asks which (D-114)
+    notes: list[str]  # fields that can't be prefilled, and why
+
+
+@router.get("/modules/{module}/{entity}/prefill")
+def prefill(request: Request, module: str, entity: str, date: dt.date) -> Prefill:
+    """The other modules' records of `date` that prefill the entity's `from:` fields (D-114):
+    the form starts with their values (editable); nothing is written."""
+    current = catalog(request)
+    entry = _entry(current, module, entity)
+    found, notes = current.prefill(entry, entity, date)
+    return Prefill(
+        sources=[
+            PrefillSource(
+                module=c.module,
+                entity=c.entity,
+                label=c.label,
+                key={k: _json(v) for k, v in c.key.items()},
+                values={k: _json(v) for k, v in c.values.items()},
+            )
+            for c in found
+        ],
+        notes=notes,
+    )
+
+
+def _json(value: Value) -> Any:
+    return value.isoformat() if isinstance(value, dt.date | dt.time) else value
+
+
 class FormValues(BaseModel):
     values: dict[str, Any]  # a form's values as typed so far (the API's types, as on save)
 
@@ -446,7 +486,7 @@ def _weeks(entry: Entry, entity: str) -> set[str]:
     return {n for n, f in fields.items() if isinstance(f, DateField) and f.type == "week"}
 
 
-def _info(entry: Entry) -> ModuleInfo:
+def _info(current: Catalog, entry: Entry) -> ModuleInfo:
     module = entry.module
     if module is None:
         return ModuleInfo(id=entry.name, problems=entry.problems)
@@ -456,5 +496,6 @@ def _info(entry: Entry) -> ModuleInfo:
         version=module.version,
         kind=module.kind,
         description=module.description,
+        notes=sorted(current.prefill_problems(entry).values()),
         module_schema=module.model_dump(mode="json", by_alias=True, exclude_defaults=True),
     )

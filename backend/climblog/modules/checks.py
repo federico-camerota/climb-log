@@ -493,6 +493,9 @@ def _check_visible_if(env: Env, f_key: str, source: str, at: YamlPath) -> list[P
 
 def _check_field(module: Module, field: BaseField, at: YamlPath) -> list[Problem]:
     """Checks that depend only on the field and the module (run once per template field)."""
+    found = _check_from(field, at)
+    if found:
+        return found
     if isinstance(field, GradeField):
         return [
             Problem((*at, "systems", i), f"grade system '{system}' is not supported yet "
@@ -509,6 +512,20 @@ def _check_field(module: Module, field: BaseField, at: YamlPath) -> list[Problem
                 (*at, "reference"), f"unknown reference table '{field.reference}' (known: {known})"
             )
         ]
+    return []
+
+
+def _check_from(field: BaseField, at: YamlPath) -> list[Problem]:
+    """`from: module.entity.field` (or `field+other`) and its `from_map` (D-114); whether that
+    module, entity and fields exist is checked against the app config (`prefill.py`)."""
+    from climblog.modules.prefill import FROM_SYNTAX, parse_from
+
+    if field.from_ is None:
+        if field.from_map:
+            return [Problem((*at, "from_map"), "from_map needs a `from:`")]
+        return []
+    if parse_from(field.from_) is None:
+        return [Problem((*at, "from"), f"'{field.from_}' is not {FROM_SYNTAX}")]
     return []
 
 

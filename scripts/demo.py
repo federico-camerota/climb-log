@@ -315,6 +315,8 @@ def program(rng: random.Random, start: dt.date, end: dt.date) -> list[tuple[str,
         }
         if rng.random() < 0.3:
             values["notes"] = "[ESEMPIO] Felt loose after the warm-up."
+        if day < end - dt.timedelta(days=2):  # the latest ones wait for the morning after
+            values["soreness_next_am"] = rng.choice([0, 1, 1, 2, 3])
         records.append(("session", values))
         week = (day - monday).days // 7 + 1
         for i, (key, _, of, _) in enumerate(EXERCISES):

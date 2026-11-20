@@ -25,6 +25,7 @@ export interface FieldDef {
   visible_if?: string; // shown only while this condition holds (the backend says, D-099)
   suggest_from_history?: boolean; // a text field suggests the values typed before
   reference?: string; // a ref field's reference table (D-113)
+  from?: string; // prefilled from another module's same-day record (D-114)
 }
 
 export interface ScaleDef {
@@ -122,7 +123,11 @@ export function formGroups(entity: EntityDef, form: FormDef): FieldGroup[] {
     const section = field.section ?? null;
     const phase = field.phase ?? (section === null ? undefined : sections[section]?.phase);
     const inForm = wanted === null || (section !== null && wanted.includes(section));
-    const samePhase = form.phase === undefined || phase === undefined || phase === form.phase;
+    // a next-morning form holds only the next-morning fields (D-114)
+    const samePhase =
+      form.phase === "next_day"
+        ? phase === "next_day"
+        : form.phase === undefined || phase === undefined || phase === form.phase;
     const pulled = field.phase !== undefined && field.phase === form.phase; // e.g. duration
     if (!((inForm && samePhase) || pulled)) continue;
     let group = groups.get(section);

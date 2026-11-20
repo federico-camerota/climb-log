@@ -15,6 +15,7 @@ const PROGRAM: ModuleInfo = {
   version: 1,
   kind: "program",
   problems: [],
+  notes: [],
   module_schema: {
     entities: { session: { fields: { date: { type: "date" } } } },
     reference: {

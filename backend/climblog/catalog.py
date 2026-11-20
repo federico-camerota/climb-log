@@ -22,6 +22,7 @@ from climblog.modules import Module, ModuleError
 from climblog.modules.checks import recommendation_plan
 from climblog.modules.compute import compute_module
 from climblog.modules.forms import Day, due, hidden
+from climblog.modules.prefill import Candidate, candidates, source_problems
 from climblog.modules.program import NO_RUNS, Runs
 from climblog.modules.recommend import Advice, Reason, recommend
 from climblog.modules.schema import TrainingLoadWidget
@@ -186,6 +187,34 @@ class Catalog:
             return None
 
         return find
+
+    def prefill(self, entry: Entry, entity: str, day: dt.date) -> tuple[list[Candidate], list[str]]:
+        """The other modules' records of `day` that prefill the entity's `from:` fields
+        (D-114), and why some fields can't be prefilled."""
+        assert entry.module is not None
+        found, notes = candidates(entry.module, entity, self.others(entry), day)
+        notes += [
+            note
+            for (e_name, _), note in self.prefill_problems(entry).items()
+            if e_name == entity and note not in notes
+        ]
+        return found, notes
+
+    def prefill_problems(self, entry: Entry) -> dict[tuple[str, str], str]:
+        """`from:` fields whose module, entity or fields the app config doesn't have."""
+        assert entry.module is not None
+
+        def find(module_id: str) -> Module | None:
+            return next(
+                (
+                    e.module
+                    for e in self.entries.values()
+                    if e.module is not None and e.module.module == module_id
+                ),
+                None,
+            )
+
+        return source_problems(entry.module, find)
 
     def hidden(self, entry: Entry, entity: str, values: Mapping[str, Value]) -> list[str]:
         """The entity's fields a form hides for these values (`visible_if`, 03 §2.1b)."""

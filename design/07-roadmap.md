@@ -196,6 +196,10 @@ module and dashboard, fear rules, module and dashboard, combined recommendation,
   "A3 · Wall slides" in forms, dropdowns in the sheet from a hidden column of the keys still
   offered, and `reference.<table>[key].<column>` / `….<per_week>[week]` in expressions and
   sheet formulas (parity on LibreOffice); the demo program logs its exercises against the plan.
+- Prefilled fields and next-morning items. → done (D-114, #134): `from:` (fields joined with
+  `+`, `from_map`) prefills a new record in the app from the other module's same-day record
+  (several: the form asks which), checked against the app config; Today lists `phase: next_day`
+  forms for the last three days until filled.
 - `shoulder.yaml` + importer (plan, exercise log, check-ins, retests); review-flag rule;
   program grid, weekly dashboard, retests view; next-morning reminder.
 - `fear-of-falling.yaml` + importer (fear map, ladder, falls, 20Q, weekly review);

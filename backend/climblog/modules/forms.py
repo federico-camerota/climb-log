@@ -17,7 +17,7 @@ day last.
 """
 
 import datetime as dt
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -128,7 +128,10 @@ def form_fields(module: Module, form: Form) -> list[str]:
         own = _phase(f.phase)
         phase = own or (_phase(sections[section].phase) if section in sections else None)
         in_form = form.sections is None or (section is not None and section in form.sections)
-        same_phase = form.phase is None or phase is None or phase == form.phase
+        if form.phase == "next_day":  # only the next-morning fields (D-114)
+            same_phase = phase == "next_day"
+        else:
+            same_phase = form.phase is None or phase is None or phase == form.phase
         pulled = own is not None and own == form.phase  # e.g. the session's duration
         if (in_form and same_phase) or pulled:
             found.append(name)
@@ -145,12 +148,13 @@ def due(
     values (deleted ones left out)."""
     forms = forms_of(module)
     notes: list[str] = []
+    mornings = _next_mornings(module, forms.values(), tables, day, settings or {})
     usable = [f for f in forms.values() if f.phase != "next_day"]
     planning = [f for f in usable if by_week(module.entities[f.entity])]
     usable = [f for f in usable if f not in planning]
     plan = _plan(module, planning, tables, day)
     if not usable:
-        return Day([], False, None, notes=notes, **plan)
+        return Day(mornings, False, None, notes=notes, **plan)
     on_day = {
         name: _sorted(
             module.entities[name],
@@ -199,7 +203,7 @@ def due(
         if (d := _day(r, first)) is not None and d <= day
     ]
     return Day(
-        items,
+        items + mornings,
         not any(on_day.values()) and len(entry) > 1,
         max(dates, default=None),
         first.label,
@@ -209,6 +213,33 @@ def due(
 
 
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+NEXT_MORNING_DAYS = 3  # a next-morning item is asked for until filled, up to this many days (D-114)
+
+
+def _next_mornings(
+    module: Module,
+    forms: Iterable[Form],
+    tables: Mapping[str, Sequence[Mapping[str, Value]]],
+    day: dt.date,
+    settings: Mapping[str, Value],
+) -> list[Due]:
+    """The `phase: next_day` forms of the records of the last few days (D-114) still to fill:
+    "Next morning · Check-in of Tue 18", the latest record first."""
+    items: list[Due] = []
+    for f in (f for f in forms if f.phase == "next_day"):
+        entity = module.entities[f.entity]
+        for back in range(1, NEXT_MORNING_DAYS + 1):
+            then = day - dt.timedelta(days=back)
+            records = [r for r in tables.get(f.entity, ()) if _day(r, entity) == then]
+            for record in _sorted(entity, records):
+                status, missing = _status(module, f, record, then, settings)
+                if status == DONE:
+                    continue
+                key = {part: record.get(part) for part in entity.key or [_date_field(entity)]}
+                when = f"{WEEKDAYS[then.weekday()]} {then.day}"
+                label = f"{form_label(f.name)} · {entity.label} of {when}"
+                items.append(Due(f.name, label, key, status, missing, record.get("log_check")))
+    return items
 
 
 def by_week(entity: Entity) -> bool:
@@ -280,6 +311,8 @@ def _status(
     blank, and fields hidden by `visible_if` don't count), partial when some are."""
     entity = module.entities[form.entity]
     away = set(hidden(module, form.entity, record, settings))
+    if form.phase != "next_day":  # filled the morning after, not on the day (D-114)
+        away |= {n for n in entity.fields if _field_phase(entity, n) == "next_day"}
     names = [
         n
         for n in form_fields(module, form)
@@ -291,6 +324,18 @@ def _status(
         return DONE, []
     status = MISSING if len(empty) == len(scored) else PARTIAL
     return status, _where(module, entity, empty)
+
+
+def _field_phase(entity: Entity, name: str) -> str | None:
+    """The field's own phase, else its section's."""
+    f = entity.fields[name]
+    if not isinstance(f, BaseField):
+        return None
+    own = _phase(f.phase)
+    if own is not None:
+        return own
+    section = (entity.sections or {}).get(f.section or "")
+    return _phase(section.phase) if section is not None else None
 
 
 def _tracked(entity: Entity, name: str, day: dt.date) -> bool:

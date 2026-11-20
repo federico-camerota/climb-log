@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { Alert, Badge, Button, Group, Loader, Stack, Text, Title } from "@mantine/core";
+import { Alert, Badge, Button, Group, Loader, Select, Stack, Text, Title } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useDebouncedValue } from "@mantine/hooks";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,12 +11,13 @@ import {
   getRecord,
   type FieldProblem,
   type Issue,
+  type PrefillSource,
   updateRecord,
   type ModuleInfo,
   type Values,
   type Written,
 } from "../api/client";
-import { useHidden, useRecord, useRecords } from "../api/queries";
+import { useHidden, usePrefill, useRecord, useRecords } from "../api/queries";
 import { DataStatus } from "../components/DataStatus";
 import { ChildRows, type ChildApi } from "./ChildRows";
 import { FieldInput } from "./FieldInput";
@@ -51,7 +52,12 @@ export function RecordForm(props: Props) {
   const status = useRecords(module.id, form.entity);
   const offline = status.data?.offline === true;
   const [saved, setSaved] = useState<Written | null>(null);
+  // `from:` fields (D-114): the other modules' same-day records that give their values
+  const day = asText(recordKey[props.entity.date_field ?? "date"]);
+  const wanted = Object.values(props.entity.fields).some((f) => f.from !== undefined);
+  const prefill = usePrefill(module.id, form.entity, day, wanted && day !== "");
   if (record.isPending && !isNew) return <Loader />;
+  if (wanted && day !== "" && prefill.isPending) return <Loader />;
   if (record.isError) {
     return (
       <Alert color="red" title="Can't read the record">
@@ -69,6 +75,8 @@ export function RecordForm(props: Props) {
         key={JSON.stringify(values)} // a new read starts the form again (a draft is kept)
         {...props}
         read={values}
+        sources={prefill.data?.sources ?? []}
+        notes={prefill.data?.notes ?? []}
         onSaved={(written) => {
           setSaved(written);
           if (isNew) props.onCreated?.(keyValues(props.entity, written));
@@ -81,6 +89,8 @@ export function RecordForm(props: Props) {
 
 interface EditorProps extends Props {
   read: Values | null; // the record as read; null: none yet
+  sources: PrefillSource[]; // other modules' records of the day that prefill `from:` fields
+  notes: string[]; // `from:` fields that can't be prefilled, and why
   offline: boolean; // the workbook can't be reached: read-only
   onSaved: (written: Written) => void;
   onReload: () => void;
@@ -93,6 +103,8 @@ function Editor({
   entity,
   recordKey,
   read,
+  sources,
+  notes,
   offline,
   onSaved,
   onReload,
@@ -109,6 +121,16 @@ function Editor({
       return [name, asTyped ? typed : toInput(field, scale(name), read?.[name])];
     }),
   );
+  // a new record with exactly one record to take from starts with its values (D-114; several:
+  // you pick one below)
+  const only = read === null && sources.length === 1 ? sources[0] : undefined;
+  if (only !== undefined) {
+    for (const [name, value] of Object.entries(only.values)) {
+      const field = entity.fields[name];
+      if (field !== undefined && name in initial)
+        initial[name] = toInput(field, scale(name), value);
+    }
+  }
   const issueErrors = Object.fromEntries(
     issues.filter((i) => i.field !== null).map((i) => [i.field ?? "", i.message]),
   );
@@ -162,6 +184,23 @@ function Editor({
   useEffect(() => {
     if (editor.isDirty()) saveDraft(draftKey, editor.values, editor.errors);
   }, [editor, draftKey]);
+
+  // `from:` fields (D-114): fill the blank ones from a record picked below
+  const [prefilledFrom, setPrefilledFrom] = useState<string | null>(
+    only !== undefined && draft === null ? `${only.module} · ${only.label}` : null,
+  );
+  const blanks = fields
+    .filter(([, field]) => field.from !== undefined)
+    .map(([name]) => name)
+    .filter((name) => asText(editor.getValues()[name]).trim() === "");
+  const fillFrom = (source: PrefillSource) => {
+    for (const [name, value] of Object.entries(source.values)) {
+      const field = entity.fields[name];
+      if (field === undefined || !blanks.includes(name)) continue;
+      editor.setFieldValue(name, toInput(field, scale(name), value));
+    }
+    setPrefilledFrom(`${source.module} · ${source.label}`);
+  };
 
   const queryClient = useQueryClient();
   const save = useMutation({
@@ -280,6 +319,39 @@ function Editor({
             </Group>
           </Alert>
         )}
+        {prefilledFrom !== null ? (
+          <Text size="sm" c="dimmed">
+            Prefilled from {prefilledFrom} (editable)
+          </Text>
+        ) : (
+          sources.length > 0 &&
+          blanks.length > 0 && (
+            <Select
+              label={read === null ? "Prefill from" : "Fill the blank fields from"}
+              description={
+                sources.length > 1
+                  ? `${String(sources.length)} records that day: pick one, or leave blank`
+                  : undefined
+              }
+              placeholder="Pick one…"
+              data={sources.map((s, i) => ({
+                value: String(i),
+                label: `${s.module} · ${s.label}`,
+              }))}
+              value={null}
+              onChange={(value) => {
+                const source = value === null ? undefined : sources[Number(value)];
+                if (source !== undefined) fillFrom(source);
+              }}
+              maw={420}
+            />
+          )
+        )}
+        {notes.map((note) => (
+          <Text key={note} size="sm" c="orange">
+            {note}
+          </Text>
+        ))}
         {shown.slice(0, setsAt).map(renderGroup)}
         {form.children !== undefined && (
           <ChildRows module={module} form={form} recordKey={recordKey} registry={children} />

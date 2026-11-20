@@ -15,7 +15,8 @@ before M5 are done (hardest send, more body parts, a protein log; D-105–D-107)
 modules with a training plan (D-103), is in progress: the program block with its runs (D-109)
 and the training plan (D-110) are done; before going on, the journal got an illness score and
 sick days (D-111); then the reference tables and the Program page (D-112), and `ref` fields
-with lookups like this week's prescription (D-113).
+with lookups like this week's prescription (D-113); prefilled fields and next-morning items
+on Today (D-114).
 Last updated 2026-11-20.
 
 ## Read in this order
