@@ -291,7 +291,7 @@ def test_report_lines_never_hold_note_contents(module: Module, legacy: LegacyJou
 
 
 def test_numbers_shown_in_date_formats_compare_as_numbers() -> None:
-    from climblog.importers.legacy_journal import _as_number
+    from climblog.importers.legacy import as_number as _as_number
 
     assert _as_number(dt.timedelta(days=2), 2) == 2
     assert _as_number(dt.datetime(1900, 1, 1), 1) == 1  # serial 1, shown as a date

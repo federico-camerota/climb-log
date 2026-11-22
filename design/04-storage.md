@@ -419,7 +419,7 @@ stored on disk (`~/.local/share/climblog/snapshots/<module>.json.gz`, folder set
 | Module | Location | Purpose |
 |---|---|---|
 | Climbing journal | Google Sheets | daily use, hand entry when away |
-| Shoulder program | Google Sheets | daily use |
+| Shoulder program (`modules/shoulder.yaml`, D-116) | Google Sheets | daily use: check-ins, exercises and retests, typed on the phone or in the app |
 | Fear of falling | Google Sheets | daily use |
 | Training plan (`modules/training-plan.yaml`, D-110) | Google Sheets | the week's planned sessions, typed ahead on the phone or in the app |
 | Protein log (`modules/protein.yaml`, D-107) | Google Sheets | protein per meal, typed on the phone; the day's total |
@@ -428,7 +428,8 @@ stored on disk (`~/.local/share/climblog/snapshots/<module>.json.gz`, folder set
 Automated tests additionally use throwaway synthetic workbooks in a temp dir; they never touch the real journals.
 
 ## 8. Migration from the legacy workbooks
-`climblog import-legacy --journal Climbing_Journal.xlsx --fear Fear_of_Falling_Tracker.xlsx --shoulder Shoulder_Program_Tracker_Fixed.xlsx --out data/`
+`climblog import-legacy --journal FILE` or `--shoulder FILE` (one legacy workbook at a time; the
+fear tracker comes with #139), into the module's workbook from the app config.
 
 - Reads the legacy layouts (header row 4, row-linked tabs) and maps columns to field keys
   (explicit mapping tables in `importers/`).
@@ -439,7 +440,8 @@ Automated tests additionally use throwaway synthetic workbooks in a temp dir; th
   (skipping the example row); 20Q → `q20`; weekly review journal → `weekly_review`.
   "Progress" weekly totals are **not** imported as data because they are derived from `falls`.
 - Shoulder: Plan → `exercises` reference with w1..w12; Session Log → `exercise_log`
-  (only rows with a date or any actual data); Check-in → `checkins`; Retests → `retests`.
+  (only rows with a date); Check-in → `checkin`; Retests → `retest_measures` reference +
+  `retest` rows (D-116, below).
 - Produces an **import report** (counts and skipped rows) and a **parity report**: the
   legacy computed values (read with `data_only=True`, after recalculating with LibreOffice
   headless if the cached values are stale) compared with the app's derived values.
@@ -465,3 +467,49 @@ Climbing_Journal.xlsx [--module journal] [--dry-run]`.
   any other difference. A workbook without computed values (never opened in a spreadsheet after
   being written) is not compared. Run locally on the real journal; the tests use fictional ones.
 - The real file's Rest Days formula uses `MAXIFS` without the `_xlfn.` prefix (D-060).
+
+**Shoulder importer** (`importers/legacy_shoulder.py`, D-116): `climblog import-legacy --shoulder
+Shoulder_Program_Tracker_Fixed.xlsx [--module shoulder] [--dry-run]`. It shares the journal
+importer's rules (`importers/legacy.py`): the layout check on the row-4 labels (and the start-date
+label on `Start Here`), cells read as the module reads them, unreadable values and dateless rows
+with data reported by place, one save into a workbook with no records and no reference rows,
+`--dry-run`, exit code 1 for an unknown parity difference.
+- **Run 1** starts the ISO week of the program start date (`Start Here!C6`); no date there, no
+  import.
+- **Plan** → the `exercises` table: ID, name, session (`Session A` read as `A`), load rule, and
+  the W1…W12 prescriptions (the `W4*` columns of the lighter weeks included).
+- **Session Log** → `exercise_log`: each row with a date (the pre-generated rows without one are
+  not records), its typed week kept in `plan_week`, so a session of week 3 done in week 4 keeps
+  week 3's prescription. A row with a date and no exercise ID is skipped and reported.
+- **Check-in** → `checkin`, one per date. **Retests** → the `retest_measures` table (ids M1, M2…
+  in row order, the label, "What to look for", and the value type from the row's data
+  validation: a decimal is a number, Yes/No a bool, another list a choice with its values) and a
+  `retest` row per filled checkpoint. The legacy tab has no dates: Start is dated on the start
+  date, End week n on the last day of week n (start + 7n − 1), as the report says; the change
+  column is not imported (it is the dashboard's before/after, #137).
+- A date twice on `Check-in`, or a date and exercise twice on `Session Log`, refuses the import
+  with the two rows: merge them in the legacy file first.
+- Parity: week, status, action and review flag of each check-in, and each exercise row's
+  prescription. Two differences are known and on purpose: the **week** where the legacy sheet
+  counts from the start date's weekday and the app from Monday (D-109: a program starting on a
+  Tuesday, as the real one, has every Monday one week ahead in the app), and the **review flag**
+  where Check-in rows are not in date order (the legacy formula looks at the rows above). A week
+  difference the two rules don't explain still fails.
+- Owner's steps (never Claude, on the real file): stop logging in the legacy workbook; download
+  it as `.xlsx` (it holds the computed values); point `modules.shoulder` at a new local workbook
+  in the config; `climblog import-legacy --shoulder FILE --dry-run`, then without `--dry-run`;
+  `climblog module move shoulder --to-google`; then the phone checklist below.
+
+### Shoulder sheet on the phone: checklist (D-116)
+Run by the owner once the shoulder module is on Google, as the journal's (#56); a problem
+becomes a `fix/…` PR, described with made-up values. On a test date, deleted at the end:
+1. **Check-in row**: a date in the first empty row of `Check-ins` fills `run`, `week`, status,
+   action and review flag at once; status cells get their colours.
+2. **Review flag**: next-morning pain 1, 2 on two days in a row gives "REVIEW — next-morning pain
+   rising" on the second; a third day at 2 gives "REVIEW — repeated upward pain trend".
+3. **Dropdowns**: activity, primer, flare, red flag, stop reason; the 0–10 scales refuse 11.
+4. **Exercise log**: the `exercise_id` dropdown lists the exercises' keys (no retired ones);
+   `prescribed` shows this week's prescription, and week 3's when `plan_week` is 3.
+5. **Retests**: a `measure_id` from the dropdown and a value; the measure's row is untouched.
+6. **The app**: Today shows the check-in, Session A/B as batches and the next-morning item; the
+   check-in form prefills the activity from the day's journal session.

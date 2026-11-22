@@ -16,40 +16,53 @@ app's, column by column.
 """
 
 import datetime as dt
-import zipfile
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import openpyxl
-from openpyxl.utils import column_index_from_string
-from openpyxl.utils.datetime import to_excel
-from openpyxl.utils.exceptions import InvalidFileException
-from openpyxl.worksheet.worksheet import Worksheet
-
 from climblog.expr import Value
+from climblog.importers.legacy import (
+    Column,
+    ImportRefused,
+    LegacyLayoutError,
+    LegacyRecord,
+    ParityColumn,
+    RawValue,
+    as_day,
+    check_layout,
+    compare,
+    has_computed,
+    open_legacy,
+    read_cell,
+    refuse_if_held,
+    sheet,
+    with_defaults,
+)
 from climblog.modules import Module
 from climblog.modules.compute import compute_module
-from climblog.modules.schema import BaseField
-from climblog.storage import (
-    CellError,
-    RecordWriter,
-    Repository,
-    StorageError,
-    load_data,
-    parse_cell,
-    sync_module,
-)
-from climblog.storage.drift import same
+from climblog.storage import RecordWriter, Repository, sync_module
 from climblog.storage.load import SETTINGS_TAB
 
+__all__ = [
+    "ImportRefused",
+    "LegacyData",
+    "LegacyLayoutError",
+    "LegacyRecord",
+    "ParityColumn",
+    "RawValue",
+    "import_legacy",
+    "parity",
+    "read_legacy",
+]
+
+WHAT = "climbing journal"
 FIRST_ROW = 5  # legacy data rows start under four header rows
 
 # Inputs: tab → (column, its row-4 label, the journal field). Labels as in the legacy file.
 PARTS = ("fingers", "forearms", "shoulders", "wrists", "skin")
 _SORE = [f"{p.capitalize()} (1–10 ↓)" for p in PARTS]
-INPUTS: dict[str, list[tuple[str, str, str]]] = {
+INPUTS: dict[str, list[Column]] = {
     "Session": [
         ("A", "Date", "date"),
         ("B", "Venue", "venue"),
@@ -113,7 +126,7 @@ INPUTS: dict[str, list[tuple[str, str, str]]] = {
     ],
 }
 REST_TAB = "Rest Days"
-REST_INPUTS: list[tuple[str, str, str]] = [
+REST_INPUTS: list[Column] = [
     ("A", "Date", "date"),
     ("B", "Rest type", "rest_type"),
     ("C", "Activity", "activity"),
@@ -127,7 +140,7 @@ REST_INPUTS: list[tuple[str, str, str]] = [
     ("O", "Note", "note"),
 ]
 # What the legacy sheets computed: tab → (column, label, the journal's derived field).
-COMPUTED: dict[str, list[tuple[str, str, str]]] = {
+COMPUTED: dict[str, list[Column]] = {
     "Session": [
         ("I", "Overall status (all tabs)", "overall_status"),
         ("J", "Log check", "log_check"),
@@ -154,7 +167,7 @@ COMPUTED: dict[str, list[tuple[str, str, str]]] = {
     ],
     "Wins & Reflect": [("M", "Reflection status", "reflect_status")],
 }
-REST_COMPUTED: list[tuple[str, str, str]] = [
+REST_COMPUTED: list[Column] = [
     ("P", "Wellbeing score", "wellbeing_score"),
     ("Q", "Body readiness", "body_readiness"),
     ("R", "Wellbeing status", "wellbeing_status"),
@@ -179,25 +192,6 @@ KNOWN = {
 }
 
 
-class LegacyLayoutError(StorageError):
-    """The workbook doesn't have the legacy journal's layout."""
-
-
-class ImportRefused(StorageError):
-    """The target workbook already holds records: an import never mixes with them."""
-
-
-RawValue = Any  # a cell as the legacy sheet holds it
-
-
-@dataclass
-class LegacyRecord:
-    entity: str
-    values: dict[str, Value]
-    rows: dict[str, int]  # legacy tab → its row
-    computed: dict[str, RawValue] = field(default_factory=dict)  # derived field → legacy value
-
-
 @dataclass
 class LegacyData:
     records: list[LegacyRecord]
@@ -210,26 +204,22 @@ class LegacyData:
 
     @property
     def computed(self) -> bool:
-        """Whether the workbook holds the values its formulas computed. A file written by a
-        program that doesn't compute formulas has none until opened and saved in a spreadsheet."""
-        return any(v not in (None, "") for r in self.records for v in r.computed.values())
+        """Whether the workbook holds the values its formulas computed (`has_computed`)."""
+        return has_computed(self.records)
 
 
 def read_legacy(path: Path, module: Module) -> LegacyData:
     """Every record of a legacy journal workbook, and the values its sheets computed."""
-    try:
-        book = openpyxl.load_workbook(path, data_only=True, read_only=False)
-    except (OSError, KeyError, ValueError, zipfile.BadZipFile, InvalidFileException) as error:
-        raise StorageError(f"cannot read {path.name}: {error}") from None
-    sheets = {name: _sheet(book, name) for name in [*INPUTS, REST_TAB]}
+    book = open_legacy(path)
+    sheets = {name: sheet(book, name, WHAT) for name in [*INPUTS, REST_TAB]}
     for name, columns in [*INPUTS.items(), (REST_TAB, REST_INPUTS)]:
-        _check_layout(sheets[name], [*columns, *COMPUTED.get(name, []), *_rest_computed(name)])
+        check_layout(sheets[name], [*columns, *COMPUTED.get(name, []), *_rest_computed(name)], WHAT)
     data = LegacyData([], _settings(book, module), [], [])
     sessions = module.entities["session"]
     counts: dict[dt.date, int] = {}
     last = max(sheet.max_row for name, sheet in sheets.items() if name != REST_TAB)
     for row in range(FIRST_ROW, last + 1):
-        day = _day(sheets["Session"].cell(row, 1).value)
+        day = as_day(sheets["Session"].cell(row, 1).value)
         values: dict[str, Value] = {}
         has_data = False
         for tab, columns in INPUTS.items():
@@ -258,7 +248,7 @@ def read_legacy(path: Path, module: Module) -> LegacyData:
     rest = sheets[REST_TAB]
     rest_days = module.entities["rest_day"]
     for row in range(FIRST_ROW, rest.max_row + 1):
-        day = _day(rest.cell(row, 1).value)
+        day = as_day(rest.cell(row, 1).value)
         values = {}
         has_data = False
         for column, _, name in REST_INPUTS[1:]:
@@ -288,13 +278,7 @@ class ImportReport:
 
 def import_legacy(path: Path, module: Module, repo: Repository) -> ImportReport:
     """Write a legacy journal into an empty (or new) journal workbook, in one save."""
-    if repo.exists():
-        found = load_data(module, repo)
-        held = sum(len(e.records) for e in found.entities.values())
-        if held:
-            raise ImportRefused(
-                f"the journal workbook already holds {held} records: import into a new one"
-            )
+    refuse_if_held(module, repo, "journal")
     legacy = read_legacy(path, module)
     sync_module(module, repo)
     RecordWriter(module, repo).add_many([(r.entity, r.values) for r in legacy.records])
@@ -307,88 +291,24 @@ def import_legacy(path: Path, module: Module, repo: Repository) -> ImportReport:
     )
 
 
-@dataclass
-class ParityColumn:
-    entity: str
-    field: str
-    compared: int  # records where the legacy sheet had a computed value
-    mismatches: list[tuple[dt.date, RawValue, Value]]  # (date, legacy, app)
-    known: str | None = None  # a difference that is on purpose
-
-    @property
-    def matching(self) -> int:
-        return self.compared - len(self.mismatches)
-
-
 def parity(legacy: LegacyData, module: Module) -> list[ParityColumn]:
     """The legacy computed values against the app's, per derived field."""
     tables: dict[str, list[Mapping[str, Value]]] = {}
     for record in legacy.records:
         tables.setdefault(record.entity, []).append(record.values)
-    derived = compute_module(module, tables, _with_defaults(module, legacy.settings))
-    columns: dict[tuple[str, str], ParityColumn] = {}
-    position = dict.fromkeys(tables, 0)
-    for record in legacy.records:
-        app = derived[record.entity][position[record.entity]]
-        position[record.entity] += 1
-        day = record.values["date"]
-        assert isinstance(day, dt.date)
-        for name, sheet_value in record.computed.items():
-            column = columns.setdefault(
-                (record.entity, name),
-                ParityColumn(record.entity, name, 0, [], KNOWN.get((record.entity, name))),
-            )
-            if sheet_value in (None, "") and app.get(name) is None:
-                continue
-            column.compared += 1
-            sheet_value = _as_number(sheet_value, app.get(name))
-            if not same(app.get(name), sheet_value):
-                column.mismatches.append((day, sheet_value, app.get(name)))
-    return list(columns.values())
+    derived = compute_module(module, tables, with_defaults(module, legacy.settings))
+    return compare(legacy.records, derived, lambda entity, name: KNOWN.get((entity, name)))
 
 
 # ---- Reading cells ----
 
 
-def _sheet(book: Any, name: str) -> Worksheet:
-    if name not in book.sheetnames:
-        raise LegacyLayoutError(f"no tab '{name}': not a legacy climbing journal")
-    sheet = book[name]
-    assert isinstance(sheet, Worksheet)
-    return sheet
-
-
-def _check_layout(sheet: Worksheet, columns: Sequence[tuple[str, str, str]]) -> None:
-    for column, label, _ in columns:
-        found = sheet.cell(4, column_index_from_string(column)).value
-        if _label(found) != _label(label):
-            raise LegacyLayoutError(
-                f"{sheet.title}!{column}4 is {found!r}, expected {label!r}: "
-                "the layout differs from the legacy journal"
-            )
-
-
-def _rest_computed(name: str) -> list[tuple[str, str, str]]:
+def _rest_computed(name: str) -> list[Column]:
     return REST_COMPUTED if name == REST_TAB else []
 
 
-def _label(value: object) -> str:
-    return " ".join(str(value or "").split())
-
-
-def _day(value: object) -> dt.date | None:
-    if isinstance(value, dt.datetime):
-        return value.date()
-    return value if isinstance(value, dt.date) else None
-
-
 def _read(module: Module, field: Any, raw: object, place: str, data: LegacyData) -> Value:
-    assert isinstance(field, BaseField)
-    try:
-        return parse_cell(module, field, raw)  # type: ignore[arg-type]
-    except CellError:
-        data.unread.append(f"{place}: not a valid value for this column, left out")
-        return None
+    return read_cell(module, field, raw, place, data.unread)
 
 
 def _settings(book: Any, module: Module) -> dict[str, Value]:
@@ -403,20 +323,3 @@ def _settings(book: Any, module: Module) -> dict[str, Value]:
             if isinstance(value, int | float) and not isinstance(value, bool):
                 values[key] = value
     return values
-
-
-def _as_number(sheet: RawValue, app: Value) -> RawValue:
-    """A number the legacy sheet shows in a date or duration format (days since, …) as the
-    number it is, when the app's value is a number."""
-    if not isinstance(app, int | float) or isinstance(app, bool):
-        return sheet
-    if isinstance(sheet, dt.timedelta):
-        return sheet.total_seconds() / 86400
-    if isinstance(sheet, dt.datetime | dt.date | dt.time):
-        return to_excel(sheet)  # type: ignore[no-untyped-call]
-    return sheet
-
-
-def _with_defaults(module: Module, values: Mapping[str, Value]) -> dict[str, Value]:
-    defaults: dict[str, Value] = {k: s.default for k, s in module.settings.items()}
-    return defaults | dict(values)

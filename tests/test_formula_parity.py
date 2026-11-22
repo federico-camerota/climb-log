@@ -73,6 +73,7 @@ def test_records_dated_by_a_week_match_the_app(load: LoadYaml, text: str, seed: 
         ROOT / "modules" / "finger-strength.yaml",
         ROOT / "modules" / "journal.yaml",
         ROOT / "scripts" / "demo-program.yaml",  # reference lookups (D-113), batch entities (D-115)
+        ROOT / "modules" / "shoulder.yaml",  # chained prev(), a plan week's prescription (D-116)
     ],
     ids=str,
 )

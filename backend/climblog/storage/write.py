@@ -39,6 +39,7 @@ from climblog.storage.load import (
     DELETED,
     Key,
     ModuleData,
+    ReferenceRows,
     describe_key,
     load_data,
     read_reference,
@@ -106,12 +107,23 @@ class RecordWriter:
         self.repo.apply(self._appends(ent, record, self._now()))
         return key
 
-    def add_many(self, records: Sequence[tuple[str, Mapping[str, Value]]]) -> None:
+    def add_many(
+        self,
+        records: Sequence[tuple[str, Mapping[str, Value]]],
+        *,
+        runs: Sequence[str] = (),
+        reference: Mapping[str, Sequence[Mapping[str, Value]]] | None = None,
+    ) -> None:
         """Several new records, `(entity, values)`, in one save, all or none (an import): each
-        checked as by `add`, against the workbook and the other records of the batch."""
+        checked as by `add`, against the workbook and the other records of the batch. An import
+        into a program module can bring its runs (start weeks, `2026-W42`) and reference rows
+        too (D-116), checked as by `start_run` and `add_reference_row`, in the same save; the
+        records' `ref` values may name the batch's reference rows."""
         data = load_data(self.module, self.repo)
         now = self._now()
-        edits: list[Edit] = []
+        edits: list[Edit] = [*self._new_runs(runs, data, now)]
+        for table, rows in (reference or {}).items():
+            edits += self._new_reference_rows(table, rows, data, now)
         taken: set[tuple[str, Key]] = set()
         added: dict[str, list[dict[str, Value]]] = {}
         for entity, values in records:
@@ -134,6 +146,57 @@ class RecordWriter:
                 self._check_parent(ent, record, data, parents)
         if edits:
             self.repo.apply(edits)
+
+    def _new_runs(self, weeks: Sequence[str], data: ModuleData, now: dt.datetime) -> list[Edit]:
+        """The Runs rows of new runs, each after the one before (`start_run`)."""
+        if not weeks:
+            return []
+        if self.module.program is None:
+            raise WriteError(f"module '{self.module.module}' is not a program", "start_week")
+        runs = list(data.runs.runs)
+        edits: list[Edit] = []
+        for typed in weeks:
+            text = typed.strip()
+            try:
+                start = parse_week(text)
+            except ValueError as error:
+                raise WriteError(str(error), "start_week") from None
+            if runs and start <= runs[-1].start:
+                raise WriteError(
+                    f"a new run starts after run {runs[-1].number} ({runs[-1].start_week})",
+                    "start_week",
+                )
+            run = Run(max((r.number for r in runs), default=0) + 1, text, start)
+            runs.append(run)
+            cells: dict[str, RawCell] = {"run": run.number, "start_week": text}
+            edits.append(Append(RUNS_TAB, self._stamped(RUNS_TAB, cells, now)))
+        return edits
+
+    def _new_reference_rows(
+        self,
+        table: str,
+        rows: Sequence[Mapping[str, Value]],
+        data: ModuleData,
+        now: dt.datetime,
+    ) -> list[Edit]:
+        """The rows of new reference rows (`add_reference_row`), added to `data` so that the
+        batch's records can name them."""
+        tab, key, columns = self._reference(table)
+        found = data.reference.setdefault(table, ReferenceRows(key))
+        found.rows = list(found.rows)
+        edits: list[Edit] = []
+        for values in rows:
+            row = self._known_refs(columns, self._check_columns(table, columns, values), data)
+            row[key] = clean_key(row.get(key))
+            if row[key] is None:
+                raise WriteError(f"no {key}: a row needs one", key)
+            if found.find(row[key]) is not None:
+                name = table_label(table, self._table(table))
+                raise KeyTaken(f"{name}: {row[key]} is already there", key)
+            found.rows.append(row)
+            cells = {name: _cell(value, columns[name]) for name, value in row.items()}
+            edits.append(Append(tab, self._stamped(tab, cells, now)))
+        return edits
 
     def start_run(self, start_week: str) -> Run:
         """A new run of a program module (D-109): the next run number, starting on the Monday
