@@ -766,6 +766,13 @@ class TextFeedWidget(_Widget):
     attention: Attention | None = None
 
 
+class MonthlyWhere(Strict):
+    """Only the records whose field equals a value, e.g. rest_type Sick (D-111)."""
+
+    field: str  # a field of the counted entity
+    equals: str | bool | float  # a bool field: true or false
+
+
 class TableWidget(_Widget):
     """An entity's records of the last `window_days` days (or the `last` ones), newest first,
     with the averages of some columns and the latest note."""
@@ -780,18 +787,12 @@ class TableWidget(_Widget):
     averages: list[str] = []  # columns averaged over the rows shown
     note: str | None = None  # a text field: its latest non-blank value up to the day
     labels: dict[str, str] = {}  # a column's label (default: the form's, or the derived name)
+    where: MonthlyWhere | None = None  # only the records whose field equals a value (D-117)
 
 
 class MonthlyClass(Strict):
     label: str
     score: str  # `entity.field`
-
-
-class MonthlyWhere(Strict):
-    """Only the records whose field equals a value, e.g. rest_type Sick (D-111)."""
-
-    field: str  # a field of the counted entity
-    equals: str
 
 
 class MonthlyExtra(Strict):
@@ -857,10 +858,8 @@ class WeekbarsWidget(_Widget):
     def _split(self) -> Self:
         if self.split_by is not None and self.agg == "count_by_value":
             raise ValueError("count_by_value already stacks by the metric's values; drop split_by")
-        if self.group == "program_week" and (self.split_by or self.agg == "count_by_value"):
-            raise ValueError(
-                "by program week the bars are the runs: use count, sum or mean, without split_by"
-            )
+        if self.group == "program_week" and self.split_by:
+            raise ValueError("by program week the bars are the runs: no split_by")
         return self
 
 
@@ -992,6 +991,66 @@ class GradesWidget(_Widget):
     last: int = Field(6, ge=1)  # periods shown at first
 
 
+class WeekTableColumn(Strict):
+    """One number per program week: the `mean` or `sum` of a numeric field, the `count` of
+    records with a value (or with `equals`), or the `share` of records with a true value among
+    the rows of the reference table `of` (the legacy log completion, D-117)."""
+
+    label: str
+    metric: str  # `entity.field`
+    agg: Literal["mean", "sum", "count", "share"]
+    equals: str | bool | float | None = None  # count: only the records with this value
+    of: str | None = None  # share: the reference table whose rows are the whole
+    week: str = "week"  # the field holding the record's program week (default: its date's)
+
+    @model_validator(mode="after")
+    def _options(self) -> Self:
+        if (self.agg == "share") != (self.of is not None):
+            raise ValueError("share goes with `of` (a reference table), and `of` with share")
+        if self.equals is not None and self.agg != "count":
+            raise ValueError("equals goes with count")
+        return self
+
+
+class WeekTableWidget(_Widget):
+    """A row per program week of the latest run (D-117): its phase, whether it is a light week,
+    and one value per column. Counts are 0 in a week without records; a mean, a sum or a share
+    of nothing is blank (as the legacy weekly dashboard)."""
+
+    widget: Literal["week_table"]
+    columns: list[WeekTableColumn] = Field(min_length=1)
+
+
+class ProgramGridWidget(_Widget):
+    """A reference table's rows by program weeks (D-117): each cell the week's prescription,
+    the records logged for it and their worst `quality`, with the share logged per week and
+    per row (`logged` true ÷ the table's rows, the legacy log completion)."""
+
+    widget: Literal["program_grid"]
+    reference: str  # a reference table with a per_week column (the prescriptions)
+    entity: str  # the log: a ref field to the table, one record per row done
+    week: str = "week"  # the entity's field holding the plan week (default: the date's)
+    logged: str | None = None  # a bool of the entity: what counts as logged (default: a record)
+    quality: str | None = None  # a choice of the entity: a cell shows its worst value
+    group: str | None = None  # a field of the table: rows grouped by it (in its choices' order)
+    skip: list[str] = []  # prescriptions that mean "nothing that week", e.g. Skip, —
+
+
+class BeforeAfterWidget(_Widget):
+    """An entity's values by item by checkpoint (D-117): each item a row of the reference table
+    of its `by` field, each checkpoint a choice of `across`; with the change from the first
+    checkpoint to the latest (numbers: latest - first; other values: first → latest)."""
+
+    widget: Literal["before_after"]
+    entity: str
+    by: str  # a ref field of the entity
+    across: str  # a choice field of the entity: the checkpoints, in their order
+    value: str = "value"  # the field holding the value
+    item_label: str = "label"  # the reference table's field naming an item
+    value_type: str | None = None  # the table's field: number / bool / choice (default: parsed)
+    direction: str | None = None  # the table's field: higher_better / lower_better
+
+
 class LaterWidget(BaseModel):
     """A widget of the planned library (03 §2.7) the app doesn't draw yet (M4/M5): its options
     are checked when it is."""
@@ -1002,8 +1061,6 @@ class LaterWidget(BaseModel):
         "radar",
         "delta_table",
         "ladder",
-        "program_grid",
-        "before_after",
     ]
 
 
@@ -1025,6 +1082,9 @@ Widget = Annotated[
     | PrePostWidget
     | BodyHeatmapWidget
     | GradesWidget
+    | WeekTableWidget
+    | ProgramGridWidget
+    | BeforeAfterWidget
     | LaterWidget,
     Field(discriminator="widget"),
 ]

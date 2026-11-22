@@ -103,10 +103,13 @@ export function weekbarsOption(data: WeekbarsData): EChartsCoreOption {
     yAxis: { type: "value" },
     series: data.stacks.map((stack, i) => ({
       type: "bar",
-      ...(data.grouped ? {} : { stack: "week" }), // runs side by side (D-109)
+      // runs side by side (D-109); by value, the values stacked in each run's bar (D-117)
+      ...(data.grouped ? (stack.group ? { stack: stack.group } : {}) : { stack: "week" }),
       name: stack.label === "" ? "Total" : stack.label,
       data: stack.values,
-      itemStyle: { color: STATUS_HEX[stack.label] ?? PALETTE[i % PALETTE.length] },
+      itemStyle: {
+        color: STATUS_HEX[stack.value ?? stack.label] ?? PALETTE[i % PALETTE.length],
+      },
     })),
     ...zoom(data.weeks.length, data.shown),
   };

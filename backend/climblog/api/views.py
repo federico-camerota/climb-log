@@ -217,6 +217,8 @@ class BarsData(BaseModel):
 class Stack(BaseModel):
     label: str  # a value of the field (or "" for a single stack)
     values: list[float | None]  # one per week; None: a mean over a week with nothing logged
+    group: str | None = None  # by program week and value: the run whose bar it stacks in
+    value: str | None = None  # by program week and value: the value counted (its colour)
 
 
 class WeekbarsData(BaseModel):
@@ -431,6 +433,91 @@ class GradesData(BaseModel):
     last: int  # periods shown at first
 
 
+class WeekColumn(BaseModel):
+    label: str
+    agg: str  # mean, sum, count, share (a fraction: shown as a %)
+
+
+class WeekRow(BaseModel):
+    week: int
+    phase: str | None
+    light: bool
+    values: list[float | None]  # one per column; blank: a mean or share of nothing
+
+
+class WeekTableData(BaseModel):
+    """A row per program week of the latest run (D-117)."""
+
+    widget: Literal["week_table"]
+    label: str | None
+    columns: list[WeekColumn]
+    run: int | None  # none before the first run
+    current: int | None  # the day's program week
+    weeks: list[WeekRow]
+
+
+class GridWeek(BaseModel):
+    week: int
+    phase: str | None
+    light: bool
+    share: float | None  # records logged ÷ the table's rows (the legacy log completion)
+
+
+class GridCell(BaseModel):
+    prescribed: str | float | None  # the week's prescription, as typed
+    skip: bool  # nothing prescribed that week
+    logged: int  # records logged for it
+    quality: str | None  # their worst quality
+
+
+class GridRow(BaseModel):
+    key: str
+    name: str | None
+    group: str | None
+    cells: list[GridCell]  # one per week
+    share: float | None  # weeks logged among those prescribed up to the current one
+
+
+class ProgramGridData(BaseModel):
+    """A reference table's rows by program weeks (D-117)."""
+
+    widget: Literal["program_grid"]
+    label: str | None
+    run: int | None
+    current: int | None
+    qualities: list[str]  # best to worst
+    weeks: list[GridWeek]
+    rows: list[GridRow]
+
+
+class CheckpointValue(BaseModel):
+    date: dt.date
+    value: float | str
+
+
+class Change(BaseModel):
+    diff: float | None  # numbers: latest - first
+    better: bool | None  # by the item's direction
+    first: str | None  # other values: first → latest
+    latest: str | None
+
+
+class BeforeAfterRow(BaseModel):
+    key: str
+    label: str
+    cells: list[CheckpointValue | None]  # one per checkpoint
+    change: Change | None
+
+
+class BeforeAfterData(BaseModel):
+    """Items by checkpoints, with the change from the first (D-117)."""
+
+    widget: Literal["before_after"]
+    label: str | None
+    checkpoints: list[str]
+    rows: list[BeforeAfterRow]
+
+
 class PlannedData(BaseModel):
     widget: Literal["planned"]
     label: str | None
@@ -456,6 +543,9 @@ WidgetData = Annotated[
     | PrePostData
     | BodyHeatmapData
     | GradesData
+    | WeekTableData
+    | ProgramGridData
+    | BeforeAfterData
     | PlannedData,
     Field(discriminator="widget"),
 ]
@@ -485,11 +575,20 @@ def get_view(request: Request, module: str, view: str, date: dt.date | None = No
         known = ", ".join(views) or "none"
         raise HTTPException(404, f"module '{module}' has no view '{view}' (views: {known})")
     try:
-        tables, settings = current.full_tables(entry)
+        found = current.view_data(entry)
     except StorageError as error:
         raise HTTPException(503, str(error)) from None
 
-    widgets = compute_view(entry.module, views[view], tables, settings, day, current.others(entry))
+    widgets = compute_view(
+        entry.module,
+        views[view],
+        found.tables,
+        found.settings,
+        day,
+        current.others(entry),
+        runs=found.runs,
+        reference=found.reference,
+    )
     return View.model_validate(
         {
             "module": module,

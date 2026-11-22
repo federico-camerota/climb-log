@@ -601,8 +601,8 @@ views:
     - {widget: kpi,       metric: checkin.status, agg: latest, label: Today}
     - {widget: line,      metrics: [checkin.pain_during, checkin.pain_next_am], x: date, rolling: 7}
     - {widget: weekbars,  metric: checkin.status, agg: count_by_value}
-    - {widget: program_grid, reference: exercises, entity: exercise_log}
-    - {widget: before_after, reference: retests}
+    - {widget: program_grid, reference: exercises, entity: exercise_log, week: plan_wk}
+    - {widget: before_after, entity: retest, by: measure_id, across: checkpoint}
 ```
 
 Planned widget library: `kpi`, `status_strip`, `line` (with rolling mean, bands for
@@ -746,8 +746,32 @@ Grades (#101, D-094):
   last: 6
 ```
 
-Still shown as "not drawn yet": `status_strip`, `radar`, `delta_table`, `ladder`,
-`program_grid`, `before_after` (M5 or later); a line split by
+A program's dashboard (D-117) reads the latest run started on or before the day:
+```yaml
+- widget: week_table          # a row per program week: its phase, light week, the columns
+  columns:
+    - {label: Log completion, metric: exercise_log.logged, agg: share, of: exercises, week: plan_wk}
+    - {label: Green days, metric: checkin.status, agg: count, equals: GREEN}
+    - {label: Pain during, metric: checkin.pain_during, agg: mean}
+- {widget: program_grid, reference: exercises, entity: exercise_log, week: plan_wk,
+   logged: logged, quality: quality, group: session, skip: [Skip, "—"]}
+- {widget: before_after, entity: retest, by: measure_id, across: checkpoint,
+   value_type: value_type, direction: direction}
+- {widget: table, entity: checkin, where: {field: flagged, equals: true}, columns: [...]}
+- {widget: weekbars, metric: checkin.status, agg: count_by_value, group: program_week}
+```
+A `week_table` column is the `mean` or `sum` of a number, the `count` of records with a value
+(or with `equals`), or the `share` of records with a true value among the live rows of the
+reference table `of`; `week` names the field holding the program week (default the date's).
+Counts are 0 in a week without records; a mean or share of nothing is blank. The program grid
+shows each week's prescription (`per_week`), the records logged for it (`logged`: a bool; by
+default every record) and their worst `quality` (the last in the choices' order). The
+before/after shows the latest value of each item at each checkpoint (`across`'s choices, in
+order) and the change from the first checkpoint to the latest with a value. `weekbars`
+`count_by_value` by program week stacks the values within each run's bar.
+
+Still shown as "not drawn yet": `status_strip`, `radar`, `delta_table`, `ladder` (M5 or
+later); a line split by
 another entity's fields and `box_by` time-of-day `bins` (backlog, 05 §3.5).
 
 What a chart plots (a `bars`, `box_by` or `stacked` metric, `scatter` x and y, a `line`'s series

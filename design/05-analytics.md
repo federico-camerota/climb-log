@@ -156,6 +156,9 @@ its `since:` are left out (03 §2.2), as in the formulas and the dashboard.
   metrics, to show transfer over time.
 
 ### 3.4 Shoulder
+Done (D-117, #137): the program grid, the weekly table (the legacy Dashboard), the symptom
+lines with the status bands, G/Y/R days per program week, the review flags with their reason,
+the retests before/after table. Left: load progression, the slope chart, the lagged join.
 - Program grid: exercise × week, prescribed vs done, colour by movement quality; completion %.
 - Symptom trends: the four scales with the status bands; G/Y/R days per week.
 - Review-flag timeline with reasons.

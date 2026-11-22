@@ -38,6 +38,7 @@ import {
   TableCard,
   TextFeedCard,
 } from "../components/Widgets";
+import { BeforeAfterCard, ProgramGridCard, WeekTableCard } from "../components/ProgramWidgets";
 import { WithModule } from "../components/WithModule";
 
 /** A module's dashboard (06-ui Dashboards, D-083): its view's widgets, computed in the backend
@@ -155,6 +156,12 @@ function Widgets({ view, module }: { view: View; module: ModuleInfo }) {
             return <BodyHeatmapCard key={i} data={w} />;
           case "grades":
             return <GradesCard key={i} data={w} />;
+          case "week_table":
+            return <WeekTableCard key={i} data={w} />;
+          case "program_grid":
+            return <ProgramGridCard key={i} data={w} />;
+          case "before_after":
+            return <BeforeAfterCard key={i} data={w} />;
           case "planned":
             return <PlannedCard key={i} data={w} />;
           default:

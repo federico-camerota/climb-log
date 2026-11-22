@@ -161,14 +161,13 @@ def test_parity_with_the_legacy_formulas(module: Module, out_of_order: bool) -> 
         written = legacy_shoulder(Path(folder) / "legacy.xlsx", seed=4, out_of_order=out_of_order)
         recalculate(command, written.path)
         data = read_legacy_shoulder(Path(folder) / "recalculated" / "legacy.xlsx", module)
-    columns = {c.field: c for c in parity_shoulder(data, module)}
+    found = parity_shoulder(data, module)
+    columns = {c.field: c for c in found if c.entity != "dashboard"}  # D-117's: its own tests
     assert data.computed
     assert {f: c.compared > 0 for f, c in columns.items()} == dict.fromkeys(
         ["prescribed", "week", "status", "action", "review_flag"], True
     )
-    unexpected = [
-        (c.field, c.mismatches[:2]) for c in columns.values() if c.mismatches and not c.known
-    ]
+    unexpected = [(c.field, c.mismatches[:2]) for c in found if c.mismatches and not c.known]
     assert unexpected == []
     assert columns["week"].known == WEEK_KNOWN and columns["week"].mismatches  # the Mondays
     assert all(d.weekday() == 0 for d, _, _ in columns["week"].mismatches)

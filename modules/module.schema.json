@@ -266,6 +266,83 @@
       "title": "BatchOver",
       "type": "object"
     },
+    "BeforeAfterWidget": {
+      "additionalProperties": false,
+      "description": "An entity's values by item by checkpoint (D-117): each item a row of the reference table\nof its `by` field, each checkpoint a choice of `across`; with the change from the first\ncheckpoint to the latest (numbers: latest - first; other values: first → latest).",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "before_after",
+          "title": "Widget",
+          "type": "string"
+        },
+        "entity": {
+          "title": "Entity",
+          "type": "string"
+        },
+        "by": {
+          "title": "By",
+          "type": "string"
+        },
+        "across": {
+          "title": "Across",
+          "type": "string"
+        },
+        "value": {
+          "default": "value",
+          "title": "Value",
+          "type": "string"
+        },
+        "item_label": {
+          "default": "label",
+          "title": "Item Label",
+          "type": "string"
+        },
+        "value_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value Type"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Direction"
+        }
+      },
+      "required": [
+        "widget",
+        "entity",
+        "by",
+        "across"
+      ],
+      "title": "BeforeAfterWidget",
+      "type": "object"
+    },
     "BodyHeatmapWidget": {
       "additionalProperties": false,
       "description": "A template's fields (e.g. body parts) by week: each cell the week's mean, per source\n(before and after sessions, rest days).",
@@ -1878,9 +1955,7 @@
             "status_strip",
             "radar",
             "delta_table",
-            "ladder",
-            "program_grid",
-            "before_after"
+            "ladder"
           ],
           "title": "Widget",
           "type": "string"
@@ -2124,8 +2199,18 @@
           "type": "string"
         },
         "equals": {
-          "title": "Equals",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Equals"
         }
       },
       "required": [
@@ -3029,6 +3114,93 @@
         "weeks"
       ],
       "title": "Program",
+      "type": "object"
+    },
+    "ProgramGridWidget": {
+      "additionalProperties": false,
+      "description": "A reference table's rows by program weeks (D-117): each cell the week's prescription,\nthe records logged for it and their worst `quality`, with the share logged per week and\nper row (`logged` true ÷ the table's rows, the legacy log completion).",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "program_grid",
+          "title": "Widget",
+          "type": "string"
+        },
+        "reference": {
+          "title": "Reference",
+          "type": "string"
+        },
+        "entity": {
+          "title": "Entity",
+          "type": "string"
+        },
+        "week": {
+          "default": "week",
+          "title": "Week",
+          "type": "string"
+        },
+        "logged": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Logged"
+        },
+        "quality": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quality"
+        },
+        "group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Group"
+        },
+        "skip": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Skip",
+          "type": "array"
+        }
+      },
+      "required": [
+        "widget",
+        "reference",
+        "entity"
+      ],
+      "title": "ProgramGridWidget",
       "type": "object"
     },
     "ProgramPhase": {
@@ -4286,6 +4458,17 @@
           "default": {},
           "title": "Labels",
           "type": "object"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MonthlyWhere"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -4685,6 +4868,109 @@
       "title": "TrainingLoadWidget",
       "type": "object"
     },
+    "WeekTableColumn": {
+      "additionalProperties": false,
+      "description": "One number per program week: the `mean` or `sum` of a numeric field, the `count` of\nrecords with a value (or with `equals`), or the `share` of records with a true value among\nthe rows of the reference table `of` (the legacy log completion, D-117).",
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "agg": {
+          "enum": [
+            "mean",
+            "sum",
+            "count",
+            "share"
+          ],
+          "title": "Agg",
+          "type": "string"
+        },
+        "equals": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Equals"
+        },
+        "of": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Of"
+        },
+        "week": {
+          "default": "week",
+          "title": "Week",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "metric",
+        "agg"
+      ],
+      "title": "WeekTableColumn",
+      "type": "object"
+    },
+    "WeekTableWidget": {
+      "additionalProperties": false,
+      "description": "A row per program week of the latest run (D-117): its phase, whether it is a light week,\nand one value per column. Counts are 0 in a week without records; a mean, a sum or a share\nof nothing is blank (as the legacy weekly dashboard).",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "widget": {
+          "const": "week_table",
+          "title": "Widget",
+          "type": "string"
+        },
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/WeekTableColumn"
+          },
+          "minItems": 1,
+          "title": "Columns",
+          "type": "array"
+        }
+      },
+      "required": [
+        "widget",
+        "columns"
+      ],
+      "title": "WeekTableWidget",
+      "type": "object"
+    },
     "WeekbarsWidget": {
       "additionalProperties": false,
       "description": "Per week: the records counted by the value of `metric` (a status or a choice), stacked\n(`count_by_value`); or one number per week (`count` of values, `sum` or `mean` of a numeric\nfield), stacked by the value of `split_by` if given.",
@@ -5023,7 +5309,7 @@
                 "discriminator": {
                   "mapping": {
                     "bars": "#/$defs/BarsWidget",
-                    "before_after": "#/$defs/LaterWidget",
+                    "before_after": "#/$defs/BeforeAfterWidget",
                     "body_heatmap": "#/$defs/BodyHeatmapWidget",
                     "box_by": "#/$defs/BoxByWidget",
                     "delta_table": "#/$defs/LaterWidget",
@@ -5034,7 +5320,7 @@
                     "line": "#/$defs/LineWidget",
                     "monthly": "#/$defs/MonthlyWidget",
                     "pre_post": "#/$defs/PrePostWidget",
-                    "program_grid": "#/$defs/LaterWidget",
+                    "program_grid": "#/$defs/ProgramGridWidget",
                     "radar": "#/$defs/LaterWidget",
                     "scatter": "#/$defs/ScatterWidget",
                     "side_by_side": "#/$defs/SideBySideWidget",
@@ -5044,6 +5330,7 @@
                     "table": "#/$defs/TableWidget",
                     "text_feed": "#/$defs/TextFeedWidget",
                     "training_load": "#/$defs/TrainingLoadWidget",
+                    "week_table": "#/$defs/WeekTableWidget",
                     "weekbars": "#/$defs/WeekbarsWidget"
                   },
                   "propertyName": "widget"
@@ -5099,6 +5386,15 @@
                   },
                   {
                     "$ref": "#/$defs/GradesWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/WeekTableWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/ProgramGridWidget"
+                  },
+                  {
+                    "$ref": "#/$defs/BeforeAfterWidget"
                   },
                   {
                     "$ref": "#/$defs/LaterWidget"

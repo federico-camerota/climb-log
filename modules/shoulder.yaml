@@ -3,7 +3,7 @@
 # Shoulder capacity program (#136, D-116): the legacy Shoulder_Program_Tracker_Fixed.xlsx
 # (design/00-current-state.md §3) as a module. Logged on the phone in its Google Sheet and in the
 # app; `climblog import-legacy --shoulder FILE` takes over a run started in the legacy workbook.
-# The dashboard (program grid, weekly view, retests before/after) comes with #137.
+# Its dashboard (#137, D-117) reproduces the legacy Dashboard tab by program week.
 
 module: shoulder
 name: Shoulder capacity program
@@ -114,6 +114,7 @@ entities:
           - {if: "pain_next_am >= am_prev and am_prev >= am_prev2 and pain_next_am >= 2",
              then: "REVIEW — repeated upward pain trend"}
           - {else: "OK — monitor"}
+      flagged: "review_flag != 'OK — monitor'"   # a REVIEW…: counted on the dashboard (D-117)
 
   exercise_log:
     label: Exercise log
@@ -134,8 +135,10 @@ entities:
       notes:       {type: text}
     derived:
       name: "reference.exercises[exercise_id].name"
-      prescribed: "reference.exercises[exercise_id].prescription[coalesce(plan_week, program.week)]"
+      plan_wk: "coalesce(plan_week, program.week)"   # the week whose prescription it follows
+      prescribed: "reference.exercises[exercise_id].prescription[plan_wk]"
       done: "notnull(actual) and quality != 'Skipped'"
+      logged: "notnull(actual)"             # the legacy log completion counts these (D-117)
 
   retest:
     label: Retest
@@ -157,3 +160,44 @@ forms:
   exercise:     {entity: exercise_log, repeat: true}   # one exercise at a time
   retest:       {entity: retest, batch_over: retest_measures, keep_fields: [checkpoint]}
   next_morning: {entity: checkin, phase: next_day}
+
+views:                             # the legacy Dashboard and Trends tabs (D-117)
+  overview:
+    - {widget: kpi, metric: checkin.status, agg: latest, label: Latest status}
+    - {widget: kpi, metric: checkin.review_flag, agg: latest, label: Latest review flag}
+    - widget: week_table
+      label: Weekly dashboard
+      columns:
+        - {label: Log completion, metric: exercise_log.logged, agg: share, of: exercises, week: plan_wk}
+        - {label: Sessions with primer, metric: checkin.primer_done, agg: count, equals: true}
+        - {label: Upper-trap fatigue, metric: checkin.trap_fatigue, agg: mean}
+        - {label: Pain during, metric: checkin.pain_during, agg: mean}
+        - {label: Pain next morning, metric: checkin.pain_next_am, agg: mean}
+        - {label: Pec fatigue, metric: checkin.pec_fatigue, agg: mean}
+        - {label: Green days, metric: checkin.status, agg: count, equals: GREEN}
+        - {label: Yellow days, metric: checkin.status, agg: count, equals: YELLOW}
+        - {label: Red days, metric: checkin.status, agg: count, equals: RED}
+        - {label: Review flags, metric: checkin.flagged, agg: count, equals: true}
+    - widget: line
+      label: Symptoms and fatigue
+      series:
+        - {metric: checkin.trap_fatigue}
+        - {metric: checkin.pain_during}
+        - {metric: checkin.pain_next_am}
+        - {metric: checkin.pec_fatigue}
+      # display only: a value on an edge belongs to the band above (status: ≥ yellow_min)
+      bands: [{le: settings.yellow_min, label: GREEN}, {le: settings.red_min, label: YELLOW}, {else: RED}]
+    - {widget: weekbars, label: Days by status, metric: checkin.status, agg: count_by_value,
+       group: program_week}
+    - widget: table
+      label: Review flags
+      entity: checkin
+      where: {field: flagged, equals: true}
+      columns: [date, week, review_flag, status, trap_fatigue, pain_during, pain_next_am, pec_fatigue]
+      last: 20
+  plan:
+    - {widget: program_grid, label: Program, reference: exercises, entity: exercise_log,
+       week: plan_wk, logged: logged, quality: quality, group: session, skip: [Skip, "—", "-"]}
+  retests:
+    - {widget: before_after, label: Retests, entity: retest, by: measure_id, across: checkpoint,
+       value_type: value_type, direction: direction}

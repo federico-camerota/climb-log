@@ -601,6 +601,33 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /**
+         * BeforeAfterData
+         * @description Items by checkpoints, with the change from the first (D-117).
+         */
+        BeforeAfterData: {
+            /** Checkpoints */
+            checkpoints: string[];
+            /** Label */
+            label: string | null;
+            /** Rows */
+            rows: components["schemas"]["BeforeAfterRow"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "before_after";
+        };
+        /** BeforeAfterRow */
+        BeforeAfterRow: {
+            /** Cells */
+            cells: (components["schemas"]["CheckpointValue"] | null)[];
+            change: components["schemas"]["Change"] | null;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+        };
         /** BodyHeatmapData */
         BodyHeatmapData: {
             /** Label */
@@ -678,6 +705,27 @@ export interface components {
             n: number;
             /** R */
             r: number | null;
+        };
+        /** Change */
+        Change: {
+            /** Better */
+            better: boolean | null;
+            /** Diff */
+            diff: number | null;
+            /** First */
+            first: string | null;
+            /** Latest */
+            latest: string | null;
+        };
+        /** CheckpointValue */
+        CheckpointValue: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Value */
+            value: number | string;
         };
         /** CorrelationPair */
         CorrelationPair: {
@@ -833,6 +881,41 @@ export interface components {
              * @enum {string}
              */
             widget: "grades";
+        };
+        /** GridCell */
+        GridCell: {
+            /** Logged */
+            logged: number;
+            /** Prescribed */
+            prescribed: string | number | null;
+            /** Quality */
+            quality: string | null;
+            /** Skip */
+            skip: boolean;
+        };
+        /** GridRow */
+        GridRow: {
+            /** Cells */
+            cells: components["schemas"]["GridCell"][];
+            /** Group */
+            group: string | null;
+            /** Key */
+            key: string;
+            /** Name */
+            name: string | null;
+            /** Share */
+            share: number | null;
+        };
+        /** GridWeek */
+        GridWeek: {
+            /** Light */
+            light: boolean;
+            /** Phase */
+            phase: string | null;
+            /** Share */
+            share: number | null;
+            /** Week */
+            week: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1395,6 +1478,29 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /**
+         * ProgramGridData
+         * @description A reference table's rows by program weeks (D-117).
+         */
+        ProgramGridData: {
+            /** Current */
+            current: number | null;
+            /** Label */
+            label: string | null;
+            /** Qualities */
+            qualities: string[];
+            /** Rows */
+            rows: components["schemas"]["GridRow"][];
+            /** Run */
+            run: number | null;
+            /** Weeks */
+            weeks: components["schemas"]["GridWeek"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "program_grid";
+        };
         /** Pyramid */
         Pyramid: {
             /** Periods */
@@ -1711,8 +1817,12 @@ export interface components {
         };
         /** Stack */
         Stack: {
+            /** Group */
+            group?: string | null;
             /** Label */
             label: string;
+            /** Value */
+            value?: string | null;
             /** Values */
             values: (number | null)[];
         };
@@ -1943,7 +2053,14 @@ export interface components {
             /** View */
             view: string;
             /** Widgets */
-            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["HeatmapData"] | components["schemas"]["SideBySideData"] | components["schemas"]["TextFeedData"] | components["schemas"]["TableData"] | components["schemas"]["MonthlyData"] | components["schemas"]["BarsData"] | components["schemas"]["WeekbarsData"] | components["schemas"]["StackedData"] | components["schemas"]["BoxByData"] | components["schemas"]["ScatterData"] | components["schemas"]["TrainingLoadData"] | components["schemas"]["PrePostData"] | components["schemas"]["BodyHeatmapData"] | components["schemas"]["GradesData"] | components["schemas"]["PlannedData"])[];
+            widgets: (components["schemas"]["KpiData"] | components["schemas"]["StatusBoardData"] | components["schemas"]["LineData"] | components["schemas"]["HeatmapData"] | components["schemas"]["SideBySideData"] | components["schemas"]["TextFeedData"] | components["schemas"]["TableData"] | components["schemas"]["MonthlyData"] | components["schemas"]["BarsData"] | components["schemas"]["WeekbarsData"] | components["schemas"]["StackedData"] | components["schemas"]["BoxByData"] | components["schemas"]["ScatterData"] | components["schemas"]["TrainingLoadData"] | components["schemas"]["PrePostData"] | components["schemas"]["BodyHeatmapData"] | components["schemas"]["GradesData"] | components["schemas"]["WeekTableData"] | components["schemas"]["ProgramGridData"] | components["schemas"]["BeforeAfterData"] | components["schemas"]["PlannedData"])[];
+        };
+        /** WeekColumn */
+        WeekColumn: {
+            /** Agg */
+            agg: string;
+            /** Label */
+            label: string;
         };
         /** WeekLoad */
         WeekLoad: {
@@ -1961,6 +2078,38 @@ export interface components {
             without_load: number;
             /** Zones */
             zones: number[];
+        };
+        /** WeekRow */
+        WeekRow: {
+            /** Light */
+            light: boolean;
+            /** Phase */
+            phase: string | null;
+            /** Values */
+            values: (number | null)[];
+            /** Week */
+            week: number;
+        };
+        /**
+         * WeekTableData
+         * @description A row per program week of the latest run (D-117).
+         */
+        WeekTableData: {
+            /** Columns */
+            columns: components["schemas"]["WeekColumn"][];
+            /** Current */
+            current: number | null;
+            /** Label */
+            label: string | null;
+            /** Run */
+            run: number | null;
+            /** Weeks */
+            weeks: components["schemas"]["WeekRow"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            widget: "week_table";
         };
         /** WeekbarsData */
         WeekbarsData: {

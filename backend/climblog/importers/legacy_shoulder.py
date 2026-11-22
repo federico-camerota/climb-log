@@ -18,7 +18,8 @@ Cells are read as the module reads them (`parse_cell`); a value that can't be re
 and listed (its place, never its content), and a row with data but no date is skipped and
 listed. A date twice on `Check-in`, or a date and exercise twice on `Session Log`, refuses the
 import: one check-in a day, one row per exercise a day. The parity report compares what the
-legacy sheets computed (week, status, action, review flag, prescribed) with the app's.
+legacy sheets computed (week, status, action, review flag, prescribed) with the app's, and the
+`Dashboard` tab's weekly numbers with the shoulder dashboard's week table (D-117).
 """
 
 import datetime as dt
@@ -29,6 +30,7 @@ from typing import Any
 
 from openpyxl.worksheet.worksheet import Worksheet
 
+from climblog.analytics.views import compute_view
 from climblog.expr import Value
 from climblog.importers.legacy import (
     Column,
@@ -49,7 +51,9 @@ from climblog.modules import Module
 from climblog.modules.compute import compute_module
 from climblog.modules.program import Run, Runs, parse_week, week_text
 from climblog.modules.reference import reference_columns
+from climblog.modules.schema import WeekTableWidget
 from climblog.storage import RecordWriter, Repository, StorageError, sync_module
+from climblog.storage.drift import same
 
 WHAT = "shoulder tracker"
 FIRST_ROW = 5  # legacy data rows start under four header rows
@@ -112,6 +116,20 @@ RETESTS: list[Column] = [
     ("G", "What to look for", "guidance"),
 ]
 CHECKPOINT_WEEK = {"Start": 0, "End W4": 4, "End W8": 8, "End W12": 12}
+DASHBOARD_TAB = "Dashboard"
+DASHBOARD: list[Column] = [  # the legacy weekly dashboard: the week table's columns, in order
+    ("A", "Week", ""),
+    ("C", "Log completion", ""),
+    ("D", "Sessions with primer", ""),
+    ("E", "Upper-trap fatigue (avg)", ""),
+    ("F", "Front pain during (avg)", ""),
+    ("G", "Front pain next AM (avg)", ""),
+    ("H", "Pec fatigue (avg)", ""),
+    ("I", "Green days", ""),
+    ("J", "Yellow days", ""),
+    ("K", "Red days", ""),
+    ("L", "Review flags", ""),
+]
 
 WEEK_KNOWN = (
     "the legacy weeks start on the start date's weekday, the app's on Monday (D-109), so a "
@@ -120,6 +138,12 @@ WEEK_KNOWN = (
 ORDER_KNOWN = (
     "the legacy sheet compares with the rows above, the app with the earlier dates: they "
     "differ where Check-in rows are not in date order"
+)
+
+
+UNDATED_KNOWN = (
+    "the legacy log completion counts Session Log rows typed without a date, which the import "
+    "leaves out"
 )
 
 
@@ -136,6 +160,8 @@ class LegacyShoulder:
     unread: list[str]  # values that couldn't be read, by place (never their content)
     in_date_order: bool = True  # Check-in rows
     notes: list[str] = field(default_factory=list)  # what the import decided, for the report
+    dashboard: dict[int, list[Any]] = field(default_factory=dict)  # week → its numbers (C–L)
+    undated_weeks: set[int] = field(default_factory=set)  # typed weeks of rows without a date
 
     @property
     def start_week(self) -> str:
@@ -170,6 +196,8 @@ def read_legacy_shoulder(path: Path, module: Module) -> LegacyShoulder:
     _session_log(sheets[LOG_TAB], module, data)
     _checkins(sheets[CHECKIN_TAB], module, data)
     _retests(sheets[RETESTS_TAB], module, data)
+    if DASHBOARD_TAB in book.sheetnames:
+        _dashboard(book[DASHBOARD_TAB], data)
     return data
 
 
@@ -222,6 +250,62 @@ def parity_shoulder(legacy: LegacyShoulder, module: Module) -> list[ParityColumn
             for day, sheet_value, _ in column.mismatches
         ):
             column.known = None  # a difference the week rules don't explain
+    return columns + _dashboard_parity(legacy, module, tables, derived, runs)
+
+
+def _dashboard_parity(
+    legacy: LegacyShoulder,
+    module: Module,
+    tables: dict[str, list[dict[str, Value]]],
+    derived: dict[str, list[dict[str, Value]]],
+    runs: Runs,
+) -> list[ParityColumn]:
+    """The legacy Dashboard's weekly numbers against the app's week table (D-117): the same
+    columns in the same order. Known: weeks a check-in moves to (Mondays, as `WEEK_KNOWN`) and
+    weeks with Session Log rows typed without a date."""
+    widget = next(
+        (
+            w
+            for ws in (module.views or {}).values()
+            for w in ws
+            if isinstance(w, WeekTableWidget) and len(w.columns) == len(DASHBOARD) - 1
+        ),
+        None,
+    )
+    if not legacy.dashboard or widget is None or not legacy.records:
+        return []
+    full = {
+        name: [{**row, **values} for row, values in zip(rows, derived[name], strict=True)]
+        for name, rows in tables.items()
+    }
+    last = max(r.values["date"] for r in legacy.records)  # type: ignore[type-var]
+    assert isinstance(last, dt.date)
+    [table] = compute_view(module, [widget], full, {}, last, runs=runs, reference=legacy.reference)
+    app = {row["week"]: row["values"] for row in table["weeks"]}
+    moved: set[int] = set()  # weeks a check-in is in on one side only
+    for record in legacy.records:
+        day = record.values["date"]
+        if record.entity == "checkin" and isinstance(day, dt.date):
+            position = runs.at(day)
+            ours, theirs = (position.week if position else 0), _legacy_week(legacy.start, day)
+            if ours != theirs:
+                moved |= {ours, theirs}
+    columns = []
+    for i, column in enumerate(widget.columns):
+        explained = legacy.undated_weeks if i == 0 else moved
+        found = ParityColumn("dashboard", column.label, 0, [])
+        for week, values in sorted(legacy.dashboard.items()):
+            sheet_value, ours = values[i], (app.get(week) or [None] * len(widget.columns))[i]
+            if sheet_value in (None, "") and ours is None:
+                continue
+            found.compared += 1
+            if not same(ours, sheet_value):
+                monday = legacy.start + dt.timedelta(days=7 * (week - 1))
+                found.mismatches.append((monday, sheet_value, ours))
+        weeks = {_legacy_week(legacy.start, day) for day, _, _ in found.mismatches}
+        if found.mismatches and weeks <= explained:
+            found.known = UNDATED_KNOWN if i == 0 else WEEK_KNOWN
+        columns.append(found)
     return columns
 
 
@@ -262,6 +346,9 @@ def _session_log(tab: Worksheet, module: Module, data: LegacyShoulder) -> None:
         if day is None:
             if has_data:
                 data.skipped.append(f"{LOG_TAB} row {row}: data but no date")
+                week = tab[f"A{row}"].value
+                if isinstance(week, int | float) and not isinstance(week, bool):
+                    data.undated_weeks.add(int(week))
             continue
         values = _values(tab, row, LOG, fields, module, data, LOG_TAB)
         exercise = values.get("exercise_id")
@@ -304,6 +391,21 @@ def _checkins(tab: Worksheet, module: Module, data: LegacyShoulder) -> None:
         for column, _, name in CHECKIN_COMPUTED:
             record.computed[name] = tab[f"{column}{row}"].value
         data.records.append(record)
+
+
+def _dashboard(tab: Worksheet, data: LegacyShoulder) -> None:
+    """The weekly numbers the legacy Dashboard computed, if its layout is the known one."""
+    try:
+        check_layout(tab, DASHBOARD, WHAT)
+    except LegacyLayoutError:
+        data.notes.append(f"{DASHBOARD_TAB}: another layout, its numbers are not compared")
+        return
+    for row in range(FIRST_ROW, FIRST_ROW + 2 * WEEKS):
+        week = tab[f"A{row}"].value
+        if isinstance(week, int | float) and not isinstance(week, bool) and 1 <= week <= WEEKS:
+            values = [tab[f"{c}{row}"].value for c, _, _ in DASHBOARD[1:]]
+            if any(v not in (None, "") for v in values):
+                data.dashboard[int(week)] = values
 
 
 def _retests(tab: Worksheet, module: Module, data: LegacyShoulder) -> None:

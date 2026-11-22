@@ -495,6 +495,11 @@ with data reported by place, one save into a workbook with no records and no ref
   Tuesday, as the real one, has every Monday one week ahead in the app), and the **review flag**
   where Check-in rows are not in date order (the legacy formula looks at the rows above). A week
   difference the two rules don't explain still fails.
+- **Dashboard** (D-117): the `Dashboard` tab's cached weekly numbers (C–L: log completion,
+  sessions with primer, the four averages, the G/Y/R days, review flags; checked on its row-4
+  labels, else left out with a note) against the shoulder dashboard's week table. Known: a week
+  a check-in moves to under the week rule above, and the completion of a week with Session Log
+  rows typed without a date (the legacy sheet counts them, the import leaves them out).
 - Owner's steps (never Claude, on the real file): stop logging in the legacy workbook; download
   it as `.xlsx` (it holds the computed values); point `modules.shoulder` at a new local workbook
   in the config; `climblog import-legacy --shoulder FILE --dry-run`, then without `--dry-run`;

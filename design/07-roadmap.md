@@ -210,7 +210,8 @@ module and dashboard, fear rules, module and dashboard, combined recommendation,
   flag as sheet formulas, the trend through chained `prev()`; an optional plan week per
   exercise row; Session A/B and retest batches; the activity and grade from the journal; the
   next-morning pain on Today) and `climblog import-legacy --shoulder` with its parity report;
-  the dashboard is #137.
+  the dashboard done (D-117, #137): the weekly table at parity with the legacy Dashboard tab,
+  the program grid, the status days and review flags, the retests before/after.
 - `fear-of-falling.yaml` + importer (fear map, ladder, falls, 20Q, weekly review);
   ladder plugin (advancement assistant); fear widgets (ladder, radar, predicted vs actual).
 - Combined recommendation card.

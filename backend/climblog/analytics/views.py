@@ -20,16 +20,18 @@ from typing import Any, Protocol
 from climblog.analytics.grade_charts import grade_charts
 from climblog.analytics.load import Other, training_load
 from climblog.analytics.metrics import Query, run_query
+from climblog.analytics.program_views import before_after, program_grid, week_table
 from climblog.analytics.progress import body_heatmap, pre_post
 from climblog.expr import Value
 from climblog.expr.functions import sheet_round
 from climblog.modules.compute import Timeline
 from climblog.modules.forms import field_label
-from climblog.modules.program import week_text
+from climblog.modules.program import NO_RUNS, Runs, week_text
 from climblog.modules.schema import (
     Band,
     BarsWidget,
     BaseField,
+    BeforeAfterWidget,
     BodyHeatmapWidget,
     BoxByWidget,
     ChoiceField,
@@ -42,6 +44,7 @@ from climblog.modules.schema import (
     MonthlyWidget,
     Otherwise,
     PrePostWidget,
+    ProgramGridWidget,
     ScatterWidget,
     SideBySideWidget,
     StackedWidget,
@@ -50,6 +53,7 @@ from climblog.modules.schema import (
     TextFeedWidget,
     TrainingLoadWidget,
     WeekbarsWidget,
+    WeekTableWidget,
     Widget,
 )
 
@@ -83,10 +87,14 @@ def compute_view(
     settings: Mapping[str, Value],
     day: dt.date,
     others: Other | None = None,
+    *,
+    runs: Runs = NO_RUNS,
+    reference: Mapping[str, Sequence[Row]] | None = None,
 ) -> list[dict[str, Any]]:
     """Each widget's data, in order. `tables[entity]` holds each record's stored and derived
     values (deleted ones left out); `others` finds another module and its records by its
-    `module:` id (the training load's other sources)."""
+    `module:` id (the training load's other sources); a program's widgets read its `runs` and
+    `reference` rows (D-117)."""
     found: dict[tuple[str, int], _Records] = {}
 
     def records(entity: str, ahead: int = 0) -> _Records:
@@ -102,6 +110,11 @@ def compute_view(
             )
         return found[(entity, ahead)]
 
+    def dated(entity: str) -> list[tuple[dt.date, Row]]:
+        got = records(entity)
+        return list(zip(got.days, got.rows, strict=True))
+
+    ref = reference or {}
     result: list[dict[str, Any]] = []
     for widget in widgets:
         if any(_split(m)[0] not in module.entities for m in _metrics(widget)):
@@ -140,6 +153,12 @@ def compute_view(
             result.append(body_heatmap(module, widget, tables, day))
         elif isinstance(widget, GradesWidget):
             result.append(grade_charts(module, widget, tables, day))
+        elif isinstance(widget, WeekTableWidget):
+            result.append(week_table(module, widget, dated, runs, day, ref))
+        elif isinstance(widget, ProgramGridWidget):
+            result.append(program_grid(module, widget, dated, runs, day, ref))
+        elif isinstance(widget, BeforeAfterWidget):
+            result.append(before_after(module, widget, dated, ref))
         else:
             result.append(_planned(widget))
     return result
@@ -168,6 +187,8 @@ def _metrics(widget: Widget) -> list[str]:
         return [widget.x, widget.y]
     if isinstance(widget, TrainingLoadWidget):
         return [widget.load]
+    if isinstance(widget, WeekTableWidget):
+        return [c.metric for c in widget.columns]
     if isinstance(widget, MonthlyWidget):
         means = [extra.mean for extra in widget.extra if extra.mean is not None]
         return [c.score for c in widget.classes] + ([widget.low] if widget.low else []) + means
@@ -486,6 +507,9 @@ def _table(module: Module, widget: TableWidget, records: Records, day: dt.date) 
     the averages of some columns over them, and the latest note up to the day."""
     found = records(widget.entity, widget.ahead_days or 0)
     pairs = list(zip(found.days, found.rows, strict=True))
+    if widget.where is not None:
+        name, equals = widget.where.field, widget.where.equals
+        pairs = [(w, r) for w, r in pairs if _equals(r.get(name), equals)]
     if widget.window_days is not None:
         since = day - dt.timedelta(days=widget.window_days)
         pairs = [(w, r) for w, r in pairs if w >= since]
@@ -519,6 +543,12 @@ def _table(module: Module, widget: TableWidget, records: Records, day: dt.date) 
         ],
         "note": note,
     }
+
+
+def _equals(value: Value, equals: str | bool | float) -> bool:
+    if isinstance(equals, bool) or isinstance(value, bool):
+        return value is equals
+    return value == equals
 
 
 def _week_or_json(value: Value, week: bool) -> Any:
@@ -697,45 +727,59 @@ def _weekbars(
 def _program_weekbars(module: Module, widget: WeekbarsWidget, records: Records) -> dict[str, Any]:
     """By program week (D-109): W1… up to the program's last week (or the latest reached), one
     bar per run in each week, side by side; records without a run are left out. `count` counts
-    the records with a value, `sum` and `mean` add up or average it."""
+    the records with a value, `sum` and `mean` add up or average it; `count_by_value` stacks
+    the records by value within each run's bar (D-117)."""
     assert module.program is not None  # checked at load
     entity, name = _split(widget.metric)
-    found: dict[int, dict[int, list[float]]] = {}  # run → week → values
+    by_value = widget.agg == "count_by_value"
+    found: dict[int, dict[str, dict[int, list[float]]]] = {}  # run → stack → week → values
     reached: dict[int, int] = {}  # run → its latest week with a record
     for row in records(entity).rows:
         run, week = row.get("run"), row.get("week")
         if not isinstance(run, int) or not isinstance(week, int) or week < 1:
             continue
         reached[run] = max(week, reached.get(run, 0))
-        found.setdefault(run, {})
-        if widget.agg == "count":
+        stacks = found.setdefault(run, {})
+        if widget.agg in ("count", "count_by_value"):
             if row.get(name) in (None, ""):
                 continue
-            value = 1.0
+            stack, value = (_text(row.get(name)) if by_value else ""), 1.0
         else:
             number = _number(row.get(name))
             if number is None:
                 continue
-            value = number
-        found.setdefault(run, {}).setdefault(week, []).append(value)
+            stack, value = "", number
+        stacks.setdefault(stack, {}).setdefault(week, []).append(value)
     last = max([module.program.weeks, *reached.values()])
-    agg = "sum" if widget.agg == "count" else widget.agg
+    agg = "mean" if widget.agg == "mean" else "sum"
+    seen = list(dict.fromkeys(v for stacks in found.values() for v in stacks))
+    order = _order(module, entity, name, seen, []) if by_value else [""]
+    out = []
+    for run in sorted(found):
+        for stack in order:
+            weeks = found[run].get(stack, {})
+            if by_value and not weeks:
+                continue
+            label = f"Run {run}" if not by_value else stack
+            if by_value and len(found) > 1:
+                label = f"Run {run} · {stack}"
+            stacked: dict[str, Any] = {
+                "label": label,
+                "values": [
+                    _week_value(agg, weeks.get(w, [])) if w <= reached[run] else None
+                    for w in range(1, last + 1)
+                ],  # no bar after the run's latest record (a run going on, or cut short)
+            }
+            if by_value:
+                stacked |= {"group": f"Run {run}", "value": stack}
+            out.append(stacked)
     return {
         "widget": "weekbars",
         "label": widget.label,
         "agg": widget.agg,
         "weeks": [f"W{w}" for w in range(1, last + 1)],
         "starts": [],
-        "stacks": [
-            {
-                "label": f"Run {run}",
-                "values": [
-                    _week_value(agg, found[run].get(w, [])) if w <= reached[run] else None
-                    for w in range(1, last + 1)
-                ],  # no bar after the run's latest record (a run going on, or cut short)
-            }
-            for run in sorted(found)
-        ],
+        "stacks": out,
         "shown": last,
         "grouped": True,
     }

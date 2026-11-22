@@ -198,8 +198,6 @@ const NAMES: Record<string, string> = {
   status_strip: "Status strip",
   delta_table: "Changes",
   ladder: "Ladder",
-  program_grid: "Program",
-  before_after: "Before and after",
 };
 
 /** A widget the app doesn't draw yet. */
