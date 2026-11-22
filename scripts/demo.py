@@ -19,7 +19,11 @@ Writes a folder with a workbook per module and an app config pointing to them:
   the first week, two sessions a week, and its reference tables (exercises with a prescription
   per week, one of them retired; tracks and their drills), to show the Program page (D-112);
   each session's exercises, two retests of its measures and a few drill tries (D-115).
-- `config.toml`: the four modules, with backups and snapshots inside the folder, so serving
+- `shoulder.xlsx`: the shoulder program (`modules/shoulder.yaml`, D-116), its run started eight
+  weeks before the end (mid-run, as the real one): made-up exercises and retest measures, a
+  check-in most days (pain mostly low, a few rising mornings, one red flag), sessions A and B
+  with their exercises, and retests at the start and the end of week 4.
+- `config.toml`: the modules, with backups and snapshots inside the folder, so serving
   the demo never touches the app's real data folders.
 
 Every value is invented. Written through the app's own writer, so the workbooks are exactly
@@ -48,6 +52,7 @@ FILES = {  # module → (definition, workbook)
     "finger_strength": (MODULES / "finger-strength.yaml", "finger-strength.xlsx"),
     # a fictional program, to show reference tables until the real programs' modules (D-112)
     "demo_program": (Path(__file__).parent / "demo-program.yaml", "demo-program.xlsx"),
+    "shoulder": (MODULES / "shoulder.yaml", "shoulder.xlsx"),
 }
 END = dt.date(2026, 12, 18)
 
@@ -391,13 +396,117 @@ def program_setup(writer: RecordWriter, start: dt.date) -> None:
         writer.add_reference_row("drills", values)
 
 
+# The shoulder program (D-116): made-up exercises (P primer, A and B sessions) and measures.
+SHOULDER_EXERCISES = [
+    ("P1", "[ESEMPIO] Scapular circles", "Primer"),
+    ("P2", "[ESEMPIO] Band external rotation", "Primer"),
+    ("A1", "[ESEMPIO] Prone Y raise", "A"),
+    ("A2", "[ESEMPIO] Half-kneeling press", "A"),
+    ("A3", "[ESEMPIO] Face pull", "A"),
+    ("B1", "[ESEMPIO] Side-lying rotation", "B"),
+    ("B2", "[ESEMPIO] Scapular pull-up", "B"),
+    ("B3", "[ESEMPIO] Farmer carry", "B"),
+]
+SHOULDER_MEASURES = [
+    ("M1", "[ESEMPIO] Hang without pain (s)", "number", None),
+    ("M2", "[ESEMPIO] Clicking on the test?", "bool", None),
+    ("M3", "[ESEMPIO] Shrug on the test", "choice", "Rarely, Sometimes, Often"),
+]
+SHOULDER_ACTIVITY = ["Climbing indoor", "Climbing indoor", "Climbing outdoor", "Hangboard"]
+
+
+def shoulder_start(start: dt.date, end: dt.date) -> dt.date:
+    """The run's Monday: eight weeks before the end (mid-run), or the start of the set."""
+    day = max(start, end - dt.timedelta(weeks=8))
+    return day - dt.timedelta(days=day.weekday())
+
+
+def shoulder_prescription(week: int, primer: bool) -> str:
+    if primer:
+        return "1×15"
+    return f"{2 if week % 4 == 0 else 3}×{6 + week // 2}"  # weeks 4, 8, 12 lighter
+
+
+def shoulder(rng: random.Random, start: dt.date, end: dt.date) -> list[tuple[str, dict[str, Any]]]:
+    """A check-in most days from the run's start, sessions A (Tuesdays) and B (Fridays) with
+    their exercises, retests at Start and End W4."""
+    monday = shoulder_start(start, end)
+    records: list[tuple[str, dict[str, Any]]] = []
+    for offset in range((end - monday).days + 1):
+        day = monday + dt.timedelta(days=offset)
+        week = offset // 7 + 1
+        session = {1: "A", 4: "B"}.get(day.weekday())
+        if session is None and rng.random() < 0.35:
+            continue
+        flare = 3 if 20 <= offset <= 23 else 0  # a few rising mornings, in week 3 or 4
+        checkin: dict[str, Any] = {
+            "date": day.isoformat(),
+            "activity": f"Session {session}" if session else rng.choice(SHOULDER_ACTIVITY),
+            "primer_done": session is not None or rng.random() < 0.5,
+            "trap_fatigue": rng.choice([1, 2, 2, 3, 4]),
+            "pain_during": min(10, rng.choice([0, 1, 1, 2]) + flare // 2),
+            "pec_fatigue": rng.choice([0, 1, 2, 3]),
+            "shrug_flare": rng.choice(["Rarely", "Rarely", "Sometimes"]),
+            "red_flag": offset == 30,
+            "stop_reason": rng.choice(["Did not stop", "Did not stop", "Fingers", "Upper traps"]),
+        }
+        if day < end - dt.timedelta(days=1):  # the latest one waits for the morning after
+            checkin["pain_next_am"] = min(
+                10, rng.choice([0, 1, 1, 2]) + (offset - 19) * (flare > 0)
+            )
+        if checkin["activity"].startswith("Climbing"):
+            checkin["hardest_grade"] = rng.choice(["6a", "6b", "6b+", "6"])
+        if rng.random() < 0.2:
+            checkin["notes"] = "[ESEMPIO] Spalla tranquilla oggi"
+        records.append(("checkin", checkin))
+        if session is None:
+            continue
+        for key, _, of in SHOULDER_EXERCISES:
+            if of not in (session, "Primer"):
+                continue
+            row = {
+                "date": day.isoformat(),
+                "exercise_id": key,
+                "actual": shoulder_prescription(week, of == "Primer"),
+                "rpe": rng.choice([5, 6, 6, 7]),
+                "quality": rng.choice(["Clean", "Clean", "Some shrug/compensation"]),
+                "pain_during": rng.choice([0, 0, 1, 2]),
+            }
+            if of != "Primer":
+                row["load_kg"] = rng.choice([0, 2.5, 5, 7.5])
+            records.append(("exercise_log", row))
+    for checkpoint, day in (("Start", monday), ("End W4", monday + dt.timedelta(days=27))):
+        if day <= end:
+            for key, _, kind, _ in SHOULDER_MEASURES:
+                value = {"number": str(rng.randint(10, 30)), "bool": "No", "choice": "Rarely"}
+                row = {"date": day.isoformat(), "checkpoint": checkpoint, "measure_id": key}
+                records.append(("retest", row | {"value": value[kind]}))
+    return records
+
+
+def shoulder_setup(writer: RecordWriter, start: dt.date, end: dt.date) -> None:
+    """The run, and the exercises and measures typed as in the app."""
+    writer.start_run(week_text(shoulder_start(start, end)))
+    for key, name, session in SHOULDER_EXERCISES:
+        values: dict[str, Any] = {"id": key, "name": name, "session": session}
+        values |= {f"w{w}": shoulder_prescription(w, session == "Primer") for w in range(1, 13)}
+        writer.add_reference_row("exercises", values)
+    for key, label, kind, choices in SHOULDER_MEASURES:
+        values = {"id": key, "label": label, "value_type": kind, "choices": choices}
+        writer.add_reference_row("retest_measures", values)
+
+
 GENERATORS = {
     "journal": journal,
     "protein": protein,
     "finger_strength": fingers,
     "demo_program": program,
+    "shoulder": shoulder,
 }
-SETUP = {"demo_program": program_setup}
+SETUP = {
+    "demo_program": lambda writer, start, end: program_setup(writer, start),
+    "shoulder": shoulder_setup,
+}
 
 CONFIG = """\
 # The fictional demo set written by scripts/demo.py: every value is invented.
@@ -423,7 +532,7 @@ def write(folder: Path, end: dt.date, seed: int, weeks: int = 26) -> dict[str, i
         sync_module(module, repo)
         writer = RecordWriter(module, repo)
         if name in SETUP:
-            SETUP[name](writer, start)
+            SETUP[name](writer, start, end)
         records = GENERATORS[name](random.Random(seed + offset), start, end)
         writer.add_many([(e, tracked(module, e, r)) for e, r in records])
         counts[name] = len(records)

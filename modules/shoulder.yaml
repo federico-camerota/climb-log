@@ -1,0 +1,159 @@
+# yaml-language-server: $schema=module.schema.json
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Shoulder capacity program (#136, D-116): the legacy Shoulder_Program_Tracker_Fixed.xlsx
+# (design/00-current-state.md §3) as a module. Logged on the phone in its Google Sheet and in the
+# app; `climblog import-legacy --shoulder FILE` takes over a run started in the legacy workbook.
+# The dashboard (program grid, weekly view, retests before/after) comes with #137.
+
+module: shoulder
+name: Shoulder capacity program
+version: 1
+kind: program
+description: A 12-week shoulder program, with its daily check-ins, exercises and retests.
+status_levels: [GREEN, YELLOW, RED]
+
+settings:
+  yellow_min: {type: number, default: 3, label: YELLOW from pain}
+  red_min:    {type: number, default: 5, label: RED from pain}
+
+program:                           # runs start in the Runs tab: the legacy run is 2026-W42 (D-109)
+  weeks: 12
+  phases:
+    - {name: "Block 1 · Calm and control", weeks: [1, 4], note: "RPE 5-6"}
+    - {name: "Block 2 · Build strength", weeks: [5, 8], note: "RPE 7"}
+    - {name: "Block 3 · Endurance and transfer", weeks: [9, 12], note: "RPE 6-7"}
+  light_weeks: [4, 8, 12]
+
+scales:
+  pain: {min: 0, max: 10, direction: lower_better}
+  rpe:  {min: 1, max: 10, direction: neutral}
+  freq: {type: ordinal, choices: [Rarely, Sometimes, Often], direction: lower_better}
+
+reference:
+  exercises:                       # the legacy Plan tab: P1..P3 primer, A1..A7, B1..B7
+    label: Exercises
+    tab: Exercises
+    key: id
+    fields:
+      id:        {type: text, help: "A short code, like A1"}
+      name:      {type: text, required: true}
+      session:   {type: choice, choices: [Primer, A, B]}  # the primer comes before A and B
+      load_rule: {type: text, label: Load rule}
+    per_week: {name: prescription, type: text}            # W1…W12: "3×8", "3×20 s", "Skip", "—"
+  retest_measures:                 # the legacy Retests rows; ids M1, M2… given by the importer
+    label: Retest measures
+    tab: Measures
+    key: id
+    fields:
+      id:         {type: text}
+      label:      {type: text, required: true}
+      value_type: {type: choice, choices: [number, bool, choice], label: Value type}
+      choices:    {type: text, help: "For a choice: the values, comma-separated"}
+      direction:  {type: choice, choices: [higher_better, lower_better, neutral]}
+      guidance:   {type: text, label: What to look for}
+
+entities:
+  checkin:
+    label: Check-in
+    tab: Check-ins
+    date_field: date
+    key: [date]                            # one check-in per climbing or training day
+    fields:
+      date:         {type: date, required: true}
+      activity:
+        type: choice
+        choices: [Climbing indoor, Climbing outdoor, Hangboard, Session A, Session B, Rest day]
+        from: journal.session.setting+session_type   # prefilled in the app's form (D-114)
+        from_map:
+          "Indoor · Climbing": Climbing indoor
+          "Home wall · Climbing": Climbing indoor
+          "Outdoor · Climbing": Climbing outdoor
+          "Indoor · Hangboard": Hangboard
+          "Outdoor · Hangboard": Hangboard
+          "Home wall · Hangboard": Hangboard
+      primer_done:  {type: bool, label: Primer done?}
+      trap_fatigue: {type: scale, scale: pain, label: Upper-trap fatigue}
+      pain_during:  {type: scale, scale: pain, label: Front-shoulder pain during}
+      pain_next_am: {type: scale, scale: pain, label: Front-shoulder pain next morning, phase: next_day}
+      pec_fatigue:  {type: scale, scale: pain, label: Pec fatigue}
+      shrug_flare:  {type: choice, scale: freq, label: Shrug / elbow flare}
+      red_flag:     {type: bool, label: "Red-flag symptom?"}
+      hardest_grade: {type: grade, systems: [french, font, gym], label: Hardest grade attempted,
+                      from: journal.session.hardest_grade}
+      attempts_before_stop: {type: integer, min: 0, label: Attempts before I stopped}
+      stop_reason:
+        type: choice
+        label: Main reason I stopped
+        choices: [Upper traps, Front-shoulder pain, Fingers, Skin or tweak, Other, Did not stop]
+      notes:        {type: text, multiline: true}
+    derived:
+      pain_max: "max(pain_during, pain_next_am)"
+      status:
+        when:
+          - {if: "red_flag", then: RED}
+          - {if: "pain_max >= settings.red_min", then: RED}
+          - {if: "pain_max >= settings.yellow_min", then: YELLOW}
+          - {if: "notnull(pain_max)", then: GREEN}
+      action:
+        map_from: status
+        map:
+          RED: Do not progress; stop aggravating work and seek clinical advice if persistent/severe
+          YELLOW: Hold/reduce load; review next-morning response
+          GREEN: Progress only if movement quality is good and trend remains stable
+      # the next-morning pain of the two check-ins before; chained so that both are sheet
+      # formulas (prev(x, 2) is app only, 03 §2.2)
+      am_prev:  "prev(pain_next_am)"
+      am_prev2: "prev(am_prev)"
+      review_flag:
+        type: text                        # a message, not a status (D-044)
+        when:
+          - {if: "red_flag", then: "REVIEW NOW — red-flag symptom"}
+          - {if: "pain_max >= settings.red_min", then: "REVIEW NOW — pain ≥5/10"}
+          - {if: "pain_max >= settings.yellow_min", then: "REVIEW — pain ≥3/10"}
+          - {if: "pain_next_am > am_prev and pain_next_am >= 2", then: "REVIEW — next-morning pain rising"}
+          - {if: "pain_next_am >= am_prev and am_prev >= am_prev2 and pain_next_am >= 2",
+             then: "REVIEW — repeated upward pain trend"}
+          - {else: "OK — monitor"}
+
+  exercise_log:
+    label: Exercise log
+    tab: Exercise log
+    date_field: date
+    key: [date, exercise_id]               # one row per exercise a day (batch forms, D-115)
+    fields:
+      date:        {type: date, required: true}
+      exercise_id: {type: ref, reference: exercises, required: true, label: Exercise}
+      # the plan week whose prescription this follows; blank = the date's program week
+      plan_week:   {type: integer, min: 1, max: 12, label: Plan week, help: "Blank = this week"}
+      actual:      {type: text, label: Actual sets × reps}
+      load_kg:     {type: number, min: 0, step: 0.25, unit: kg, label: Load, help: "0 = bodyweight"}
+      rpe:         {type: scale, scale: rpe, label: RPE}
+      quality:     {type: choice, choices: [Clean, Some shrug/compensation, Stopped early, Skipped],
+                    label: Movement quality}
+      pain_during: {type: scale, scale: pain, label: Pain during}
+      notes:       {type: text}
+    derived:
+      name: "reference.exercises[exercise_id].name"
+      prescribed: "reference.exercises[exercise_id].prescription[coalesce(plan_week, program.week)]"
+      done: "notnull(actual) and quality != 'Skipped'"
+
+  retest:
+    label: Retest
+    tab: Retests
+    date_field: date
+    key: [date, measure_id]               # one row per measure a day (batch form, D-115)
+    fields:
+      date:       {type: date, required: true}
+      checkpoint: {type: choice, choices: [Start, End W4, End W8, End W12]}
+      measure_id: {type: ref, reference: retest_measures, required: true, label: Measure}
+      value:      {type: text, help: "A number, Yes / No or one of the measure's choices"}
+      notes:      {type: text}
+
+forms:
+  check_in:     {entity: checkin}
+  # the exercises of a session, one row each, saved together (D-115); the date is typed once
+  session_a:    {entity: exercise_log, batch_over: {reference: exercises, where: {session: [Primer, A]}}}
+  session_b:    {entity: exercise_log, batch_over: {reference: exercises, where: {session: [Primer, B]}}}
+  exercise:     {entity: exercise_log, repeat: true}   # one exercise at a time
+  retest:       {entity: retest, batch_over: retest_measures, keep_fields: [checkpoint]}
+  next_morning: {entity: checkin, phase: next_day}

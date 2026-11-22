@@ -60,12 +60,12 @@ through `pnpm --dir frontend`. Node 22 via fnm (`.node-version`). `make help` li
   LibreOffice (`CLIMBLOG_SOFFICE`, `CLIMBLOG_SOFFICE_TMP`: see CONTRIBUTING.md); CI skips them,
   so run them locally when a change touches formulas, expressions or sync, and say so in the PR
 - `make lint`: ruff, mypy `--strict`, `tsc`, eslint, prettier check (changes nothing)
-- `make fixtures`: write the fictional journal workbooks (legacy and new layout) to `tests/fixtures/`
+- `make fixtures`: write the fictional journal workbooks (legacy and new layout) and the legacy shoulder tracker to `tests/fixtures/`
 - `make api-types`: regenerate `frontend/src/api/schema.ts` from the backend's OpenAPI schema (after an API change; `make lint` checks it)
 - `make fmt`: apply ruff, prettier and eslint auto-fixes
 - `uv run pre-commit run --all-files`: run the commit hooks (data check, lint) on every file
 - `uv run climblog module validate FILE...`: check module YAML files (`module schema` prints the JSON Schema)
 - `uv run climblog serve [--port 8000] [--reload]`: run the built app on `http://127.0.0.1:8000`
-- `uv run climblog import-legacy --journal FILE [--dry-run]`: import the legacy journal, with a parity report (owner runs it on the real file, never Claude)
+- `uv run climblog import-legacy --journal FILE | --shoulder FILE [--dry-run]`: import a legacy workbook, with a parity report (owner runs it on the real file, never Claude)
 - `uv run climblog check [MODULE...] [--config FILE] [--apply]`: compare workbooks with their module YAML; `--apply` runs the additive schema sync
 - `uv run climblog module create FILE --google` / `module move MODULE --to-google`: make a module's Google Sheet / copy a local module into one and check the copy (the owner moves the real journals, never Claude)

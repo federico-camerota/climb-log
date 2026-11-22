@@ -286,7 +286,7 @@ def test_journal_session_follows_the_legacy_rules() -> None:
 
 
 def test_shoulder_action_maps_the_status() -> None:
-    shoulder = load_module(DRAFTS / "shoulder.yaml")
+    shoulder = load_module(DRAFTS.parent.parent / "modules" / "shoulder.yaml")
     plan = derived_plan(shoulder, "checkin")
     settings = {key: setting.default for key, setting in shoulder.settings.items()}
     result = compute(plan, {"pain_during": 3, "pain_next_am": 1}, settings)

@@ -205,7 +205,12 @@ module and dashboard, fear rules, module and dashboard, combined recommendation,
   `keep_fields` typed once for a batch, or kept by "Save and add another" in a repeated form;
   Today counts a batch as one item ("Session a · 7 of 9"). No pre-generated rows in the sheet.
 - `shoulder.yaml` + importer (plan, exercise log, check-ins, retests); review-flag rule;
-  program grid, weekly dashboard, retests view; next-morning reminder.
+  program grid, weekly dashboard, retests view; next-morning reminder. → module and importer
+  done (D-116, #136): `modules/shoulder.yaml` (one check-in a day; status, action and review
+  flag as sheet formulas, the trend through chained `prev()`; an optional plan week per
+  exercise row; Session A/B and retest batches; the activity and grade from the journal; the
+  next-morning pain on Today) and `climblog import-legacy --shoulder` with its parity report;
+  the dashboard is #137.
 - `fear-of-falling.yaml` + importer (fear map, ladder, falls, 20Q, weekly review);
   ladder plugin (advancement assistant); fear widgets (ladder, radar, predicted vs actual).
 - Combined recommendation card.

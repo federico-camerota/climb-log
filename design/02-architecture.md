@@ -137,12 +137,12 @@ backend/climblog/
   api/
     modules.py views.py today.py recommendation.py metrics.py correlation.py health.py
   importers/
-    legacy_journal.py  # the program modules' importers come with M5
+    legacy.py legacy_journal.py legacy_shoulder.py  # the shared rules, then one per workbook
 frontend/src/
   api/                 # client.ts, queries.ts (TanStack Query), schema.ts (generated, D-073)
   layout/ pages/ components/ lib/ forms/ widgets/
 modules/               # module YAML definitions (user-editable)
-  journal.yaml fear-of-falling.yaml shoulder.yaml
+  journal.yaml shoulder.yaml training-plan.yaml protein.yaml finger-strength.yaml
 ```
 
 ## Key interfaces

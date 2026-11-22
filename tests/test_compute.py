@@ -140,7 +140,7 @@ def settings_of(module: Module) -> dict[str, Value]:
 
 def test_shoulder_review_flag_follows_the_legacy_trend_rules() -> None:
     """00-current-state §3: next-AM pain rising, and three non-decreasing values ending ≥ 2."""
-    shoulder = load_module(DRAFTS / "shoulder.yaml")
+    shoulder = load_module(DRAFTS.parent.parent / "modules" / "shoulder.yaml")
     pain: list[Value] = [1, 2, 2, 2, None, 1]
     rows: list[dict[str, Value]] = [
         {"date": day(14 + i), "pain_next_am": p} for i, p in enumerate(pain)

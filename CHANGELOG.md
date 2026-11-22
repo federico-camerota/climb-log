@@ -7,6 +7,20 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- The shoulder program module, `modules/shoulder.yaml` (moved from the design drafts): one
+  check-in a day with status, action and review flag computed as in the legacy tracker, also as
+  formulas in its sheet (the next-morning trend through two chained `prev()` columns); the
+  exercises with a prescription per week and the retest measures as reference tables; an
+  exercise log with an optional plan week (blank: the date's week), logged a session at a time
+  (Session A and B batches, the primer in both) or one exercise at a time; retests of every
+  measure in one batch. The check-in's activity and grade start from the day's journal session,
+  and the next-morning pain is asked for on Today. The demo set gets a fictional shoulder run
+  (#136, D-116).
+- `climblog import-legacy --shoulder FILE [--dry-run]` imports the legacy shoulder tracker mid-run
+  into a new workbook in one save (run 1 from the start date's week, the plan, the exercise rows
+  with a date keeping their plan week, the check-ins, the retests dated from the program weeks),
+  with a parity report of week, status, action, review flag and prescription; the week on
+  Mondays and the review flag on rows out of date order are known differences (#136, D-116).
 - Batch forms: `batch_over: <table>` (or `{reference: <table>, where: {<field>: [values]}}`)
   logs one record per reference row at once, such as a session's exercises or every retest
   measure. Each row shows this week's prescription and the day's record if any; one Save

@@ -19,7 +19,13 @@ from climblog.config import (
     config_path,
     load_config,
 )
+from climblog.importers.legacy import ParityColumn
 from climblog.importers.legacy_journal import import_legacy, parity, read_legacy
+from climblog.importers.legacy_shoulder import (
+    import_legacy_shoulder,
+    parity_shoulder,
+    read_legacy_shoulder,
+)
 from climblog.modules import Module, ModuleError, load_module
 from climblog.modules.formulas import formula_columns
 from climblog.storage import StorageError, check_schema, move_to_google, sync_module
@@ -124,12 +130,23 @@ def _fail(lines: list[str]) -> NoReturn:
 @app.command("import-legacy")
 def import_legacy_command(
     journal: Annotated[
-        Path,
+        Path | None,
         typer.Option(
             help="The legacy Climbing_Journal.xlsx (only read).", exists=True, dir_okay=False
         ),
-    ],
-    module: Annotated[str, typer.Option(help="The journal module in the app config.")] = "journal",
+    ] = None,
+    shoulder: Annotated[
+        Path | None,
+        typer.Option(
+            help="The legacy Shoulder_Program_Tracker_Fixed.xlsx (only read).",
+            exists=True,
+            dir_okay=False,
+        ),
+    ] = None,
+    module: Annotated[
+        str | None,
+        typer.Option(help="The module in the app config (default: journal or shoulder)."),
+    ] = None,
     config: Annotated[
         Path | None,
         typer.Option(
@@ -140,31 +157,24 @@ def import_legacy_command(
         bool, typer.Option("--dry-run", help="Read and compare only; write nothing.")
     ] = False,
 ) -> None:
-    """Import a legacy journal into the module's (new) workbook, then compare the values the
-    legacy sheets computed with the app's (D-061). Runs locally; never in CI."""
+    """Import a legacy workbook (the journal, D-061, or the shoulder tracker, D-116) into the
+    module's (new) workbook, then compare the values the legacy sheets computed with the app's.
+    Runs locally; never in CI."""
+    if (journal is None) == (shoulder is None):
+        _fail(["error: give one legacy workbook: --journal FILE or --shoulder FILE"])
+    name = module or ("journal" if journal is not None else "shoulder")
     try:
         app_config = load_config(config_path(config))
     except ConfigError as error:
         _fail(error.lines())
-    if module not in app_config.modules:
-        _fail([f"not in the config: {module}"])
-    try:
-        definition = app_config.module(module)
-        legacy = read_legacy(journal, definition)
-        if not dry_run:
-            report = import_legacy(journal, definition, app_config.repository(module))
-            typer.echo(f"imported into {app_config.modules[module].location}")
-            typer.echo(
-                f"  {report.counts['session']} sessions, {report.counts['rest_day']} rest days"
-            )
-    except (ModuleError, ValueError, StorageError) as error:
-        _fail([f"error: {error}"])
-    if dry_run:
-        typer.echo(f"read {legacy.count('session')} sessions, {legacy.count('rest_day')} rest days")
-    typer.echo(f"  settings: {legacy.settings}")
-    for line in [*legacy.skipped, *legacy.unread]:
-        typer.echo(f"  {line}")
-    if not legacy.computed:
+    if name not in app_config.modules:
+        _fail([f"not in the config: {name}"])
+    if journal is not None:
+        columns = _import_journal(app_config, name, journal, dry_run)
+    else:
+        assert shoulder is not None
+        columns = _import_shoulder(app_config, name, shoulder, dry_run)
+    if columns is None:
         typer.echo(
             "parity: the legacy workbook holds no computed values; open it in Excel or "
             "LibreOffice, save it, and run with --dry-run to compare"
@@ -172,7 +182,7 @@ def import_legacy_command(
         return
     typer.echo("parity (values the legacy sheets computed vs the app's):")
     failed = False
-    for column in parity(legacy, definition):
+    for column in columns:
         status = "ok" if not column.mismatches else "DIFFERS"
         typer.echo(
             f"  {status}: {column.entity}.{column.field}: {column.matching}/{column.compared} match"
@@ -185,6 +195,56 @@ def import_legacy_command(
             typer.echo(f"    {day}: sheet {sheet_value!r}, app {app_value!r}")
     if failed:
         raise typer.Exit(1)
+
+
+def _import_journal(
+    app_config: AppConfig, name: str, path: Path, dry_run: bool
+) -> list[ParityColumn] | None:
+    """Import (or only read) a legacy journal; its parity columns, None without computed values."""
+    try:
+        definition = app_config.module(name)
+        legacy = read_legacy(path, definition)
+        if not dry_run:
+            report = import_legacy(path, definition, app_config.repository(name))
+            typer.echo(f"imported into {app_config.modules[name].location}")
+            typer.echo(
+                f"  {report.counts['session']} sessions, {report.counts['rest_day']} rest days"
+            )
+    except (ModuleError, ValueError, StorageError) as error:
+        _fail([f"error: {error}"])
+    if dry_run:
+        typer.echo(f"read {legacy.count('session')} sessions, {legacy.count('rest_day')} rest days")
+    typer.echo(f"  settings: {legacy.settings}")
+    for line in [*legacy.skipped, *legacy.unread]:
+        typer.echo(f"  {line}")
+    return parity(legacy, definition) if legacy.computed else None
+
+
+def _import_shoulder(
+    app_config: AppConfig, name: str, path: Path, dry_run: bool
+) -> list[ParityColumn] | None:
+    """Import (or only read) a legacy shoulder tracker (D-116), as `_import_journal`."""
+    try:
+        definition = app_config.module(name)
+        legacy = read_legacy_shoulder(path, definition)
+        if not dry_run:
+            import_legacy_shoulder(path, definition, app_config.repository(name))
+            typer.echo(f"imported into {app_config.modules[name].location}")
+    except (ModuleError, ValueError, StorageError) as error:
+        _fail([f"error: {error}"])
+    if dry_run:
+        typer.echo("read (nothing written):")
+    counts = [
+        (len(legacy.reference["exercises"]), "exercises"),
+        (len(legacy.reference["retest_measures"]), "retest measures"),
+        (legacy.count("checkin"), "check-ins"),
+        (legacy.count("exercise_log"), "exercise log rows"),
+        (legacy.count("retest"), "retests"),
+    ]
+    typer.echo(f"  run 1 from {legacy.start_week}; " + ", ".join(f"{n} {w}" for n, w in counts))
+    for line in [*legacy.notes, *legacy.skipped, *legacy.unread]:
+        typer.echo(f"  {line}")
+    return parity_shoulder(legacy, definition) if legacy.computed else None
 
 
 module_app = typer.Typer(

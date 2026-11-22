@@ -23,8 +23,9 @@ test:  ## run the Python and frontend tests (pytest on every core: pytest-xdist,
 	uv run pytest -n auto --cov=climblog --cov-report=term-missing
 	$(PNPM) test
 
-fixtures:  ## write the fictional journal workbooks to tests/fixtures/ (git-ignored), to open them
+fixtures:  ## write the fictional legacy and new workbooks to tests/fixtures/ (git-ignored), to open them
 	uv run python tests/fictional_journal.py tests/fixtures
+	uv run python tests/fictional_shoulder.py tests/fixtures
 
 demo:  ## write the fictional demo set (all modules + config) to build/demo/, to serve on :8100
 	uv run python scripts/demo.py build/demo

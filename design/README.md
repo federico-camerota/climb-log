@@ -16,8 +16,9 @@ modules with a training plan (D-103), is in progress: the program block with its
 and the training plan (D-110) are done; before going on, the journal got an illness score and
 sick days (D-111); then the reference tables and the Program page (D-112), and `ref` fields
 with lookups like this week's prescription (D-113); prefilled fields and next-morning items
-on Today (D-114).
-Last updated 2026-11-20.
+on Today (D-114); batch and repeated forms (D-115); the shoulder module and its legacy importer
+(D-116).
+Last updated 2026-11-22.
 
 ## Read in this order
 | File | What it covers |
@@ -33,7 +34,7 @@ Last updated 2026-11-20.
 | [08-workflow.md](08-workflow.md) | How the project is developed: roles, PR workflow, git conventions, quality gates, data protection, working with Claude |
 | [decisions.md](decisions.md) | Decision log (accepted / proposed) |
 | [open-questions.md](open-questions.md) | Open questions with default answers |
-| [modules/](modules/) | Draft module YAMLs: shoulder and fear of falling (Google). The complete modules are in [/modules/](../modules/): the climbing journal (D-056) and finger strength (local, D-059) |
+| [modules/](modules/) | Draft module YAML: fear of falling (Google). The complete modules are in [/modules/](../modules/): the climbing journal (D-056), finger strength (local, D-059), protein (D-107), training plan (D-110) and shoulder (D-116) |
 | [mockups/](mockups/sheet-tabs.md) | Spreadsheet mock-ups (Wellbeing, finger Sets) as real .xlsx files + description and verification |
 
 ## Process

@@ -375,7 +375,9 @@ column** in the sheet:
     result is blank (as the legacy sheets look at the row above). No previous record → blank;
     a record without a date has no previous record and is nobody's previous record. `x` can be
     a stored field or a derived value, but not the entry's own value (`prev(streak)` inside
-    `streak` is not supported yet: its type would depend on itself).
+    `streak` is not supported yet: its type would depend on itself). `prev(x, 2)` has no sheet
+    formula; for one, chain two derived values of n = 1: `x_prev: "prev(x)"`, `x_prev2:
+    "prev(x_prev)"` give the same value, each a column (the shoulder's review flag, D-116).
   - `parent.x`, `children(e)`, `children(e).x`: the parent row and the child rows (§2.1b).
     Children are matched on the parent key columns they repeat and on `fixed`; no children →
     an empty list (`count` 0, `max`/`sum` blank).
