@@ -7,6 +7,15 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`design/08-work
 ## [Unreleased]
 
 ### Added
+- The shoulder dashboard: an **Overview** with the weekly table of the legacy tracker's
+  Dashboard (log completion, sessions with primer, the four averages, green, yellow and red
+  days, review flags, by program week), the symptom lines with the status bands, the days by
+  status per program week and the review flags with their reason; a **Plan** grid of every
+  exercise's prescription by week, coloured by movement quality, with the share logged; and the
+  **Retests** at each checkpoint with the change since Start. New widgets for any program
+  module: `week_table`, `program_grid`, `before_after`; `table` takes `where`, and `weekbars`
+  counts by value per program week. `import-legacy --shoulder` also compares the legacy
+  Dashboard's numbers (#137, D-117).
 - The shoulder program module, `modules/shoulder.yaml` (moved from the design drafts): one
   check-in a day with status, action and review flag computed as in the legacy tracker, also as
   formulas in its sheet (the next-morning trend through two chained `prev()` columns); the

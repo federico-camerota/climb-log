@@ -22,6 +22,7 @@ from climblog.modules.schema import (
     BarsWidget,
     BaseField,
     BatchOver,
+    BeforeAfterWidget,
     BodyHeatmapWidget,
     BoxByWidget,
     ChoiceField,
@@ -42,6 +43,7 @@ from climblog.modules.schema import (
     PercentField,
     PrePostWidget,
     Problem,
+    ProgramGridWidget,
     ReferenceTemplateUse,
     RefField,
     ScaleField,
@@ -55,6 +57,7 @@ from climblog.modules.schema import (
     TextField,
     TrainingLoadWidget,
     WeekbarsWidget,
+    WeekTableWidget,
     YamlPath,
 )
 from climblog.modules.schema import (
@@ -998,6 +1001,19 @@ def _views(module: Module) -> list[Problem]:
                     if other is not None:
                         metrics.append(((*at, key), other))
                         problems += _same_entity(other, widget.grade, (*at, key))
+            elif isinstance(widget, WeekTableWidget):
+                problems += _needs_program(module, at)
+                for j, column in enumerate(widget.columns):
+                    path = (*at, "columns", j)
+                    counted = column.agg in ("count", "share")
+                    (metrics if counted else numbers).append(((*path, "metric"), column.metric))
+                    entity = column.metric.partition(".")[0]
+                    if entity in module.entities:
+                        problems += _has_field(module, entity, column.week, (*path, "week"))
+                    if column.of is not None:
+                        problems += _reference_named(module, column.of, (*path, "of"))
+            elif isinstance(widget, ProgramGridWidget | BeforeAfterWidget):
+                problems += _program_widget(module, widget, at)
             elif isinstance(widget, BodyHeatmapWidget):
                 for j, source in enumerate(widget.sources):
                     problems += _template_fields(
@@ -1014,6 +1030,80 @@ def _views(module: Module) -> list[Problem]:
                     problems.append(
                         Problem(path, f"'{text}' is not a number: a chart can't plot it")
                     )
+    return problems
+
+
+def _needs_program(module: Module, at: YamlPath) -> list[Problem]:
+    if module.program is not None:
+        return []
+    return [Problem(at, "a widget by program week needs a program: block")]
+
+
+def _has_field(module: Module, entity: str, name: str, at: YamlPath) -> list[Problem]:
+    from climblog.modules.program import AUTO_COLUMNS  # it imports the schema
+
+    known = field_names(module, entity)
+    if module.program is not None:
+        known |= set(AUTO_COLUMNS)  # run and week, added at load (D-109)
+    if name in known:
+        return []
+    return [Problem(at, f"'{entity}' has no field or derived value '{name}'")]
+
+
+def _reference_named(module: Module, name: str, at: YamlPath) -> list[Problem]:
+    tables = module.reference or {}
+    if name in tables:
+        return []
+    return [Problem(at, f"no reference table '{name}' (tables: {', '.join(tables) or 'none'})")]
+
+
+def _program_widget(
+    module: Module, widget: ProgramGridWidget | BeforeAfterWidget, at: YamlPath
+) -> list[Problem]:
+    """A program grid's or a before/after's entity, its fields and its reference table
+    (D-117)."""
+    found = _entity_named(module, widget.entity, (*at, "entity"))
+    if found:
+        return found
+    entity = module.entities[widget.entity]
+    problems: list[Problem] = []
+    if isinstance(widget, ProgramGridWidget):
+        problems += _needs_program(module, at)
+        problems += _reference_named(module, widget.reference, (*at, "reference"))
+        table = (module.reference or {}).get(widget.reference)
+        if table is not None and table.per_week is None:
+            problems.append(Problem((*at, "reference"), f"'{widget.reference}' has no per_week"))
+        refs = [
+            n
+            for n, f in entity.fields.items()
+            if isinstance(f, RefField) and f.reference == widget.reference
+        ]
+        if not refs:
+            problems.append(
+                Problem((*at, "entity"), f"'{widget.entity}' has no ref to '{widget.reference}'")
+            )
+        named = [("week", widget.week), ("logged", widget.logged), ("quality", widget.quality)]
+        for key, name in named:
+            if name is not None:
+                problems += _has_field(module, widget.entity, name, (*at, key))
+        if table is not None and widget.group is not None and widget.group not in table.fields:
+            problems.append(
+                Problem((*at, "group"), f"'{widget.reference}' has no field '{widget.group}'")
+            )
+        return problems
+    by, across = entity.fields.get(widget.by), entity.fields.get(widget.across)
+    if not isinstance(by, RefField):
+        return [Problem((*at, "by"), f"'{widget.by}' is not a ref field of '{widget.entity}'")]
+    if not isinstance(across, ChoiceField):
+        problems.append(
+            Problem((*at, "across"), f"'{widget.across}' is not a choice of '{widget.entity}'")
+        )
+    problems += _has_field(module, widget.entity, widget.value, (*at, "value"))
+    table = (module.reference or {}).get(by.reference)
+    for key in ("item_label", "value_type", "direction"):
+        name = getattr(widget, key)
+        if table is not None and name is not None and name not in table.fields:
+            problems.append(Problem((*at, key), f"'{by.reference}' has no field '{name}'"))
     return problems
 
 
@@ -1101,6 +1191,8 @@ def _entity_fields(module: Module, widget: object, at: YamlPath) -> list[Problem
         names += [((*at, "averages", k), f) for k, f in enumerate(widget.averages)]
         if widget.note is not None:
             names.append(((*at, "note"), widget.note))
+        if widget.where is not None:
+            names.append(((*at, "where", "field"), widget.where.field))
     known = field_names(module, entity)
     return [
         Problem(path, f"'{entity}' has no field or derived value '{name}'")

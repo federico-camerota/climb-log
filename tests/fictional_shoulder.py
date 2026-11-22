@@ -8,7 +8,10 @@ tabs the importer reads, header rows 1-4, and the formulas of the computed colum
 data rows come from a seed, with the cases hand entry produces: a Monday (a legacy week starts
 on the start date's weekday), a red flag, rising next-morning pain, a session of week 3 done in
 week 4, a row with data but no date, an unreadable value, a decimal comma, Italian notes and gym
-grades, retests at Start and end of week 4 only. `out_of_order` swaps two Check-in rows.
+grades, retests at Start and end of week 4 only. `out_of_order` swaps two Check-in rows; `start`
+moves the start date (a Monday: legacy weeks are the app's); `w12` fills End week 12 too. The
+Dashboard tab has the legacy weekly formulas (D-117), so LibreOffice computes the numbers the
+app's week table must give.
 
 `python tests/fictional_shoulder.py FOLDER` (`make fixtures`) writes one, to open it.
 """
@@ -139,7 +142,26 @@ class LegacyShoulder:
     unread: int  # cells that can't be read
 
 
-def legacy_shoulder(path: Path, seed: int, out_of_order: bool = False) -> LegacyShoulder:
+DASHBOARD_HEADER = [
+    "Week", "Block", "Log completion", "Sessions with primer", "Upper-trap fatigue (avg)",
+    "Front pain during (avg)", "Front pain next AM (avg)", "Pec fatigue (avg)", "Green days",
+    "Yellow days", "Red days", "Review flags",
+]  # fmt: skip
+BLOCKS = [
+    "Block 1: Calm and control (RPE 5-6)",
+    "Block 2: Build strength (RPE 7)",
+    "Block 3: Endurance and transfer (RPE 6-7)",
+]
+LOG_LAST = FIRST + 12 * 17 - 1  # 208: one pre-generated row per exercise and week
+
+
+def legacy_shoulder(
+    path: Path,
+    seed: int,
+    out_of_order: bool = False,
+    start: dt.date = START,
+    w12: bool = False,
+) -> LegacyShoulder:
     rng = random.Random(seed)
     book = openpyxl.Workbook()
     start_here = book.active
@@ -148,13 +170,16 @@ def legacy_shoulder(path: Path, seed: int, out_of_order: bool = False) -> Legacy
     start_here["A1"] = "Shoulder training tracker"
     start_here["A4"] = "1. Enter your start date"
     start_here["A6"] = "Program start date (first training day)"
-    start_here["C6"] = START
+    start_here["C6"] = start
+    _dashboard(book.create_sheet("Dashboard"))
     plan = _plan(book.create_sheet("Plan"))
-    exercise_rows, skipped, unread = _session_log(book.create_sheet("Session Log"), plan, rng)
-    checkins, more_skipped, more_unread = _checkins(
-        book.create_sheet("Check-in"), rng, out_of_order
+    exercise_rows, skipped, unread = _session_log(
+        book.create_sheet("Session Log"), plan, rng, start
     )
-    retests = _retests(book.create_sheet("Retests"), rng)
+    checkins, more_skipped, more_unread = _checkins(
+        book.create_sheet("Check-in"), rng, out_of_order, start
+    )
+    retests = _retests(book.create_sheet("Retests"), rng, w12)
     book.save(path)
     return LegacyShoulder(
         path, checkins, exercise_rows, retests, skipped + more_skipped, unread + more_unread
@@ -193,8 +218,33 @@ def _plan(sheet: Worksheet) -> list[tuple[str, str]]:
     return rows
 
 
+def _dashboard(sheet: Worksheet) -> None:
+    """The legacy weekly dashboard: a row per legacy week, its formulas over Session Log (by the
+    typed week) and Check-in (by its Week column)."""
+    _headers(sheet, "Weekly dashboard", DASHBOARD_HEADER)
+    log = f"'Session Log'!$A${FIRST}:$A${LOG_LAST}"
+    actual = f"'Session Log'!$G${FIRST}:$G${LOG_LAST}"
+
+    def check(column: str) -> str:
+        return f"'Check-in'!${column}${FIRST}:${column}${CHECKIN_LAST}"
+
+    for week in range(1, 13):
+        r = FIRST + week - 1
+        block = BLOCKS[(week - 1) // 4] + (" (lighter)" if week % 4 == 0 else "")
+        sheet.cell(r, 1, week)
+        sheet.cell(r, 2, block)
+        logged = f'COUNTIFS({log},A{r},{actual},"<>")'
+        sheet.cell(r, 3, f'=IF({logged}=0,"",{logged}/COUNTIFS({log},A{r}))')
+        sheet.cell(r, 4, f'=COUNTIFS({check("B")},A{r},{check("D")},"Yes")')
+        for column, source in zip("EFGH", "EFGH", strict=True):
+            sheet[f"{column}{r}"] = f'=IFERROR(AVERAGEIFS({check(source)},{check("B")},A{r}),"")'
+        for column, status in zip("IJK", ["GREEN", "YELLOW", "RED"], strict=True):
+            sheet[f"{column}{r}"] = f'=COUNTIFS({check("B")},A{r},{check("N")},"{status}")'
+        sheet[f"L{r}"] = f'=COUNTIFS({check("B")},A{r},{check("Q")},"REVIEW*")'
+
+
 def _session_log(
-    sheet: Worksheet, plan: list[tuple[str, str]], rng: random.Random
+    sheet: Worksheet, plan: list[tuple[str, str]], rng: random.Random, start: dt.date
 ) -> tuple[int, int, int]:
     """The 204 pre-generated rows (week × exercise), weeks 1-4 logged; week 3's B session done
     in week 4; week 5's A1 typed without a date; one unreadable pain value."""
@@ -208,7 +258,7 @@ def _session_log(
             sheet.cell(r, 3, code)
             sheet.cell(r, 4, f"=INDEX(Plan!$B$5:$B$21,MATCH(C{r},Plan!$A$5:$A$21,0))")
             sheet.cell(r, 5, f"=INDEX(Plan!$D$5:$O$21,MATCH(C{r},Plan!$A$5:$A$21,0),A{r})")
-            monday = START + dt.timedelta(days=7 * (week - 1))
+            monday = start + dt.timedelta(days=7 * (week - 1))
             day: dt.date | None = None
             if week <= 4:
                 day = monday + dt.timedelta(days=3 if session == "B" else 0)
@@ -237,13 +287,15 @@ def _session_log(
     return dated, skipped, unread
 
 
-def _checkins(sheet: Worksheet, rng: random.Random, out_of_order: bool) -> tuple[int, int, int]:
+def _checkins(
+    sheet: Worksheet, rng: random.Random, out_of_order: bool, start: dt.date
+) -> tuple[int, int, int]:
     """About 22 check-ins over five weeks (Mondays included), then a row with data but no date."""
     _headers(sheet, "How I feel: check-in", CHECKIN_HEADER)
     offsets = sorted({6, 13, 1, *rng.sample(range(35), 20)})  # 6, 13: Mondays
     rows: list[list[Any]] = []
     for offset in offsets:
-        day = START + dt.timedelta(days=offset)
+        day = start + dt.timedelta(days=offset)
         rest = rng.random() < 0.15
         pains = [0, 1, 1, 2, 2, 3, 4, 5, None]
         rows.append(
@@ -294,8 +346,8 @@ def _checkins(sheet: Worksheet, rng: random.Random, out_of_order: bool) -> tuple
     return len(rows), 1, 1
 
 
-def _retests(sheet: Worksheet, rng: random.Random) -> int:
-    """The 14 measures, measured at Start and at the end of week 4."""
+def _retests(sheet: Worksheet, rng: random.Random, w12: bool) -> int:
+    """The 14 measures, measured at Start and at the end of week 4 (and of week 12)."""
     _headers(sheet, "Retests & outcome measures", RETESTS_HEADER)
     filled = 0
     for i, (label, kind) in enumerate(MEASURES):
@@ -306,13 +358,18 @@ def _retests(sheet: Worksheet, rng: random.Random) -> int:
         if kind == "decimal":
             rule = DataValidation(type="decimal", operator="greaterThanOrEqual", formula1="0")
             values: list[Any] = [rng.randint(5, 40), rng.randint(5, 40)]
+            last: Any = rng.randint(5, 40)
         else:
             rule = DataValidation(type="list", formula1=f'"{kind}"')
             values = [rng.choice(kind.split(",")) for _ in range(2)]
+            last = rng.choice(kind.split(","))
         rule.add(f"B{r}:E{r}")
         sheet.data_validations.append(rule)
         for column, value in enumerate(values, start=2):
             sheet.cell(r, column, value)
+            filled += 1
+        if w12:
+            sheet.cell(r, 5, last)  # End week 12 (End week 8 left blank)
             filled += 1
     return filled
 

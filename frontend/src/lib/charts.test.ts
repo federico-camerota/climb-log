@@ -125,6 +125,28 @@ describe("the chart options", () => {
     ]);
   });
 
+  it("stacks the statuses within each run's bar", () => {
+    const option = weekbarsOption({
+      widget: "weekbars",
+      label: null,
+      agg: "count_by_value",
+      weeks: ["W1", "W2"],
+      starts: [],
+      stacks: [
+        { label: "Run 1 · GREEN", values: [2, 1], group: "Run 1", value: "GREEN" },
+        { label: "Run 1 · RED", values: [1, 0], group: "Run 1", value: "RED" },
+        { label: "Run 2 · GREEN", values: [3, null], group: "Run 2", value: "GREEN" },
+      ],
+      shown: 12,
+      grouped: true,
+    }) as Option;
+    expect(option.series.map((s) => [s.name, s.stack, s.itemStyle])).toEqual([
+      ["Run 1 · GREEN", "Run 1", { color: "#40c057" }],
+      ["Run 1 · RED", "Run 1", { color: "#fa5252" }],
+      ["Run 2 · GREEN", "Run 2", { color: "#40c057" }],
+    ]);
+  });
+
   it("stacks several metrics", () => {
     const option = stackedOption({
       widget: "stacked",

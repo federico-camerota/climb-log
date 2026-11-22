@@ -52,6 +52,16 @@ class EntityRecords:
 
 
 @dataclass(frozen=True)
+class ViewData:
+    """What a view's widgets read: records with derived values, settings, runs, reference rows."""
+
+    tables: dict[str, list[dict[str, Value]]]
+    settings: dict[str, Value]
+    runs: Runs
+    reference: dict[str, list[dict[str, Value]]]
+
+
+@dataclass(frozen=True)
 class WeekLoad:
     """This week's training load on Today (06-ui, D-102): the module's first `training_load`
     widget, Monday to the day."""
@@ -265,6 +275,11 @@ class Catalog:
     ) -> tuple[dict[str, list[dict[str, Value]]], dict[str, Value]]:
         """Every entity's records with their derived values (one look at the source), and the
         settings. A record with unreadable cells lists their fields under `VALUE_ISSUES`."""
+        found = self.view_data(entry)
+        return found.tables, found.settings
+
+    def view_data(self, entry: Entry) -> ViewData:
+        """`full_tables`, with the runs and the reference rows a view reads (D-117)."""
         assert entry.module is not None and entry.repo is not None
         module = entry.module
         data = load_data(module, entry.repo.pinned())
@@ -284,7 +299,7 @@ class Catalog:
                     fields = [f for place in places.items() for f in unreadable.get(place, [])]
                     if fields:
                         row[VALUE_ISSUES] = ",".join(fields)
-        return full, data.settings
+        return ViewData(full, data.settings, data.runs, data.reference_rows())
 
     def record(
         self, entry: Entry, entity: str, key: Sequence[Value]

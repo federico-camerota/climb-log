@@ -17,7 +17,7 @@ and the training plan (D-110) are done; before going on, the journal got an illn
 sick days (D-111); then the reference tables and the Program page (D-112), and `ref` fields
 with lookups like this week's prescription (D-113); prefilled fields and next-morning items
 on Today (D-114); batch and repeated forms (D-115); the shoulder module and its legacy importer
-(D-116).
+(D-116), and its dashboard (D-117).
 Last updated 2026-11-22.
 
 ## Read in this order
